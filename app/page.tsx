@@ -13,6 +13,7 @@ type Screen = 'home' | 'settings' | 'practice' | 'results';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'eraser';
+type SampleStyle = 'shaded' | 'hidden-lines';
 
 type Point = { x: number; y: number };
 type Stroke = { points: Point[]; width: number; eraser: boolean };
@@ -37,6 +38,7 @@ type Settings = {
   count: number;
   layout: Layout;
   penWidth: number;
+  sampleStyle: SampleStyle;
 };
 
 const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
@@ -54,6 +56,7 @@ const DEFAULT_SETTINGS: Settings = {
   count: 10,
   layout: 'left',
   penWidth: 3,
+  sampleStyle: 'shaded',
 };
 
 const HERO_PROMPT: ShapePrompt = {
@@ -196,7 +199,98 @@ function drawCone(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: 
   context.stroke();
 }
 
-function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff') {
+function strokeEdge(
+  context: CanvasRenderingContext2D,
+  from: [number, number],
+  to: [number, number],
+  dashed = false,
+) {
+  context.save();
+  context.setLineDash(dashed ? [8, 7] : []);
+  context.beginPath();
+  context.moveTo(from[0], from[1]);
+  context.lineTo(to[0], to[1]);
+  context.stroke();
+  context.restore();
+}
+
+function drawHiddenLineBox(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
+  const cube = prompt.shape === '立方体';
+  const width = size * (cube ? 0.54 : 0.66 * prompt.widthScale);
+  const height = size * (cube ? 0.5 : 0.43 * prompt.heightScale);
+  const depth = size * (cube ? 0.23 : 0.25 * prompt.depthScale);
+  const x = -width / 2;
+  const y = -height / 2 + depth * 0.18;
+  const dx = prompt.direction * depth;
+  const dy = -depth * 0.52;
+  const a: [number, number] = [x, y];
+  const b: [number, number] = [x + width, y];
+  const c: [number, number] = [x + width, y + height];
+  const d: [number, number] = [x, y + height];
+  const back = ([px, py]: [number, number]): [number, number] => [px + dx, py + dy];
+  const aa = back(a);
+  const bb = back(b);
+  const cc = back(c);
+  const dd = back(d);
+
+  [[a, b], [b, c], [c, d], [d, a], [a, aa], [b, bb], [aa, bb]].forEach(([from, to]) => strokeEdge(context, from, to));
+  if (prompt.direction > 0) {
+    [[bb, cc], [cc, c]].forEach(([from, to]) => strokeEdge(context, from, to));
+    [[aa, dd], [dd, cc], [d, dd]].forEach(([from, to]) => strokeEdge(context, from, to, true));
+  } else {
+    [[aa, dd], [dd, d]].forEach(([from, to]) => strokeEdge(context, from, to));
+    [[bb, cc], [dd, cc], [c, cc]].forEach(([from, to]) => strokeEdge(context, from, to, true));
+  }
+}
+
+function drawHiddenLineRound(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
+  const isCone = prompt.shape === '円錐';
+  const elliptical = prompt.shape === '楕円柱';
+  const width = size * (isCone ? 0.62 : elliptical ? 0.66 : 0.54) * prompt.widthScale;
+  const ellipseHeight = size * (isCone ? 0.15 : elliptical ? 0.17 : 0.12) * prompt.depthScale;
+  const baseY = size * (isCone ? 0.27 : (elliptical ? 0.46 : 0.58) * prompt.heightScale / 2);
+
+  if (isCone) {
+    const apex: [number, number] = [prompt.direction * size * 0.08, -size * 0.4 * prompt.heightScale];
+    strokeEdge(context, apex, [-width / 2, baseY]);
+    strokeEdge(context, apex, [width / 2, baseY]);
+  } else {
+    const topY = -baseY;
+    strokeEdge(context, [-width / 2, topY], [-width / 2, baseY]);
+    strokeEdge(context, [width / 2, topY], [width / 2, baseY]);
+    context.beginPath();
+    context.ellipse(0, topY, width / 2, ellipseHeight / 2, 0, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  context.beginPath();
+  context.ellipse(0, baseY, width / 2, ellipseHeight / 2, 0, 0, Math.PI);
+  context.stroke();
+  context.save();
+  context.setLineDash([8, 7]);
+  context.beginPath();
+  context.ellipse(0, baseY, width / 2, ellipseHeight / 2, 0, Math.PI, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
+
+function drawHiddenLinePyramid(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
+  const baseWidth = size * 0.63 * prompt.widthScale;
+  const left: [number, number] = [-baseWidth / 2, size * 0.25];
+  const right: [number, number] = [baseWidth / 2, size * 0.25];
+  const back: [number, number] = [prompt.direction * size * 0.13, size * 0.05];
+  const apex: [number, number] = [prompt.direction * size * 0.09, -size * 0.39 * prompt.heightScale];
+  [[apex, left], [apex, right], [apex, back], [left, right]].forEach(([from, to]) => strokeEdge(context, from, to));
+  if (prompt.direction > 0) {
+    strokeEdge(context, back, right);
+    strokeEdge(context, left, back, true);
+  } else {
+    strokeEdge(context, left, back);
+    strokeEdge(context, back, right, true);
+  }
+}
+
+function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -215,10 +309,16 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   context.lineJoin = 'round';
   context.lineCap = 'round';
   const size = Math.min(rect.width, rect.height) * 0.76;
-  if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size);
-  if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size);
-  if (prompt.shape === '三角錐') drawPyramid(context, prompt, size);
-  if (prompt.shape === '円錐') drawCone(context, prompt, size);
+  if (style === 'hidden-lines') {
+    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawHiddenLineBox(context, prompt, size);
+    if (prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐') drawHiddenLineRound(context, prompt, size);
+    if (prompt.shape === '三角錐') drawHiddenLinePyramid(context, prompt, size);
+  } else {
+    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size);
+    if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size);
+    if (prompt.shape === '三角錐') drawPyramid(context, prompt, size);
+    if (prompt.shape === '円錐') drawCone(context, prompt, size);
+  }
   context.restore();
 }
 
@@ -329,12 +429,12 @@ export default function Home() {
   useEffect(() => {
     if (screen !== 'practice' || !currentPrompt || !sampleCanvasRef.current) return;
     const canvas = sampleCanvasRef.current;
-    const render = () => drawSample(canvas, currentPrompt);
+    const render = () => drawSample(canvas, currentPrompt, '#ffffff', settings.sampleStyle);
     render();
     const observer = new ResizeObserver(render);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [currentPrompt, screen]);
+  }, [currentPrompt, screen, settings.sampleStyle]);
 
   useEffect(() => {
     if (screen !== 'practice' || !drawingCanvasRef.current) return;
@@ -749,7 +849,21 @@ export default function Home() {
             </section>
             <section className="settings-card">
               <h3>見本の表示</h3>
-              <div className="readonly-setting"><span>輪郭線＋薄い陰影</span><small>問題ごとに角度と比率をランダム生成</small></div>
+              <div className="sample-style-options">
+                <button
+                  className={settings.sampleStyle === 'shaded' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.sampleStyle === 'shaded'}
+                  onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shaded' }))}
+                >輪郭線と影</button>
+                <button
+                  className={settings.sampleStyle === 'hidden-lines' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.sampleStyle === 'hidden-lines'}
+                  onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'hidden-lines' }))}
+                >輪郭線（見えない部分は点線）</button>
+              </div>
+              <p className="setting-note">問題ごとに角度と比率をランダム生成</p>
             </section>
             <section className="settings-card wide-card">
               <h3>見本と描画スペースの配置</h3>
