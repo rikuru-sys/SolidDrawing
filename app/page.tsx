@@ -249,7 +249,7 @@ export default function Home() {
   const activeStrokeRef = useRef<Stroke | null>(null);
   const strokesRef = useRef<Stroke[]>([]);
   const finishingRef = useRef(false);
-  const finishRef = useRef<(endSession?: boolean) => void>(() => undefined);
+  const finishRef = useRef<(endSession?: boolean, timedOut?: boolean) => void>(() => undefined);
 
   const currentPrompt = prompts[questionIndex];
   const currentResult = attempts[selectedResult];
@@ -358,12 +358,16 @@ export default function Home() {
     return output.toDataURL('image/png');
   }, []);
 
-  const finishCurrent = useCallback((endSession = false) => {
+  const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (finishingRef.current || !currentPrompt || !sampleCanvasRef.current) return;
     finishingRef.current = true;
     const sampleImage = sampleCanvasRef.current.toDataURL('image/png');
     const drawingImage = exportDrawing();
-    const seconds = settings.time === null ? elapsed : Math.max(1, settings.time - remaining);
+    const seconds = settings.time === null
+      ? elapsed
+      : timedOut
+        ? settings.time
+        : Math.max(1, settings.time - remaining);
     const nextAttempts = [...attempts, { prompt: currentPrompt, sampleImage, drawingImage, seconds }];
     setAttempts(nextAttempts);
 
@@ -399,7 +403,7 @@ export default function Home() {
       setRemaining((value) => {
         if (value <= 1) {
           window.clearInterval(timer);
-          window.setTimeout(() => finishRef.current(false), 0);
+          window.setTimeout(() => finishRef.current(false, true), 0);
           return 0;
         }
         return value - 1;
