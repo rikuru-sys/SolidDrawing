@@ -449,6 +449,22 @@ export default function Home() {
     setScreen('practice');
   };
 
+  const retryCurrentPrompt = () => {
+    if (!currentResult) return;
+    setPrompts([{
+      ...currentResult.prompt,
+      id: `${currentResult.prompt.id}-retry-${Date.now()}`,
+    }]);
+    setQuestionIndex(0);
+    setRemaining(settings.time ?? 0);
+    setElapsed(0);
+    setPaused(false);
+    setStrokes([]);
+    setRedoStrokes([]);
+    finishingRef.current = false;
+    setScreen('practice');
+  };
+
   const canvasPoint = (event: ReactPointerEvent<HTMLCanvasElement>): Point => {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
@@ -824,7 +840,10 @@ export default function Home() {
         <section className="results-section">
           <div className="results-heading">
             <div><h2>練習結果</h2><div className="result-meta"><span>{attempts.length}回完了</span><span>合計 {formatTime(sessionSeconds)}</span><span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span></div></div>
-            <button className="button primary" type="button" onClick={() => startPractice()}>同じ設定でもう一度</button>
+            <div className="button-row">
+              <button className="button secondary" type="button" onClick={retryCurrentPrompt}>今回と同じ立体でもう一度</button>
+              <button className="button primary" type="button" onClick={() => startPractice()}>同じ設定でもう一度</button>
+            </div>
           </div>
           <div className="result-layout">
             <nav className="result-list" aria-label="比較する問題">
