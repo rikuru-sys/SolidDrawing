@@ -13,7 +13,7 @@ type Screen = 'home' | 'settings' | 'practice' | 'results';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'eraser';
-type SampleStyle = 'shaded' | 'hidden-lines';
+type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 
 type Point = { x: number; y: number };
 type Stroke = { points: Point[]; width: number; eraser: boolean };
@@ -314,6 +314,16 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
     if (prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐') drawHiddenLineRound(context, prompt, size);
     if (prompt.shape === '三角錐') drawHiddenLinePyramid(context, prompt, size);
   } else {
+    if (style === 'shadow') {
+      context.save();
+      context.filter = 'blur(7px)';
+      context.fillStyle = 'rgba(67, 67, 58, 0.24)';
+      context.beginPath();
+      context.ellipse(prompt.direction * size * 0.06, size * 0.37, size * 0.34, size * 0.055, 0, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+      context.filter = 'contrast(1.18)';
+    }
     if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size);
     if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size);
     if (prompt.shape === '三角錐') drawPyramid(context, prompt, size);
@@ -855,6 +865,12 @@ export default function Home() {
                   type="button"
                   aria-pressed={settings.sampleStyle === 'shaded'}
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shaded' }))}
+                >輪郭線と薄い陰影</button>
+                <button
+                  className={settings.sampleStyle === 'shadow' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.sampleStyle === 'shadow'}
+                  onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shadow' }))}
                 >輪郭線と影</button>
                 <button
                   className={settings.sampleStyle === 'hidden-lines' ? 'choice-button selected' : 'choice-button'}
