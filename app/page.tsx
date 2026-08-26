@@ -576,6 +576,55 @@ export default function Home() {
     downloadDataUrl(output.toDataURL('image/png'), `solid-drawing-${selectedResult + 1}.png`);
   };
 
+  const saveAllComparisons = async () => {
+    if (!attempts.length) return;
+    const output = document.createElement('canvas');
+    const rowHeight = 370;
+    output.width = 1240;
+    output.height = 130 + attempts.length * rowHeight;
+    const context = output.getContext('2d');
+    if (!context) return;
+
+    context.fillStyle = '#f1efe8';
+    context.fillRect(0, 0, output.width, output.height);
+    context.fillStyle = '#25261f';
+    context.font = 'bold 34px sans-serif';
+    context.fillText('立体ドローイング 練習結果', 50, 55);
+    context.fillStyle = '#686b60';
+    context.font = '18px sans-serif';
+    context.fillText(`${attempts.length}回分の見本と描画`, 50, 91);
+
+    const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.src = source;
+    });
+
+    for (const [index, attempt] of attempts.entries()) {
+      const top = 120 + index * rowHeight;
+      const [sample, drawing] = await Promise.all([
+        load(attempt.sampleImage),
+        load(attempt.drawingImage),
+      ]);
+
+      context.fillStyle = '#25261f';
+      context.font = 'bold 22px sans-serif';
+      context.fillText(`${index + 1}. ${attempt.prompt.shape}`, 50, top + 28);
+      context.fillStyle = '#686b60';
+      context.font = '16px sans-serif';
+      context.fillText(`描画時間 ${attempt.seconds}秒`, 1040, top + 28);
+      context.fillText('見本', 50, top + 58);
+      context.fillText('描いたもの', 645, top + 58);
+      context.fillStyle = '#ffffff';
+      context.fillRect(50, top + 72, 545, 270);
+      context.fillRect(645, top + 72, 545, 270);
+      context.drawImage(sample, 50, top + 72, 545, 270);
+      context.drawImage(drawing, 645, top + 72, 545, 270);
+    }
+
+    downloadDataUrl(output.toDataURL('image/png'), 'solid-drawing-all-results.png');
+  };
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -789,7 +838,7 @@ export default function Home() {
                   <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
                 </div>
                 <div className="comparison-footer">
-                  <div className="button-row"><button className="button secondary compact" type="button" onClick={saveComparison}>比較画像を保存</button><button className="button secondary compact" type="button" onClick={() => downloadDataUrl(currentResult.drawingImage, `drawing-${selectedResult + 1}.png`)}>描画だけ保存</button></div>
+                  <div className="button-row"><button className="button secondary compact" type="button" onClick={saveComparison}>比較画像を保存</button><button className="button secondary compact" type="button" onClick={() => downloadDataUrl(currentResult.drawingImage, `drawing-${selectedResult + 1}.png`)}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果をまとめて保存</button></div>
                   <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
                 </div>
               </section>
