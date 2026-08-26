@@ -53,12 +53,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .text-button.danger { color: var(--danger); }
 
 .hero-visual { min-height: 420px; display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 24px 60px var(--shadow); }
-.hero-visual::before { content: ""; position: absolute; width: 310px; height: 310px; border-radius: 50%; background: var(--green-soft); filter: blur(2px); }
-.css-cube { width: 230px; height: 190px; position: relative; z-index: 1; transform: rotate(-2deg); }
-.css-cube span { position: absolute; display: block; border: 2px solid #353730; }
-.cube-top { width: 145px; height: 108px; left: 46px; top: 18px; background: #f4f2eb; transform: skewY(-22deg) rotate(22deg); }
-.cube-left { width: 105px; height: 118px; left: 27px; top: 91px; background: #e7e4da; transform: skewY(29deg); }
-.cube-right { width: 131px; height: 118px; left: 131px; top: 61px; background: #c9c6bc; transform: skewY(-22deg); }
+.hero-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
 .visual-caption { position: absolute; z-index: 2; bottom: 20px; padding: 8px 12px; border-radius: 999px; background: var(--green-soft); font-size: 14px; }
 
 .settings-section, .practice-section, .results-section { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 42px 0 72px; }

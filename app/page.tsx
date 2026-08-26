@@ -56,6 +56,16 @@ const DEFAULT_SETTINGS: Settings = {
   penWidth: 3,
 };
 
+const HERO_PROMPT: ShapePrompt = {
+  id: 'hero-cube',
+  shape: '立方体',
+  rotation: -0.08,
+  direction: 1,
+  widthScale: 1,
+  heightScale: 1,
+  depthScale: 1,
+};
+
 const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
 
 function createPrompts(shapes: ShapeName[], count: number): ShapePrompt[] {
@@ -186,7 +196,7 @@ function drawCone(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: 
   context.stroke();
 }
 
-function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt) {
+function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff') {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -195,7 +205,7 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt) {
   const context = canvas.getContext('2d');
   if (!context) return;
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  context.fillStyle = '#ffffff';
+  context.fillStyle = background;
   context.fillRect(0, 0, rect.width, rect.height);
   context.save();
   context.translate(rect.width / 2, rect.height / 2);
@@ -232,6 +242,7 @@ export default function Home() {
   const [selectedResult, setSelectedResult] = useState(0);
   const [validation, setValidation] = useState('');
 
+  const heroCanvasRef = useRef<HTMLCanvasElement>(null);
   const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const brushCursorRef = useRef<HTMLDivElement>(null);
@@ -304,6 +315,16 @@ export default function Home() {
     strokesRef.current = strokes;
     if (screen === 'practice') redrawDrawing(strokes);
   }, [redrawDrawing, screen, strokes]);
+
+  useEffect(() => {
+    if (screen !== 'home' || !heroCanvasRef.current) return;
+    const canvas = heroCanvasRef.current;
+    const render = () => drawSample(canvas, HERO_PROMPT, '#fffef9');
+    render();
+    const observer = new ResizeObserver(render);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== 'practice' || !currentPrompt || !sampleCanvasRef.current) return;
@@ -602,8 +623,8 @@ export default function Home() {
               <button className="button secondary" type="button" onClick={() => setScreen('settings')}>設定する</button>
             </div>
           </div>
-          <div className="hero-visual" aria-label="薄い陰影が付いた直方体">
-            <div className="css-cube" aria-hidden="true"><span className="cube-top" /><span className="cube-left" /><span className="cube-right" /></div>
+          <div className="hero-visual">
+            <canvas ref={heroCanvasRef} className="hero-canvas" aria-label="薄い陰影が付いた立方体" />
             <span className="visual-caption">ランダムな角度で出題</span>
           </div>
         </section>
