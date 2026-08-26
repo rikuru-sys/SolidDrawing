@@ -40,7 +40,7 @@ type Settings = {
 };
 
 const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
-const TIME_CHOICES: Array<number | null> = [10, 20, 30, 40, 50, 60, null];
+const TIME_CHOICES: Array<number | null> = [10, 15, 20, 30, 40, 45, 50, 60, null];
 const LAYOUTS: Array<{ value: Layout; label: string }> = [
   { value: 'top', label: '見本が上' },
   { value: 'bottom', label: '見本が下' },
@@ -578,7 +578,7 @@ export default function Home() {
               <li>最大20回まで連続練習</li>
             </ul>
             <div className="button-row">
-              <button className="button primary" type="button" onClick={() => startPractice(DEFAULT_SETTINGS)}>開始する</button>
+              <button className="button primary" type="button" onClick={() => startPractice()}>開始する</button>
               <button className="button secondary" type="button" onClick={() => setScreen('settings')}>設定する</button>
             </div>
           </div>
