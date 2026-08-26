@@ -234,6 +234,7 @@ export default function Home() {
 
   const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const brushCursorRef = useRef<HTMLDivElement>(null);
   const activeStrokeRef = useRef<Stroke | null>(null);
   const strokesRef = useRef<Stroke[]>([]);
   const finishingRef = useRef(false);
@@ -431,8 +432,26 @@ export default function Home() {
     };
   };
 
+  const updateBrushCursor = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const cursor = brushCursorRef.current;
+    if (!cursor) return;
+    if (event.pointerType === 'touch' || paused) {
+      cursor.style.opacity = '0';
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    cursor.style.left = `${event.clientX - rect.left}px`;
+    cursor.style.top = `${event.clientY - rect.top}px`;
+    cursor.style.opacity = '1';
+  };
+
+  const hideBrushCursor = () => {
+    if (brushCursorRef.current) brushCursorRef.current.style.opacity = '0';
+  };
+
   const beginStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (paused) return;
+    updateBrushCursor(event);
     event.currentTarget.setPointerCapture(event.pointerId);
     activeStrokeRef.current = {
       points: [canvasPoint(event)],
@@ -443,6 +462,7 @@ export default function Home() {
   };
 
   const continueStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    updateBrushCursor(event);
     const stroke = activeStrokeRef.current;
     const canvas = drawingCanvasRef.current;
     if (!stroke || !canvas || paused) return;
@@ -692,10 +712,21 @@ export default function Home() {
                   ref={drawingCanvasRef}
                   className="drawing-canvas"
                   aria-label="描画キャンバス"
+                  onPointerEnter={updateBrushCursor}
                   onPointerDown={beginStroke}
                   onPointerMove={continueStroke}
                   onPointerUp={endStroke}
                   onPointerCancel={endStroke}
+                  onPointerLeave={hideBrushCursor}
+                />
+                <div
+                  ref={brushCursorRef}
+                  className={`brush-cursor ${tool}`}
+                  style={{
+                    width: tool === 'eraser' ? settings.penWidth * 4 : settings.penWidth,
+                    height: tool === 'eraser' ? settings.penWidth * 4 : settings.penWidth,
+                  }}
+                  aria-hidden="true"
                 />
                 {paused && <div className="drawing-pause-shield" aria-hidden="true" />}
               </div>
