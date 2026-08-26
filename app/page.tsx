@@ -402,13 +402,13 @@ export default function Home() {
     setValidation('');
   };
 
-  const startPractice = () => {
-    const count = Math.max(1, Math.min(20, Number(settings.count) || 1));
-    if (!settings.shapes.length) {
+  const startPractice = (practiceSettings: Settings = settings) => {
+    const count = Math.max(1, Math.min(20, Number(practiceSettings.count) || 1));
+    if (!practiceSettings.shapes.length) {
       setValidation('少なくとも1つの立体を選んでください。');
       return;
     }
-    const normalized = { ...settings, count };
+    const normalized = { ...practiceSettings, count };
     setSettings(normalized);
     setPrompts(createPrompts(normalized.shapes, count));
     setQuestionIndex(0);
@@ -578,8 +578,8 @@ export default function Home() {
               <li>最大20回まで連続練習</li>
             </ul>
             <div className="button-row">
-              <button className="button primary" type="button" onClick={() => setScreen('settings')}>練習を設定する</button>
-              <button className="button secondary" type="button" onClick={() => setScreen('settings')}>設定を見る</button>
+              <button className="button primary" type="button" onClick={() => startPractice(DEFAULT_SETTINGS)}>開始する</button>
+              <button className="button secondary" type="button" onClick={() => setScreen('settings')}>設定する</button>
             </div>
           </div>
           <div className="hero-visual" aria-label="薄い陰影が付いた直方体">
@@ -660,7 +660,7 @@ export default function Home() {
             </section>
           </div>
           {validation && <p className="validation-message" role="alert">{validation}</p>}
-          <div className="settings-footer"><button className="button primary" type="button" onClick={startPractice}>この設定で始める</button></div>
+          <div className="settings-footer"><button className="button primary" type="button" onClick={() => startPractice()}>この設定で始める</button></div>
         </section>
       )}
 
@@ -719,7 +719,7 @@ export default function Home() {
         <section className="results-section">
           <div className="results-heading">
             <div><h2>練習結果</h2><div className="result-meta"><span>{attempts.length}回完了</span><span>合計 {formatTime(sessionSeconds)}</span><span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span></div></div>
-            <button className="button primary" type="button" onClick={startPractice}>同じ設定でもう一度</button>
+            <button className="button primary" type="button" onClick={() => startPractice()}>同じ設定でもう一度</button>
           </div>
           <div className="result-layout">
             <nav className="result-list" aria-label="比較する問題">
