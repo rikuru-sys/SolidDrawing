@@ -314,6 +314,75 @@ function drawHiddenLinePyramid(context: CanvasRenderingContext2D, prompt: ShapeP
   }
 }
 
+function drawLightingGuide(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  size: number,
+  direction: LightDirection,
+) {
+  const lightFromLeft = direction.endsWith('left');
+  const lightFromTop = direction.startsWith('top');
+  const groundY = Math.min(height - 28, height / 2 + size * 0.36);
+  const sourceX = lightFromLeft ? width * 0.1 : width * 0.9;
+  const sourceY = lightFromTop ? Math.max(24, height * 0.14) : height - 24;
+  const targetX = width / 2 + (lightFromLeft ? -1 : 1) * size * 0.08;
+  const targetY = height / 2 - size * 0.05;
+  const shadowX = width / 2 + (lightFromLeft ? 1 : -1) * size * 0.16;
+
+  context.save();
+  context.filter = 'blur(6px)';
+  context.fillStyle = 'rgba(67, 67, 58, 0.25)';
+  context.beginPath();
+  context.ellipse(shadowX, groundY - 3, size * 0.31, size * 0.052, 0, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
+
+  context.save();
+  context.strokeStyle = '#77796f';
+  context.lineWidth = 1.6;
+  context.beginPath();
+  context.moveTo(width * 0.08, groundY);
+  context.lineTo(width * 0.92, groundY);
+  context.stroke();
+
+  context.strokeStyle = '#b78324';
+  context.fillStyle = '#f2bd4b';
+  context.lineWidth = 2;
+  context.setLineDash([7, 6]);
+  context.beginPath();
+  context.moveTo(sourceX, sourceY);
+  context.lineTo(targetX, targetY);
+  context.stroke();
+  context.setLineDash([]);
+
+  const angle = Math.atan2(targetY - sourceY, targetX - sourceX);
+  context.beginPath();
+  context.moveTo(targetX, targetY);
+  context.lineTo(targetX - Math.cos(angle - 0.5) * 11, targetY - Math.sin(angle - 0.5) * 11);
+  context.lineTo(targetX - Math.cos(angle + 0.5) * 11, targetY - Math.sin(angle + 0.5) * 11);
+  context.closePath();
+  context.fillStyle = '#b78324';
+  context.fill();
+
+  const lightRadius = Math.max(8, Math.min(12, height * 0.035));
+  context.fillStyle = '#f5c45b';
+  context.strokeStyle = '#a87016';
+  context.lineWidth = 1.8;
+  context.beginPath();
+  context.arc(sourceX, sourceY, lightRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  for (let index = 0; index < 8; index += 1) {
+    const rayAngle = index * Math.PI / 4;
+    context.beginPath();
+    context.moveTo(sourceX + Math.cos(rayAngle) * (lightRadius + 3), sourceY + Math.sin(rayAngle) * (lightRadius + 3));
+    context.lineTo(sourceX + Math.cos(rayAngle) * (lightRadius + 8), sourceY + Math.sin(rayAngle) * (lightRadius + 8));
+    context.stroke();
+  }
+  context.restore();
+}
+
 function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -325,6 +394,8 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.fillStyle = background;
   context.fillRect(0, 0, rect.width, rect.height);
+  const size = Math.min(rect.width, rect.height) * 0.76;
+  if (style === 'shadow') drawLightingGuide(context, rect.width, rect.height, size, prompt.lightDirection);
   context.save();
   context.translate(rect.width / 2, rect.height / 2);
   context.rotate(prompt.rotation);
@@ -332,24 +403,12 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   context.lineWidth = 2.25;
   context.lineJoin = 'round';
   context.lineCap = 'round';
-  const size = Math.min(rect.width, rect.height) * 0.76;
   if (style === 'hidden-lines') {
     if (prompt.shape === '立方体' || prompt.shape === '直方体') drawHiddenLineBox(context, prompt, size);
     if (prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐') drawHiddenLineRound(context, prompt, size);
     if (prompt.shape === '三角錐') drawHiddenLinePyramid(context, prompt, size);
   } else {
     if (style === 'shadow') {
-      const lightFromLeft = prompt.lightDirection.endsWith('left');
-      const lightFromTop = prompt.lightDirection.startsWith('top');
-      const shadowX = (lightFromLeft ? 1 : -1) * size * 0.17;
-      const shadowY = lightFromTop ? size * 0.36 : size * 0.12;
-      context.save();
-      context.filter = 'blur(7px)';
-      context.fillStyle = 'rgba(67, 67, 58, 0.24)';
-      context.beginPath();
-      context.ellipse(shadowX, shadowY, size * 0.34, size * 0.055, 0, 0, Math.PI * 2);
-      context.fill();
-      context.restore();
       context.filter = 'contrast(1.18)';
     }
     const light = style === 'shadow' ? prompt.lightDirection : undefined;
