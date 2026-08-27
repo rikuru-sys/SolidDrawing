@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-type SampleStyle = 'shaded' | 'hidden-lines';
+type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
+type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 type ThreeShapePrompt = {
   shape: '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
@@ -9,6 +10,7 @@ type ThreeShapePrompt = {
   depthScale: number;
   cameraAzimuth: number;
   cameraElevation: number;
+  lightDirection: LightDirection;
 };
 
 const renderers = new WeakMap<HTMLCanvasElement, THREE.WebGLRenderer>();
@@ -125,13 +127,83 @@ function addEdgeLines(
   scene.add(visibleEdges);
 }
 
-function buildScene(prompt: ThreeShapePrompt, style: SampleStyle, background: string) {
+function addShadowEnvironment(
+  scene: THREE.Scene,
+  mesh: THREE.Mesh,
+  camera: THREE.PerspectiveCamera,
+  direction: LightDirection,
+) {
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b5ab, 0.85));
+
+  const target = new THREE.Vector3(0, -0.2, 0);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+  const towardCamera = camera.position.clone().sub(target).normalize();
+  const horizontal = direction.endsWith('left') ? -1 : 1;
+  const vertical = direction.startsWith('top') ? 1 : -0.35;
+  const lightPosition = target.clone()
+    .addScaledVector(right, horizontal * 4.2)
+    .addScaledVector(up, vertical * 4.5)
+    .addScaledVector(towardCamera, 2.2);
+  lightPosition.y = Math.max(1.25, lightPosition.y);
+
+  const light = new THREE.DirectionalLight(0xffffff, 2.6);
+  light.position.copy(lightPosition);
+  light.castShadow = true;
+  light.shadow.mapSize.set(1024, 1024);
+  light.shadow.camera.left = -3.5;
+  light.shadow.camera.right = 3.5;
+  light.shadow.camera.top = 3.5;
+  light.shadow.camera.bottom = -3.5;
+  light.shadow.camera.near = 0.1;
+  light.shadow.camera.far = 18;
+  light.shadow.bias = -0.0005;
+  light.shadow.normalBias = 0.025;
+  const lightTarget = new THREE.Object3D();
+  lightTarget.position.copy(target);
+  scene.add(lightTarget);
+  light.target = lightTarget;
+  scene.add(light);
+
+  const planeMaterial = new THREE.ShadowMaterial({ color: 0x3f4039, opacity: 0.3 });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), planeMaterial);
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.y = -1.01;
+  plane.receiveShadow = true;
+  scene.add(plane);
+
+  const groundGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-3.2, -0.995, 0.25),
+    new THREE.Vector3(3.2, -0.995, 0.25),
+  ]);
+  const groundLine = new THREE.Line(
+    groundGeometry,
+    new THREE.LineBasicMaterial({ color: 0x777970 }),
+  );
+  groundLine.renderOrder = 4;
+  scene.add(groundLine);
+}
+
+function buildScene(
+  prompt: ThreeShapePrompt,
+  style: SampleStyle,
+  background: string,
+  camera: THREE.PerspectiveCamera,
+) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(background);
   const geometry = shapeGeometry(prompt);
   const rounded = prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐';
 
-  if (style === 'shaded') {
+  if (style === 'shadow') {
+    geometry.computeBoundingBox();
+    const minimumY = geometry.boundingBox?.min.y ?? -1;
+    geometry.translate(0, -1 - minimumY, 0);
+  }
+
+  if (style === 'shaded' || style === 'shadow') {
     const material = new THREE.MeshStandardMaterial({
       color: 0xe5e2d8,
       roughness: 0.9,
@@ -142,10 +214,14 @@ function buildScene(prompt: ThreeShapePrompt, style: SampleStyle, background: st
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
     scene.add(mesh);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b6ad, 1.7));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.25);
-    keyLight.position.set(-3.5, 5, 4.2);
-    scene.add(keyLight);
+    if (style === 'shadow') {
+      addShadowEnvironment(scene, mesh, camera, prompt.lightDirection);
+    } else {
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b6ad, 1.7));
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.25);
+      keyLight.position.set(-3.5, 5, 4.2);
+      scene.add(keyLight);
+    }
     if (rounded) addSilhouette(scene, geometry);
   } else {
     const depthMaterial = new THREE.MeshBasicMaterial({
@@ -170,7 +246,7 @@ function disposeScene(scene: THREE.Scene) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   scene.traverse((object) => {
-    if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
+    if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
       geometries.add(object.geometry);
       const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
       objectMaterials.forEach((material) => materials.add(material));
@@ -192,6 +268,9 @@ export function renderSample3D(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(rect.width, rect.height, false);
   renderer.setClearColor(background, 1);
+  renderer.shadowMap.enabled = style === 'shadow';
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.needsUpdate = style === 'shadow';
 
   const camera = new THREE.PerspectiveCamera(32, rect.width / rect.height, 0.1, 100);
   const distance = 5.4;
@@ -201,9 +280,10 @@ export function renderSample3D(
     Math.sin(prompt.cameraElevation) * distance,
     Math.cos(prompt.cameraAzimuth) * horizontalDistance,
   );
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(0, style === 'shadow' ? -0.12 : 0, 0);
+  camera.updateMatrixWorld();
 
-  const scene = buildScene(prompt, style, background);
+  const scene = buildScene(prompt, style, background, camera);
   renderer.render(scene, camera);
   disposeScene(scene);
 }

@@ -73,6 +73,11 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .choice-button.selected { border-color: var(--green); background: var(--green); color: white; font-weight: 700; }
 .sample-style-options { display: grid; gap: 8px; }
 .sample-style-options .choice-button { text-align: left; }
+.light-direction-fieldset { min-width: 0; margin: 16px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.light-direction-fieldset legend { padding: 0 6px; font-size: 14px; font-weight: 700; }
+.light-direction-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.light-direction-options .check-option { background: var(--surface); }
+.light-direction-options b { margin-left: 3px; font-size: 17px; }
 .setting-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field-label { display: grid; gap: 7px; font-weight: 700; }
@@ -113,6 +118,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .canvas-stage { min-height: clamp(310px, 38vw, 455px); position: relative; display: grid; place-items: center; overflow: hidden; background: var(--canvas); }
 .sample-canvas, .drawing-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
 .sample-canvas { transition: filter .18s ease, opacity .18s ease; }
+.light-direction-badge { position: absolute; z-index: 2; top: 11px; left: 11px; padding: 7px 10px; border: 1px solid rgba(53, 104, 77, .22); border-radius: 999px; background: rgba(255, 254, 249, .9); color: var(--green-dark); font-size: 13px; font-weight: 700; pointer-events: none; box-shadow: 0 3px 12px rgba(45, 48, 38, .08); }
+.light-direction-badge b { margin-left: 3px; font-size: 17px; line-height: 0; }
 .drawing-canvas { touch-action: none; cursor: none; }
 .brush-cursor { position: absolute; z-index: 3; pointer-events: none; border: 1px solid #30322c; border-radius: 50%; opacity: 0; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .92); }
 .brush-cursor.eraser { border-color: var(--green); background: rgba(53, 104, 77, .08); }
@@ -213,6 +220,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .step { padding: 7px 8px; font-size: 13px; }
   .hero-section, .settings-section, .practice-section, .results-section { width: min(100% - 24px, 1180px); }
   .shape-options, .field-grid { grid-template-columns: 1fr; }
+  .light-direction-options { grid-template-columns: 1fr; }
   .practice-header { gap: 10px; }
   .timer { flex: 1; }
   .practice-actions { flex: 1; justify-content: flex-end; }

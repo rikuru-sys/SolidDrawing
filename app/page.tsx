@@ -14,7 +14,8 @@ type Screen = 'home' | 'settings' | 'practice' | 'results';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'eraser';
-type SampleStyle = 'shaded' | 'hidden-lines';
+type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
+type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 type Point = { x: number; y: number };
 type Stroke = { points: Point[]; width: number; eraser: boolean };
@@ -28,6 +29,7 @@ type ShapePrompt = {
   depthScale: number;
   cameraAzimuth: number;
   cameraElevation: number;
+  lightDirection: LightDirection;
 };
 type Attempt = {
   prompt: ShapePrompt;
@@ -42,6 +44,7 @@ type Settings = {
   layout: Layout;
   penWidth: number;
   sampleStyle: SampleStyle;
+  lightDirections: LightDirection[];
 };
 
 const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
@@ -52,6 +55,13 @@ const LAYOUTS: Array<{ value: Layout; label: string }> = [
   { value: 'left', label: '見本が左' },
   { value: 'right', label: '見本が右' },
 ];
+const LIGHT_DIRECTIONS: Array<{ value: LightDirection; label: string; arrow: string }> = [
+  { value: 'top-left', label: '左上', arrow: '↘' },
+  { value: 'top-right', label: '右上', arrow: '↙' },
+  { value: 'bottom-left', label: '左下', arrow: '↗' },
+  { value: 'bottom-right', label: '右下', arrow: '↖' },
+];
+const ALL_LIGHT_DIRECTIONS = LIGHT_DIRECTIONS.map(({ value }) => value);
 
 const DEFAULT_SETTINGS: Settings = {
   shapes: [...ALL_SHAPES],
@@ -60,6 +70,7 @@ const DEFAULT_SETTINGS: Settings = {
   layout: 'left',
   penWidth: 3,
   sampleStyle: 'shaded',
+  lightDirections: [...ALL_LIGHT_DIRECTIONS],
 };
 
 const HERO_PROMPT: ShapePrompt = {
@@ -72,11 +83,16 @@ const HERO_PROMPT: ShapePrompt = {
   depthScale: 1,
   cameraAzimuth: -0.7,
   cameraElevation: 0.48,
+  lightDirection: 'top-left',
 };
 
 const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
 
-function createPrompts(shapes: ShapeName[], count: number): ShapePrompt[] {
+function createPrompts(
+  shapes: ShapeName[],
+  count: number,
+  lightDirections: LightDirection[],
+): ShapePrompt[] {
   let previous: ShapeName | undefined;
   return Array.from({ length: count }, (_, index) => {
     const available = shapes.length > 1 ? shapes.filter((shape) => shape !== previous) : shapes;
@@ -92,6 +108,7 @@ function createPrompts(shapes: ShapeName[], count: number): ShapePrompt[] {
       depthScale: randomBetween(0.78, 1.12),
       cameraAzimuth: randomBetween(-Math.PI, Math.PI),
       cameraElevation: randomBetween(0.24, 0.82),
+      lightDirection: lightDirections[Math.floor(Math.random() * lightDirections.length)],
     };
   });
 }
@@ -332,6 +349,9 @@ export default function Home() {
 
   const currentPrompt = prompts[questionIndex];
   const currentResult = attempts[selectedResult];
+  const currentLight = currentPrompt
+    ? LIGHT_DIRECTIONS.find(({ value }) => value === currentPrompt.lightDirection)
+    : undefined;
 
   const sessionSeconds = useMemo(
     () => attempts.reduce((total, attempt) => total + attempt.seconds, 0),
@@ -342,14 +362,27 @@ export default function Home() {
     const saved = window.localStorage.getItem('solid-drawing-settings');
     if (!saved) return;
     try {
-      const parsed = JSON.parse(saved) as Partial<Settings> & { sampleStyle?: string };
+      const parsed = JSON.parse(saved) as Partial<Omit<Settings, 'sampleStyle' | 'lightDirections'>> & {
+        sampleStyle?: string;
+        lightDirections?: string[];
+      };
+      const savedLightDirections = Array.isArray(parsed.lightDirections)
+        ? parsed.lightDirections.filter((direction): direction is LightDirection => (
+          ALL_LIGHT_DIRECTIONS.includes(direction as LightDirection)
+        ))
+        : [];
       setSettings({
         shapes: parsed.shapes?.length ? parsed.shapes : ALL_SHAPES,
         time: parsed.time === null || typeof parsed.time === 'number' ? parsed.time : DEFAULT_SETTINGS.time,
         count: typeof parsed.count === 'number' ? parsed.count : DEFAULT_SETTINGS.count,
         layout: parsed.layout ?? DEFAULT_SETTINGS.layout,
         penWidth: typeof parsed.penWidth === 'number' ? parsed.penWidth : DEFAULT_SETTINGS.penWidth,
-        sampleStyle: parsed.sampleStyle === 'hidden-lines' ? 'hidden-lines' : 'shaded',
+        sampleStyle: parsed.sampleStyle === 'shadow' || parsed.sampleStyle === 'hidden-lines'
+          ? parsed.sampleStyle
+          : 'shaded',
+        lightDirections: savedLightDirections.length
+          ? savedLightDirections
+          : [...ALL_LIGHT_DIRECTIONS],
       });
     } catch {
       window.localStorage.removeItem('solid-drawing-settings');
@@ -520,15 +553,33 @@ export default function Home() {
     setValidation('');
   };
 
+  const toggleLightDirection = (direction: LightDirection) => {
+    setSettings((current) => ({
+      ...current,
+      lightDirections: current.lightDirections.includes(direction)
+        ? current.lightDirections.filter((item) => item !== direction)
+        : [...current.lightDirections, direction],
+    }));
+    setValidation('');
+  };
+
   const startPractice = (practiceSettings: Settings = settings) => {
     const count = Math.max(1, Math.min(20, Number(practiceSettings.count) || 1));
     if (!practiceSettings.shapes.length) {
       setValidation('少なくとも1つの立体を選んでください。');
       return;
     }
+    if (practiceSettings.sampleStyle === 'shadow' && !practiceSettings.lightDirections.length) {
+      setValidation('光源の方向を少なくとも1つ選んでください。');
+      return;
+    }
     const normalized = { ...practiceSettings, count };
     setSettings(normalized);
-    setPrompts(createPrompts(normalized.shapes, count));
+    setPrompts(createPrompts(
+      normalized.shapes,
+      count,
+      normalized.lightDirections.length ? normalized.lightDirections : ALL_LIGHT_DIRECTIONS,
+    ));
     setQuestionIndex(0);
     setRemaining(normalized.time ?? 0);
     setElapsed(0);
@@ -849,12 +900,36 @@ export default function Home() {
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shaded' }))}
                 >輪郭線と薄い陰影</button>
                 <button
+                  className={settings.sampleStyle === 'shadow' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.sampleStyle === 'shadow'}
+                  onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shadow' }))}
+                >輪郭線と影</button>
+                <button
                   className={settings.sampleStyle === 'hidden-lines' ? 'choice-button selected' : 'choice-button'}
                   type="button"
                   aria-pressed={settings.sampleStyle === 'hidden-lines'}
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'hidden-lines' }))}
                 >輪郭線（見えない部分は点線）</button>
               </div>
+              {settings.sampleStyle === 'shadow' && (
+                <fieldset className="light-direction-fieldset">
+                  <legend>使用する光源方向</legend>
+                  <div className="light-direction-options">
+                    {LIGHT_DIRECTIONS.map((direction) => (
+                      <label className="check-option" key={direction.value}>
+                        <input
+                          type="checkbox"
+                          checked={settings.lightDirections.includes(direction.value)}
+                          onChange={() => toggleLightDirection(direction.value)}
+                        />
+                        <span>{direction.label} <b aria-hidden="true">{direction.arrow}</b></span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="setting-note">選んだ方向の中から、問題ごとに光源をランダム設定します。</p>
+                </fieldset>
+              )}
               <p className="setting-note">問題ごとに3Dカメラの方向と比率をランダム生成</p>
             </section>
             <section className="settings-card wide-card">
@@ -897,10 +972,19 @@ export default function Home() {
             <section className="work-panel sample-panel">
               <div className="work-panel-header">
                 <strong>見本</strong>
-                <small>3D・見る方向はランダム</small>
+                <small>
+                  {settings.sampleStyle === 'shadow' && currentLight
+                    ? `光源 ${currentLight.label} ${currentLight.arrow}・3D`
+                    : '3D・見る方向はランダム'}
+                </small>
               </div>
               <div className="canvas-stage">
                 <canvas ref={sampleCanvasRef} className={paused ? 'sample-canvas hidden-sample' : 'sample-canvas'} aria-label={`${currentPrompt.shape}の見本`} />
+                {settings.sampleStyle === 'shadow' && currentLight && !paused && (
+                  <span className="light-direction-badge">
+                    光源 {currentLight.label} <b aria-hidden="true">{currentLight.arrow}</b>
+                  </span>
+                )}
                 {paused && <div className="pause-cover"><strong>一時停止中</strong><span>再開すると見本を表示します</span></div>}
               </div>
             </section>
