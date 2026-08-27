@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
@@ -25,6 +26,8 @@ type ShapePrompt = {
   widthScale: number;
   heightScale: number;
   depthScale: number;
+  cameraAzimuth: number;
+  cameraElevation: number;
 };
 type Attempt = {
   prompt: ShapePrompt;
@@ -67,6 +70,8 @@ const HERO_PROMPT: ShapePrompt = {
   widthScale: 1,
   heightScale: 1,
   depthScale: 1,
+  cameraAzimuth: -0.7,
+  cameraElevation: 0.48,
 };
 
 const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
@@ -85,6 +90,8 @@ function createPrompts(shapes: ShapeName[], count: number): ShapePrompt[] {
       widthScale: randomBetween(0.82, 1.14),
       heightScale: randomBetween(0.84, 1.15),
       depthScale: randomBetween(0.78, 1.12),
+      cameraAzimuth: randomBetween(-Math.PI, Math.PI),
+      cameraElevation: randomBetween(0.24, 0.82),
     };
   });
 }
@@ -291,35 +298,7 @@ function drawHiddenLinePyramid(context: CanvasRenderingContext2D, prompt: ShapeP
 }
 
 function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.round(rect.width * ratio);
-  canvas.height = Math.round(rect.height * ratio);
-  const context = canvas.getContext('2d');
-  if (!context) return;
-  context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  context.fillStyle = background;
-  context.fillRect(0, 0, rect.width, rect.height);
-  const size = Math.min(rect.width, rect.height) * 0.76;
-  context.save();
-  context.translate(rect.width / 2, rect.height / 2);
-  context.rotate(prompt.rotation);
-  context.strokeStyle = '#353730';
-  context.lineWidth = 2.25;
-  context.lineJoin = 'round';
-  context.lineCap = 'round';
-  if (style === 'hidden-lines') {
-    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawHiddenLineBox(context, prompt, size);
-    if (prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐') drawHiddenLineRound(context, prompt, size);
-    if (prompt.shape === '三角錐') drawHiddenLinePyramid(context, prompt, size);
-  } else {
-    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size);
-    if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size);
-    if (prompt.shape === '三角錐') drawPyramid(context, prompt, size);
-    if (prompt.shape === '円錐') drawCone(context, prompt, size);
-  }
-  context.restore();
+  renderSample3D(canvas, prompt, style, background);
 }
 
 function formatTime(seconds: number) {
@@ -430,7 +409,10 @@ export default function Home() {
     render();
     const observer = new ResizeObserver(render);
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      disposeSample3D(canvas);
+    };
   }, [screen]);
 
   useEffect(() => {
@@ -440,7 +422,10 @@ export default function Home() {
     render();
     const observer = new ResizeObserver(render);
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      disposeSample3D(canvas);
+    };
   }, [currentPrompt, screen, settings.sampleStyle]);
 
   useEffect(() => {
@@ -788,9 +773,9 @@ export default function Home() {
           <div className="hero-copy">
             <p className="eyebrow">短時間で、形を見る力を鍛える</p>
             <h1>立体を観察して、<br />手を動かそう。</h1>
-            <p className="lead">ランダムな角度から見た立体を、決めた時間内に描く練習です。最後に見本と自分の線を並べて振り返れます。</p>
+            <p className="lead">ランダムな方向から見た3D立体を、決めた時間内に描く練習です。最後に見本と自分の線を並べて振り返れます。</p>
             <ul className="feature-list">
-              <li>6種類の立体をその場で生成</li>
+              <li>6種類の3D立体をその場で生成</li>
               <li>10〜60秒、または時間制限なし</li>
               <li>最大20回まで連続練習</li>
             </ul>
@@ -870,7 +855,7 @@ export default function Home() {
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'hidden-lines' }))}
                 >輪郭線（見えない部分は点線）</button>
               </div>
-              <p className="setting-note">問題ごとに角度と比率をランダム生成</p>
+              <p className="setting-note">問題ごとに3Dカメラの方向と比率をランダム生成</p>
             </section>
             <section className="settings-card wide-card">
               <h3>見本と描画スペースの配置</h3>
@@ -912,7 +897,7 @@ export default function Home() {
             <section className="work-panel sample-panel">
               <div className="work-panel-header">
                 <strong>見本</strong>
-                <small>見る方向はランダム</small>
+                <small>3D・見る方向はランダム</small>
               </div>
               <div className="canvas-stage">
                 <canvas ref={sampleCanvasRef} className={paused ? 'sample-canvas hidden-sample' : 'sample-canvas'} aria-label={`${currentPrompt.shape}の見本`} />
