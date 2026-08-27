@@ -16,6 +16,7 @@ type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type Difficulty = 'easy' | 'hard';
 
 type Point = { x: number; y: number };
 type Stroke = { points: Point[]; width: number; eraser: boolean };
@@ -29,6 +30,9 @@ type ShapePrompt = {
   depthScale: number;
   cameraAzimuth: number;
   cameraElevation: number;
+  objectRotationX: number;
+  objectRotationY: number;
+  objectRotationZ: number;
   lightDirection: LightDirection;
 };
 type Attempt = {
@@ -45,6 +49,7 @@ type Settings = {
   penWidth: number;
   sampleStyle: SampleStyle;
   lightDirections: LightDirection[];
+  difficulty: Difficulty;
 };
 
 const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
@@ -71,6 +76,7 @@ const DEFAULT_SETTINGS: Settings = {
   penWidth: 3,
   sampleStyle: 'shaded',
   lightDirections: [...ALL_LIGHT_DIRECTIONS],
+  difficulty: 'easy',
 };
 
 const HERO_PROMPT: ShapePrompt = {
@@ -83,6 +89,9 @@ const HERO_PROMPT: ShapePrompt = {
   depthScale: 1,
   cameraAzimuth: -0.7,
   cameraElevation: 0.48,
+  objectRotationX: 0,
+  objectRotationY: 0,
+  objectRotationZ: 0,
   lightDirection: 'top-left',
 };
 
@@ -92,11 +101,13 @@ function createPrompts(
   shapes: ShapeName[],
   count: number,
   lightDirections: LightDirection[],
+  difficulty: Difficulty,
 ): ShapePrompt[] {
   let previous: ShapeName | undefined;
   return Array.from({ length: count }, (_, index) => {
     const available = shapes.length > 1 ? shapes.filter((shape) => shape !== previous) : shapes;
     const shape = available[Math.floor(Math.random() * available.length)];
+    const hardTilt = randomBetween(0.38, 1.02) * (Math.random() > 0.5 ? 1 : -1);
     previous = shape;
     return {
       id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
@@ -108,6 +119,9 @@ function createPrompts(
       depthScale: randomBetween(0.78, 1.12),
       cameraAzimuth: randomBetween(-Math.PI, Math.PI),
       cameraElevation: randomBetween(0.24, 0.82),
+      objectRotationX: difficulty === 'hard' ? hardTilt : 0,
+      objectRotationY: difficulty === 'hard' ? randomBetween(-Math.PI, Math.PI) : 0,
+      objectRotationZ: difficulty === 'hard' ? randomBetween(-0.55, 0.55) : 0,
       lightDirection: lightDirections[Math.floor(Math.random() * lightDirections.length)],
     };
   });
@@ -383,6 +397,7 @@ export default function Home() {
         lightDirections: savedLightDirections.length
           ? savedLightDirections
           : [...ALL_LIGHT_DIRECTIONS],
+        difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
       });
     } catch {
       window.localStorage.removeItem('solid-drawing-settings');
@@ -579,6 +594,7 @@ export default function Home() {
       normalized.shapes,
       count,
       normalized.lightDirections.length ? normalized.lightDirections : ALL_LIGHT_DIRECTIONS,
+      normalized.difficulty,
     ));
     setQuestionIndex(0);
     setRemaining(normalized.time ?? 0);
@@ -849,6 +865,29 @@ export default function Home() {
             <button className="text-button" type="button" onClick={() => setScreen('home')}>トップへ戻る</button>
           </div>
           <div className="settings-grid">
+            <section className="settings-card wide-card">
+              <h3>難易度</h3>
+              <div className="difficulty-options">
+                <button
+                  className={settings.difficulty === 'easy' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.difficulty === 'easy'}
+                  onClick={() => setSettings((current) => ({ ...current, difficulty: 'easy' }))}
+                >
+                  <strong>簡単</strong>
+                  <small>現在と同じく、立体を直立させたまま見る方向を変えます</small>
+                </button>
+                <button
+                  className={settings.difficulty === 'hard' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.difficulty === 'hard'}
+                  onClick={() => setSettings((current) => ({ ...current, difficulty: 'hard' }))}
+                >
+                  <strong>難しい</strong>
+                  <small>立体そのものを上下・左右・傾き方向へランダムに回転します</small>
+                </button>
+              </div>
+            </section>
             <section className="settings-card">
               <h3>出題する立体</h3>
               <div className="shape-options">
@@ -974,8 +1013,10 @@ export default function Home() {
                 <strong>見本</strong>
                 <small>
                   {settings.sampleStyle === 'shadow' && currentLight
-                    ? `光源 ${currentLight.label} ${currentLight.arrow}・3D`
-                    : '3D・見る方向はランダム'}
+                    ? `${settings.difficulty === 'hard' ? '難しい' : '簡単'}・光源 ${currentLight.label} ${currentLight.arrow}`
+                    : settings.difficulty === 'hard'
+                      ? '難しい・立体の向きもランダム'
+                      : '簡単・見る方向はランダム'}
                 </small>
               </div>
               <div className="canvas-stage">

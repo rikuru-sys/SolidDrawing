@@ -64,6 +64,11 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .settings-card { padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .settings-card h3 { margin: 0 0 15px; font-size: 17px; }
 .wide-card { grid-column: 1 / -1; }
+.difficulty-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.difficulty-options .choice-button { min-height: 70px; display: grid; gap: 4px; padding: 12px 14px; text-align: left; }
+.difficulty-options strong, .difficulty-options small { display: block; }
+.difficulty-options small { color: var(--muted); line-height: 1.55; }
+.difficulty-options .selected small { color: rgba(255, 255, 255, .84); }
 .shape-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .check-option { min-height: 46px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); cursor: pointer; }
 .check-option:has(input:checked) { border-color: #89a794; background: var(--green-soft); }
@@ -219,7 +224,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 @media (max-width: 500px) {
   .step { padding: 7px 8px; font-size: 13px; }
   .hero-section, .settings-section, .practice-section, .results-section { width: min(100% - 24px, 1180px); }
-  .shape-options, .field-grid { grid-template-columns: 1fr; }
+  .shape-options, .field-grid, .difficulty-options { grid-template-columns: 1fr; }
   .light-direction-options { grid-template-columns: 1fr; }
   .practice-header { gap: 10px; }
   .timer { flex: 1; }

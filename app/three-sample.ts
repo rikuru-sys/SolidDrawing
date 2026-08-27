@@ -10,6 +10,9 @@ type ThreeShapePrompt = {
   depthScale: number;
   cameraAzimuth: number;
   cameraElevation: number;
+  objectRotationX: number;
+  objectRotationY: number;
+  objectRotationZ: number;
   lightDirection: LightDirection;
 };
 
@@ -196,6 +199,10 @@ function buildScene(
   scene.background = new THREE.Color(background);
   const geometry = shapeGeometry(prompt);
   const rounded = prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐';
+
+  geometry.rotateX(prompt.objectRotationX);
+  geometry.rotateY(prompt.objectRotationY);
+  geometry.rotateZ(prompt.objectRotationZ);
 
   if (style === 'shadow') {
     geometry.computeBoundingBox();
