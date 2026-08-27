@@ -314,29 +314,76 @@ function drawHiddenLinePyramid(context: CanvasRenderingContext2D, prompt: ShapeP
   }
 }
 
+function drawCastShadow(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  groundY: number,
+  size: number,
+  prompt: ShapePrompt,
+) {
+  const castDirection = prompt.lightDirection.endsWith('left') ? 1 : -1;
+  const castLength = size * (prompt.lightDirection.startsWith('top') ? 0.48 : 0.34);
+  const castX = castDirection * castLength;
+  const rise = size * 0.075;
+
+  context.save();
+  context.filter = 'blur(3px)';
+  context.fillStyle = 'rgba(54, 55, 48, 0.32)';
+  context.beginPath();
+
+  if (prompt.shape === '立方体' || prompt.shape === '直方体') {
+    const cube = prompt.shape === '立方体';
+    const halfWidth = size * (cube ? 0.27 : 0.33 * prompt.widthScale);
+    context.moveTo(centerX - halfWidth, groundY - 2);
+    context.lineTo(centerX + halfWidth, groundY - 2);
+    context.lineTo(centerX + halfWidth + castX, groundY - rise);
+    context.lineTo(centerX - halfWidth + castX, groundY - rise);
+    context.closePath();
+  } else if (prompt.shape === '円柱' || prompt.shape === '楕円柱') {
+    const elliptical = prompt.shape === '楕円柱';
+    const bodyWidth = size * (elliptical ? 0.66 : 0.54) * prompt.widthScale;
+    const shadowCenterX = centerX + castX * 0.55;
+    const radiusX = Math.abs(castX) * 0.55 + bodyWidth * 0.34;
+    context.ellipse(shadowCenterX, groundY - rise * 0.45, radiusX, size * 0.065, castDirection * -0.1, 0, Math.PI * 2);
+  } else if (prompt.shape === '三角錐') {
+    const halfBase = size * 0.315 * prompt.widthScale;
+    context.moveTo(centerX - halfBase, groundY - 2);
+    context.lineTo(centerX + halfBase, groundY - 2);
+    context.lineTo(centerX + castX, groundY - rise * 1.15);
+    context.closePath();
+  } else {
+    const halfBase = size * 0.31 * prompt.widthScale;
+    context.moveTo(centerX - halfBase, groundY - 2);
+    context.quadraticCurveTo(centerX, groundY + size * 0.035, centerX + halfBase, groundY - 2);
+    context.lineTo(centerX + castX, groundY - rise * 1.25);
+    context.closePath();
+  }
+
+  context.fill();
+  context.restore();
+}
+
 function drawLightingGuide(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
   size: number,
-  direction: LightDirection,
+  prompt: ShapePrompt,
 ) {
+  const direction = prompt.lightDirection;
   const lightFromLeft = direction.endsWith('left');
   const lightFromTop = direction.startsWith('top');
-  const groundY = Math.min(height - 28, height / 2 + size * 0.36);
+  let groundOffset = 0.27;
+  if (prompt.shape === '直方体') groundOffset = 0.215 * prompt.heightScale + 0.045 * prompt.depthScale;
+  if (prompt.shape === '円柱') groundOffset = 0.29 * prompt.heightScale + 0.04 * prompt.depthScale;
+  if (prompt.shape === '楕円柱') groundOffset = 0.23 * prompt.heightScale + 0.058 * prompt.depthScale;
+  if (prompt.shape === '円錐') groundOffset = 0.27 + 0.05 * prompt.depthScale;
+  const groundY = Math.min(height - 28, height / 2 + size * groundOffset);
   const sourceX = lightFromLeft ? width * 0.1 : width * 0.9;
   const sourceY = lightFromTop ? Math.max(24, height * 0.14) : height - 24;
   const targetX = width / 2 + (lightFromLeft ? -1 : 1) * size * 0.08;
   const targetY = height / 2 - size * 0.05;
-  const shadowX = width / 2 + (lightFromLeft ? 1 : -1) * size * 0.16;
-
-  context.save();
-  context.filter = 'blur(6px)';
-  context.fillStyle = 'rgba(67, 67, 58, 0.25)';
-  context.beginPath();
-  context.ellipse(shadowX, groundY - 3, size * 0.31, size * 0.052, 0, 0, Math.PI * 2);
-  context.fill();
-  context.restore();
+  drawCastShadow(context, width / 2, groundY, size, prompt);
 
   context.save();
   context.strokeStyle = '#77796f';
@@ -395,7 +442,7 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   context.fillStyle = background;
   context.fillRect(0, 0, rect.width, rect.height);
   const size = Math.min(rect.width, rect.height) * 0.76;
-  if (style === 'shadow') drawLightingGuide(context, rect.width, rect.height, size, prompt.lightDirection);
+  if (style === 'shadow') drawLightingGuide(context, rect.width, rect.height, size, prompt);
   context.save();
   context.translate(rect.width / 2, rect.height / 2);
   context.rotate(prompt.rotation);
