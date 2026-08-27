@@ -13,8 +13,7 @@ type Screen = 'home' | 'settings' | 'practice' | 'results';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'eraser';
-type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
-type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type SampleStyle = 'shaded' | 'hidden-lines';
 
 type Point = { x: number; y: number };
 type Stroke = { points: Point[]; width: number; eraser: boolean };
@@ -26,7 +25,6 @@ type ShapePrompt = {
   widthScale: number;
   heightScale: number;
   depthScale: number;
-  lightDirection: LightDirection;
 };
 type Attempt = {
   prompt: ShapePrompt;
@@ -41,18 +39,10 @@ type Settings = {
   layout: Layout;
   penWidth: number;
   sampleStyle: SampleStyle;
-  lightDirections: LightDirection[];
 };
 
 const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
 const TIME_CHOICES: Array<number | null> = [10, 15, 20, 30, 40, 45, 50, 60, null];
-const LIGHT_DIRECTIONS: Array<{ value: LightDirection; label: string }> = [
-  { value: 'top-left', label: '左上' },
-  { value: 'top-right', label: '右上' },
-  { value: 'bottom-left', label: '左下' },
-  { value: 'bottom-right', label: '右下' },
-];
-const ALL_LIGHT_DIRECTIONS = LIGHT_DIRECTIONS.map(({ value }) => value);
 const LAYOUTS: Array<{ value: Layout; label: string }> = [
   { value: 'top', label: '見本が上' },
   { value: 'bottom', label: '見本が下' },
@@ -67,7 +57,6 @@ const DEFAULT_SETTINGS: Settings = {
   layout: 'left',
   penWidth: 3,
   sampleStyle: 'shaded',
-  lightDirections: [...ALL_LIGHT_DIRECTIONS],
 };
 
 const HERO_PROMPT: ShapePrompt = {
@@ -78,12 +67,11 @@ const HERO_PROMPT: ShapePrompt = {
   widthScale: 1,
   heightScale: 1,
   depthScale: 1,
-  lightDirection: 'top-left',
 };
 
 const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
 
-function createPrompts(shapes: ShapeName[], count: number, lightDirections: LightDirection[]): ShapePrompt[] {
+function createPrompts(shapes: ShapeName[], count: number): ShapePrompt[] {
   let previous: ShapeName | undefined;
   return Array.from({ length: count }, (_, index) => {
     const available = shapes.length > 1 ? shapes.filter((shape) => shape !== previous) : shapes;
@@ -97,7 +85,6 @@ function createPrompts(shapes: ShapeName[], count: number, lightDirections: Ligh
       widthScale: randomBetween(0.82, 1.14),
       heightScale: randomBetween(0.84, 1.15),
       depthScale: randomBetween(0.78, 1.12),
-      lightDirection: lightDirections[Math.floor(Math.random() * lightDirections.length)],
     };
   });
 }
@@ -116,7 +103,7 @@ function polygon(
   context.stroke();
 }
 
-function drawBox(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number, light?: LightDirection) {
+function drawBox(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
   const cube = prompt.shape === '立方体';
   const width = size * (cube ? 0.54 : 0.66 * prompt.widthScale);
   const height = size * (cube ? 0.5 : 0.43 * prompt.heightScale);
@@ -127,22 +114,15 @@ function drawBox(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: n
   const dx = direction * depth;
   const dy = -depth * 0.52;
 
-  const lightFromTop = light?.startsWith('top') ?? true;
-  const lightFromRight = light?.endsWith('right') ?? false;
-  const visibleSideIsLit = prompt.direction > 0 ? lightFromRight : !lightFromRight;
-  const frontFill = light ? (lightFromTop ? '#e5e2d7' : '#c7c3b8') : '#e9e6dc';
-  const topFill = light ? (lightFromTop ? '#fffdf6' : '#c6c2b7') : '#f5f3ec';
-  const sideFill = light ? (visibleSideIsLit ? '#ddd9ce' : '#9e9a90') : '#c9c6bc';
-
-  polygon(context, [[x, y], [x + width, y], [x + width, y + height], [x, y + height]], frontFill);
-  polygon(context, [[x, y], [x + dx, y + dy], [x + width + dx, y + dy], [x + width, y]], topFill);
+  polygon(context, [[x, y], [x + width, y], [x + width, y + height], [x, y + height]], '#e9e6dc');
+  polygon(context, [[x, y], [x + dx, y + dy], [x + width + dx, y + dy], [x + width, y]], '#f5f3ec');
   const sidePoints: Array<[number, number]> = direction > 0
     ? [[x + width, y], [x + width + dx, y + dy], [x + width + dx, y + height + dy], [x + width, y + height]]
     : [[x, y], [x + dx, y + dy], [x + dx, y + height + dy], [x, y + height]];
-  polygon(context, sidePoints, sideFill);
+  polygon(context, sidePoints, '#c9c6bc');
 }
 
-function drawCylinder(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number, light?: LightDirection) {
+function drawCylinder(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
   const elliptical = prompt.shape === '楕円柱';
   const width = size * (elliptical ? 0.66 : 0.54) * prompt.widthScale;
   const height = size * (elliptical ? 0.46 : 0.58) * prompt.heightScale;
@@ -150,10 +130,9 @@ function drawCylinder(context: CanvasRenderingContext2D, prompt: ShapePrompt, si
   const topY = -height / 2;
   const bottomY = height / 2;
   const gradient = context.createLinearGradient(-width / 2, 0, width / 2, 0);
-  const highlight = light?.endsWith('right') ? 0.72 : light ? 0.28 : 0.45;
-  gradient.addColorStop(0, light ? '#aaa69c' : '#c8c5bb');
-  gradient.addColorStop(highlight, light ? '#f7f4ea' : '#f0ede4');
-  gradient.addColorStop(1, light ? '#aaa69c' : '#d5d2c8');
+  gradient.addColorStop(0, '#c8c5bb');
+  gradient.addColorStop(0.45, '#f0ede4');
+  gradient.addColorStop(1, '#d5d2c8');
 
   context.beginPath();
   context.moveTo(-width / 2, topY);
@@ -166,7 +145,7 @@ function drawCylinder(context: CanvasRenderingContext2D, prompt: ShapePrompt, si
 
   context.beginPath();
   context.ellipse(0, topY, width / 2, ellipseHeight / 2, 0, 0, Math.PI * 2);
-  context.fillStyle = light ? (light.startsWith('top') ? '#fffdf6' : '#c8c4b9') : '#f5f3ec';
+  context.fillStyle = '#f5f3ec';
   context.fill();
   context.stroke();
 
@@ -175,7 +154,7 @@ function drawCylinder(context: CanvasRenderingContext2D, prompt: ShapePrompt, si
   context.stroke();
 }
 
-function drawPyramid(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number, light?: LightDirection) {
+function drawPyramid(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
   const direction = prompt.direction;
   const baseWidth = size * 0.63 * prompt.widthScale;
   const baseY = size * 0.25;
@@ -186,10 +165,8 @@ function drawPyramid(context: CanvasRenderingContext2D, prompt: ShapePrompt, siz
   const right: [number, number] = [baseWidth / 2, baseY];
   const back: [number, number] = [direction * size * 0.13, backY];
   const apex: [number, number] = [apexX, apexY];
-  const lightFromRight = light?.endsWith('right') ?? false;
-  const sideIsLit = direction > 0 ? lightFromRight : !lightFromRight;
-  polygon(context, [left, right, apex], light ? (light.startsWith('top') ? '#e7e3d8' : '#c2beb3') : '#e5e2d8');
-  polygon(context, direction > 0 ? [right, back, apex] : [left, back, apex], light ? (sideIsLit ? '#ded9ce' : '#99958c') : '#c7c4ba');
+  polygon(context, [left, right, apex], '#e5e2d8');
+  polygon(context, direction > 0 ? [right, back, apex] : [left, back, apex], '#c7c4ba');
   context.beginPath();
   context.moveTo(left[0], left[1]);
   context.lineTo(back[0], back[1]);
@@ -197,17 +174,16 @@ function drawPyramid(context: CanvasRenderingContext2D, prompt: ShapePrompt, siz
   context.stroke();
 }
 
-function drawCone(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number, light?: LightDirection) {
+function drawCone(context: CanvasRenderingContext2D, prompt: ShapePrompt, size: number) {
   const width = size * 0.62 * prompt.widthScale;
   const ellipseHeight = size * 0.15 * prompt.depthScale;
   const baseY = size * 0.27;
   const apexX = prompt.direction * size * 0.08;
   const apexY = -size * 0.4 * prompt.heightScale;
   const gradient = context.createLinearGradient(-width / 2, 0, width / 2, 0);
-  const highlight = light?.endsWith('right') ? 0.72 : light ? 0.28 : 0.52;
-  gradient.addColorStop(0, light ? '#aaa69c' : '#c7c4ba');
-  gradient.addColorStop(highlight, light ? '#f8f5ec' : '#efede5');
-  gradient.addColorStop(1, light ? '#aaa69c' : '#d3d0c7');
+  gradient.addColorStop(0, '#c7c4ba');
+  gradient.addColorStop(0.52, '#efede5');
+  gradient.addColorStop(1, '#d3d0c7');
 
   context.beginPath();
   context.moveTo(apexX, apexY);
@@ -314,122 +290,6 @@ function drawHiddenLinePyramid(context: CanvasRenderingContext2D, prompt: ShapeP
   }
 }
 
-function drawCastShadow(
-  context: CanvasRenderingContext2D,
-  centerX: number,
-  groundY: number,
-  size: number,
-  prompt: ShapePrompt,
-) {
-  const castDirection = prompt.lightDirection.endsWith('left') ? 1 : -1;
-  const castLength = size * (prompt.lightDirection.startsWith('top') ? 0.48 : 0.34);
-  const castX = castDirection * castLength;
-  const rise = size * 0.075;
-
-  context.save();
-  context.filter = 'blur(3px)';
-  context.fillStyle = 'rgba(54, 55, 48, 0.32)';
-  context.beginPath();
-
-  if (prompt.shape === '立方体' || prompt.shape === '直方体') {
-    const cube = prompt.shape === '立方体';
-    const halfWidth = size * (cube ? 0.27 : 0.33 * prompt.widthScale);
-    context.moveTo(centerX - halfWidth, groundY - 2);
-    context.lineTo(centerX + halfWidth, groundY - 2);
-    context.lineTo(centerX + halfWidth + castX, groundY - rise);
-    context.lineTo(centerX - halfWidth + castX, groundY - rise);
-    context.closePath();
-  } else if (prompt.shape === '円柱' || prompt.shape === '楕円柱') {
-    const elliptical = prompt.shape === '楕円柱';
-    const bodyWidth = size * (elliptical ? 0.66 : 0.54) * prompt.widthScale;
-    const shadowCenterX = centerX + castX * 0.55;
-    const radiusX = Math.abs(castX) * 0.55 + bodyWidth * 0.34;
-    context.ellipse(shadowCenterX, groundY - rise * 0.45, radiusX, size * 0.065, castDirection * -0.1, 0, Math.PI * 2);
-  } else if (prompt.shape === '三角錐') {
-    const halfBase = size * 0.315 * prompt.widthScale;
-    context.moveTo(centerX - halfBase, groundY - 2);
-    context.lineTo(centerX + halfBase, groundY - 2);
-    context.lineTo(centerX + castX, groundY - rise * 1.15);
-    context.closePath();
-  } else {
-    const halfBase = size * 0.31 * prompt.widthScale;
-    context.moveTo(centerX - halfBase, groundY - 2);
-    context.quadraticCurveTo(centerX, groundY + size * 0.035, centerX + halfBase, groundY - 2);
-    context.lineTo(centerX + castX, groundY - rise * 1.25);
-    context.closePath();
-  }
-
-  context.fill();
-  context.restore();
-}
-
-function drawLightingGuide(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  size: number,
-  prompt: ShapePrompt,
-) {
-  const direction = prompt.lightDirection;
-  const lightFromLeft = direction.endsWith('left');
-  const lightFromTop = direction.startsWith('top');
-  let groundOffset = 0.27;
-  if (prompt.shape === '直方体') groundOffset = 0.215 * prompt.heightScale + 0.045 * prompt.depthScale;
-  if (prompt.shape === '円柱') groundOffset = 0.29 * prompt.heightScale + 0.04 * prompt.depthScale;
-  if (prompt.shape === '楕円柱') groundOffset = 0.23 * prompt.heightScale + 0.058 * prompt.depthScale;
-  if (prompt.shape === '円錐') groundOffset = 0.27 + 0.05 * prompt.depthScale;
-  const groundY = Math.min(height - 28, height / 2 + size * groundOffset);
-  const sourceX = lightFromLeft ? width * 0.1 : width * 0.9;
-  const sourceY = lightFromTop ? Math.max(24, height * 0.14) : height - 24;
-  const targetX = width / 2 + (lightFromLeft ? -1 : 1) * size * 0.08;
-  const targetY = height / 2 - size * 0.05;
-  drawCastShadow(context, width / 2, groundY, size, prompt);
-
-  context.save();
-  context.strokeStyle = '#77796f';
-  context.lineWidth = 1.6;
-  context.beginPath();
-  context.moveTo(width * 0.08, groundY);
-  context.lineTo(width * 0.92, groundY);
-  context.stroke();
-
-  context.strokeStyle = '#b78324';
-  context.fillStyle = '#f2bd4b';
-  context.lineWidth = 2;
-  context.setLineDash([7, 6]);
-  context.beginPath();
-  context.moveTo(sourceX, sourceY);
-  context.lineTo(targetX, targetY);
-  context.stroke();
-  context.setLineDash([]);
-
-  const angle = Math.atan2(targetY - sourceY, targetX - sourceX);
-  context.beginPath();
-  context.moveTo(targetX, targetY);
-  context.lineTo(targetX - Math.cos(angle - 0.5) * 11, targetY - Math.sin(angle - 0.5) * 11);
-  context.lineTo(targetX - Math.cos(angle + 0.5) * 11, targetY - Math.sin(angle + 0.5) * 11);
-  context.closePath();
-  context.fillStyle = '#b78324';
-  context.fill();
-
-  const lightRadius = Math.max(8, Math.min(12, height * 0.035));
-  context.fillStyle = '#f5c45b';
-  context.strokeStyle = '#a87016';
-  context.lineWidth = 1.8;
-  context.beginPath();
-  context.arc(sourceX, sourceY, lightRadius, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  for (let index = 0; index < 8; index += 1) {
-    const rayAngle = index * Math.PI / 4;
-    context.beginPath();
-    context.moveTo(sourceX + Math.cos(rayAngle) * (lightRadius + 3), sourceY + Math.sin(rayAngle) * (lightRadius + 3));
-    context.lineTo(sourceX + Math.cos(rayAngle) * (lightRadius + 8), sourceY + Math.sin(rayAngle) * (lightRadius + 8));
-    context.stroke();
-  }
-  context.restore();
-}
-
 function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -442,7 +302,6 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   context.fillStyle = background;
   context.fillRect(0, 0, rect.width, rect.height);
   const size = Math.min(rect.width, rect.height) * 0.76;
-  if (style === 'shadow') drawLightingGuide(context, rect.width, rect.height, size, prompt);
   context.save();
   context.translate(rect.width / 2, rect.height / 2);
   context.rotate(prompt.rotation);
@@ -455,14 +314,10 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
     if (prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐') drawHiddenLineRound(context, prompt, size);
     if (prompt.shape === '三角錐') drawHiddenLinePyramid(context, prompt, size);
   } else {
-    if (style === 'shadow') {
-      context.filter = 'contrast(1.18)';
-    }
-    const light = style === 'shadow' ? prompt.lightDirection : undefined;
-    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size, light);
-    if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size, light);
-    if (prompt.shape === '三角錐') drawPyramid(context, prompt, size, light);
-    if (prompt.shape === '円錐') drawCone(context, prompt, size, light);
+    if (prompt.shape === '立方体' || prompt.shape === '直方体') drawBox(context, prompt, size);
+    if (prompt.shape === '円柱' || prompt.shape === '楕円柱') drawCylinder(context, prompt, size);
+    if (prompt.shape === '三角錐') drawPyramid(context, prompt, size);
+    if (prompt.shape === '円錐') drawCone(context, prompt, size);
   }
   context.restore();
 }
@@ -508,12 +363,14 @@ export default function Home() {
     const saved = window.localStorage.getItem('solid-drawing-settings');
     if (!saved) return;
     try {
-      const parsed = JSON.parse(saved) as Partial<Settings>;
+      const parsed = JSON.parse(saved) as Partial<Settings> & { sampleStyle?: string };
       setSettings({
-        ...DEFAULT_SETTINGS,
-        ...parsed,
         shapes: parsed.shapes?.length ? parsed.shapes : ALL_SHAPES,
-        lightDirections: parsed.lightDirections?.length ? parsed.lightDirections : ALL_LIGHT_DIRECTIONS,
+        time: parsed.time === null || typeof parsed.time === 'number' ? parsed.time : DEFAULT_SETTINGS.time,
+        count: typeof parsed.count === 'number' ? parsed.count : DEFAULT_SETTINGS.count,
+        layout: parsed.layout ?? DEFAULT_SETTINGS.layout,
+        penWidth: typeof parsed.penWidth === 'number' ? parsed.penWidth : DEFAULT_SETTINGS.penWidth,
+        sampleStyle: parsed.sampleStyle === 'hidden-lines' ? 'hidden-lines' : 'shaded',
       });
     } catch {
       window.localStorage.removeItem('solid-drawing-settings');
@@ -678,29 +535,15 @@ export default function Home() {
     setValidation('');
   };
 
-  const toggleLightDirection = (direction: LightDirection) => {
-    setSettings((current) => ({
-      ...current,
-      lightDirections: current.lightDirections.includes(direction)
-        ? current.lightDirections.filter((item) => item !== direction)
-        : [...current.lightDirections, direction],
-    }));
-    setValidation('');
-  };
-
   const startPractice = (practiceSettings: Settings = settings) => {
     const count = Math.max(1, Math.min(20, Number(practiceSettings.count) || 1));
     if (!practiceSettings.shapes.length) {
       setValidation('少なくとも1つの立体を選んでください。');
       return;
     }
-    if (practiceSettings.sampleStyle === 'shadow' && !practiceSettings.lightDirections.length) {
-      setValidation('「輪郭線と影」では、光源の向きを少なくとも1つ選んでください。');
-      return;
-    }
     const normalized = { ...practiceSettings, count };
     setSettings(normalized);
-    setPrompts(createPrompts(normalized.shapes, count, normalized.lightDirections));
+    setPrompts(createPrompts(normalized.shapes, count));
     setQuestionIndex(0);
     setRemaining(normalized.time ?? 0);
     setElapsed(0);
@@ -1021,36 +864,12 @@ export default function Home() {
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shaded' }))}
                 >輪郭線と薄い陰影</button>
                 <button
-                  className={settings.sampleStyle === 'shadow' ? 'choice-button selected' : 'choice-button'}
-                  type="button"
-                  aria-pressed={settings.sampleStyle === 'shadow'}
-                  onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'shadow' }))}
-                >輪郭線と影</button>
-                <button
                   className={settings.sampleStyle === 'hidden-lines' ? 'choice-button selected' : 'choice-button'}
                   type="button"
                   aria-pressed={settings.sampleStyle === 'hidden-lines'}
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'hidden-lines' }))}
                 >輪郭線（見えない部分は点線）</button>
               </div>
-              {settings.sampleStyle === 'shadow' && (
-                <fieldset className="light-direction-fieldset">
-                  <legend>光源の向き</legend>
-                  <div className="light-direction-options">
-                    {LIGHT_DIRECTIONS.map(({ value, label }) => (
-                      <label key={value} className="check-option">
-                        <input
-                          type="checkbox"
-                          checked={settings.lightDirections.includes(value)}
-                          onChange={() => toggleLightDirection(value)}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  <small>選択した向きの中から問題ごとにランダムで光を当てます。</small>
-                </fieldset>
-              )}
               <p className="setting-note">問題ごとに角度と比率をランダム生成</p>
             </section>
             <section className="settings-card wide-card">
@@ -1093,7 +912,7 @@ export default function Home() {
             <section className="work-panel sample-panel">
               <div className="work-panel-header">
                 <strong>見本</strong>
-                <small>{settings.sampleStyle === 'shadow' ? `光源 ${LIGHT_DIRECTIONS.find(({ value }) => value === currentPrompt.lightDirection)?.label}・見る方向はランダム` : '見る方向はランダム'}</small>
+                <small>見る方向はランダム</small>
               </div>
               <div className="canvas-stage">
                 <canvas ref={sampleCanvasRef} className={paused ? 'sample-canvas hidden-sample' : 'sample-canvas'} aria-label={`${currentPrompt.shape}の見本`} />
