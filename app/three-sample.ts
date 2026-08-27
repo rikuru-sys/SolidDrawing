@@ -129,9 +129,9 @@ function buildScene(prompt: ThreeShapePrompt, style: SampleStyle, background: st
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(background);
   const geometry = shapeGeometry(prompt);
+  const rounded = prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐';
 
   if (style === 'shaded') {
-    const rounded = prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐';
     const material = new THREE.MeshStandardMaterial({
       color: 0xe5e2d8,
       roughness: 0.9,
@@ -146,7 +146,7 @@ function buildScene(prompt: ThreeShapePrompt, style: SampleStyle, background: st
     const keyLight = new THREE.DirectionalLight(0xffffff, 2.25);
     keyLight.position.set(-3.5, 5, 4.2);
     scene.add(keyLight);
-    addSilhouette(scene, geometry);
+    if (rounded) addSilhouette(scene, geometry);
   } else {
     const depthMaterial = new THREE.MeshBasicMaterial({
       colorWrite: false,
@@ -159,7 +159,7 @@ function buildScene(prompt: ThreeShapePrompt, style: SampleStyle, background: st
     const depthMesh = new THREE.Mesh(geometry, depthMaterial);
     depthMesh.renderOrder = 0;
     scene.add(depthMesh);
-    addSilhouette(scene, geometry);
+    if (rounded) addSilhouette(scene, geometry);
   }
 
   addEdgeLines(scene, geometry, style);
