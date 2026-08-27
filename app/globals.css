@@ -73,6 +73,10 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .choice-button.selected { border-color: var(--green); background: var(--green); color: white; font-weight: 700; }
 .sample-style-options { display: grid; gap: 8px; }
 .sample-style-options .choice-button { text-align: left; }
+.light-direction-fieldset { margin: 14px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 11px; }
+.light-direction-fieldset legend { padding: 0 6px; font-weight: 700; }
+.light-direction-fieldset small { display: block; margin-top: 9px; color: var(--muted); line-height: 1.45; }
+.light-direction-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .setting-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field-label { display: grid; gap: 7px; font-weight: 700; }
