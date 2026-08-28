@@ -47,6 +47,9 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .button.primary:hover { background: var(--green-dark); }
 .button.secondary { background: var(--surface); border-color: var(--line); }
 .button.secondary:hover:not(:disabled) { border-color: #aaa99f; background: var(--surface-soft); }
+.button.favorite { border-color: #d8b963; background: #fff8df; color: #6b5418; }
+.button.favorite:hover { background: #f9edbd; }
+.button.favorite.selected { border-color: #b6902f; background: #e9cc75; color: #4f3c0d; }
 .button.compact { min-height: 39px; padding: 8px 13px; }
 .text-button { min-height: 38px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 .text-button:hover { color: var(--ink); }
@@ -56,7 +59,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .hero-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
 .visual-caption { position: absolute; z-index: 2; bottom: 20px; padding: 8px 12px; border-radius: 999px; background: var(--green-soft); font-size: 14px; }
 
-.settings-section, .practice-section, .results-section { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 42px 0 72px; }
+.settings-section, .practice-section, .results-section, .favorites-section { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 42px 0 72px; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 22px; }
 .section-heading h2, .results-heading h2 { margin: 0 0 5px; font-size: clamp(30px, 4vw, 44px); line-height: 1.2; }
 .section-heading p { margin: 0; color: var(--muted); }
@@ -158,6 +161,30 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .compare-pane img { width: 100%; height: 100%; max-height: 450px; object-fit: contain; }
 .comparison-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; }
 
+.favorite-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 15px; align-items: start; }
+.favorite-list { max-height: 650px; display: grid; gap: 8px; overflow-y: auto; }
+.favorite-item { min-height: 64px; padding: 11px 13px; text-align: left; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); cursor: pointer; }
+.favorite-item.selected { border-color: #c5a64c; background: #fff8df; }
+.favorite-item strong, .favorite-item span { display: block; }
+.favorite-item span { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.favorite-preview-panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.favorite-preview-heading { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.favorite-preview-heading p, .favorite-preview-heading h3 { margin: 0; }
+.favorite-preview-heading p, .favorite-preview-heading small { color: var(--muted); }
+.favorite-preview-heading h3 { margin-top: 3px; font-size: 21px; }
+.favorite-canvas-stage { min-height: clamp(330px, 42vw, 500px); position: relative; display: grid; place-items: center; overflow: hidden; background: var(--canvas); }
+.favorite-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
+.favorite-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border-top: 1px solid var(--line); background: var(--line); }
+.favorite-meta span { min-width: 0; padding: 12px 14px; background: var(--surface-soft); }
+.favorite-meta small, .favorite-meta strong { display: block; }
+.favorite-meta small { margin-bottom: 3px; color: var(--muted); }
+.favorite-meta strong { overflow-wrap: anywhere; }
+.favorite-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.favorite-empty { min-height: 360px; display: grid; place-items: center; place-content: center; gap: 9px; padding: 30px; text-align: center; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.favorite-empty > span { color: #c29d37; font-size: 48px; line-height: 1; }
+.favorite-empty h3, .favorite-empty p { margin: 0; }
+.favorite-empty p { margin-bottom: 10px; color: var(--muted); }
+
 @media (min-width: 861px) and (orientation: landscape) and (max-height: 900px) {
   .app-header {
     min-height: 56px;
@@ -204,6 +231,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .workspace-layout.layout-right .sample-panel, .workspace-layout.layout-bottom .sample-panel { order: 2; }
   .result-layout { grid-template-columns: 1fr; }
   .result-list { grid-template-columns: repeat(4, 1fr); }
+  .favorite-layout { grid-template-columns: 1fr; }
+  .favorite-list { max-height: none; grid-template-columns: repeat(4, 1fr); overflow: visible; }
 }
 
 @media (max-width: 760px) {
@@ -217,13 +246,14 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .layout-options { grid-template-columns: 1fr 1fr; }
   .canvas-stage { min-height: 320px; }
   .result-list { grid-template-columns: repeat(3, 1fr); }
+  .favorite-list { grid-template-columns: repeat(3, 1fr); }
   .comparison-panes { grid-template-columns: 1fr; }
   .comparison-footer { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 500px) {
   .step { padding: 7px 8px; font-size: 13px; }
-  .hero-section, .settings-section, .practice-section, .results-section { width: min(100% - 24px, 1180px); }
+  .hero-section, .settings-section, .practice-section, .results-section, .favorites-section { width: min(100% - 24px, 1180px); }
   .shape-options, .field-grid, .difficulty-options { grid-template-columns: 1fr; }
   .light-direction-options { grid-template-columns: 1fr; }
   .practice-header { gap: 10px; }
@@ -234,6 +264,9 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .canvas-stage { min-height: 280px; }
   .practice-footer { align-items: flex-start; flex-direction: column; }
   .result-list { grid-template-columns: 1fr 1fr; }
+  .favorite-list { grid-template-columns: 1fr 1fr; }
+  .favorite-meta { grid-template-columns: 1fr; }
+  .favorite-actions { align-items: flex-start; flex-direction: column; }
   .comparison-heading { align-items: flex-start; flex-direction: column; }
 }
 
