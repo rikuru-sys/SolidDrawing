@@ -1,6 +1,8 @@
 export type RandomSource = () => number;
+export type SeedMode = 'random' | 'fixed';
 
 const UINT32_RANGE = 0x1_0000_0000;
+export const MAX_SEED = UINT32_RANGE - 1;
 let fallbackSeedCounter = 0;
 
 export function normalizeSeed(seed: number) {
@@ -8,6 +10,11 @@ export function normalizeSeed(seed: number) {
     throw new RangeError('Seed must be a finite number.');
   }
   return Math.trunc(seed) >>> 0;
+}
+
+export function clampSeed(seed: number) {
+  if (!Number.isFinite(seed)) return 0;
+  return Math.max(0, Math.min(MAX_SEED, Math.trunc(seed)));
 }
 
 /**

@@ -18,7 +18,12 @@ import type {
   ShapeName,
   ShapePrompt,
 } from '../src/domain/prompt/types';
-import { createSessionSeed } from '../src/domain/random/seeded-random';
+import {
+  clampSeed,
+  createSessionSeed,
+  MAX_SEED,
+  type SeedMode,
+} from '../src/domain/random/seeded-random';
 import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
@@ -74,6 +79,8 @@ type Settings = {
   sampleVisibility: SampleVisibility;
   practiceMode: PracticeMode;
   stabilization: Stabilization;
+  seedMode: SeedMode;
+  fixedSeed: number;
 };
 type Favorite = {
   id: string;
@@ -112,6 +119,8 @@ const DEFAULT_SETTINGS: Settings = {
   sampleVisibility: 'always',
   practiceMode: 'canvas',
   stabilization: 'low',
+  seedMode: 'random',
+  fixedSeed: 123456789,
 };
 
 const freshDefaultSettings = (): Settings => ({
@@ -152,6 +161,9 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     const sampleStyle = parsed.sampleStyle === 'shadow' || parsed.sampleStyle === 'hidden-lines'
       ? parsed.sampleStyle
       : 'shaded';
+    const fixedSeed = typeof parsed.fixedSeed === 'number' && Number.isFinite(parsed.fixedSeed)
+      ? clampSeed(parsed.fixedSeed)
+      : DEFAULT_SETTINGS.fixedSeed;
 
   return {
     shapes: shapes.length ? shapes : [...ALL_SHAPES],
@@ -169,6 +181,8 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     stabilization: parsed.stabilization === 'off' || parsed.stabilization === 'medium'
       ? parsed.stabilization
       : 'low',
+    seedMode: parsed.seedMode === 'fixed' ? 'fixed' : 'random',
+    fixedSeed,
   };
 }
 
@@ -719,6 +733,7 @@ export default function Home() {
 
   const currentPrompt = prompts[questionIndex];
   const currentResult = attempts[selectedResult];
+  const resultSeed = attempts[0]?.prompt.generation?.seed;
   const practiceSettings = sessionSettings ?? settings;
   const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
   const isCurrentFavorite = currentResult
@@ -1014,7 +1029,11 @@ export default function Home() {
       setValidation('光源の方向を少なくとも1つ選んでください。');
       return;
     }
-    const normalized = { ...practiceSettings, count };
+    const normalized = {
+      ...practiceSettings,
+      count,
+      fixedSeed: clampSeed(practiceSettings.fixedSeed),
+    };
     setSettings(normalized);
     setSessionSettings(normalized);
     setPrompts(createPrompts({
@@ -1024,7 +1043,9 @@ export default function Home() {
         ? normalized.lightDirections
         : ALL_LIGHT_DIRECTIONS,
       difficulty: normalized.difficulty,
-      seed: createSessionSeed(),
+      seed: normalized.seedMode === 'fixed'
+        ? normalized.fixedSeed
+        : createSessionSeed(),
     }));
     setQuestionIndex(0);
     remainingRef.current = normalized.time ?? 0;
@@ -1515,6 +1536,58 @@ export default function Home() {
                 </button>
               </div>
             </section>
+            <section className="settings-card wide-card">
+              <h3>出題の再現</h3>
+              <div className="difficulty-options">
+                <button
+                  className={settings.seedMode === 'random' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.seedMode === 'random'}
+                  onClick={() => setSettings((current) => ({ ...current, seedMode: 'random' }))}
+                >
+                  <strong>毎回ランダム</strong>
+                  <small>練習を始めるたびに新しいシードを作成します</small>
+                </button>
+                <button
+                  className={settings.seedMode === 'fixed' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.seedMode === 'fixed'}
+                  onClick={() => setSettings((current) => ({ ...current, seedMode: 'fixed' }))}
+                >
+                  <strong>固定シード</strong>
+                  <small>同じ設定とシードから同じ順番・向きの立体を出題します</small>
+                </button>
+              </div>
+              {settings.seedMode === 'fixed' && (
+                <div className="seed-controls">
+                  <label className="field-label">シード値
+                    <input
+                      type="number"
+                      min="0"
+                      max={MAX_SEED}
+                      step="1"
+                      value={settings.fixedSeed}
+                      onChange={(event) => setSettings((current) => ({
+                        ...current,
+                        fixedSeed: clampSeed(event.currentTarget.valueAsNumber),
+                      }))}
+                    />
+                    <small>0〜{MAX_SEED.toLocaleString('ja-JP')}の整数</small>
+                  </label>
+                  <button
+                    className="button secondary compact"
+                    type="button"
+                    onClick={() => setSettings((current) => ({
+                      ...current,
+                      fixedSeed: createSessionSeed(),
+                    }))}
+                  >
+                    別のシードを作成
+                  </button>
+                </div>
+              )}
+              <p className="setting-note">再現には、シード値に加えて選択した立体・難易度・光源などの設定も同じにしてください。使用したシードは結果画面に表示します。</p>
+            </section>
             <section className="settings-card">
               <h3>出題する立体</h3>
               <div className="shape-options">
@@ -1914,7 +1987,7 @@ export default function Home() {
       {screen === 'results' && attempts.length > 0 && (
         <section className="results-section">
           <div className="results-heading">
-            <div><h2>練習結果</h2><div className="result-meta"><span>{attempts.length}回完了</span><span>合計 {formatTime(sessionSeconds)}</span><span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span></div></div>
+            <div><h2>練習結果</h2><div className="result-meta"><span>{attempts.length}回完了</span><span>合計 {formatTime(sessionSeconds)}</span>{resultSeed !== undefined && <span>シード {resultSeed}</span>}<span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span></div></div>
             <div className="button-row">
               <button className="button secondary" type="button" onClick={retryCurrentPrompt}>今回と同じ立体でもう一度</button>
               <button className="button primary" type="button" onClick={() => startPractice(sessionSettings ?? settings)}>同じ設定でもう一度</button>

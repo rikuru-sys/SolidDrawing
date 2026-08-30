@@ -90,6 +90,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .light-direction-options .check-option { background: var(--surface); }
 .light-direction-options b { margin-left: 3px; font-size: 17px; }
 .setting-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.seed-controls { max-width: 520px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin-top: 14px; }
+.seed-controls .button { margin-bottom: 23px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field-grid.single-field-grid { grid-template-columns: minmax(0, 1fr); }
 .field-label { display: grid; gap: 7px; font-weight: 700; }
@@ -375,6 +377,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .step { padding: 7px 8px; font-size: 13px; }
   .hero-section, .settings-section, .practice-section, .results-section, .favorites-section { width: min(100% - 24px, 1180px); }
   .shape-options, .field-grid, .difficulty-options { grid-template-columns: 1fr; }
+  .seed-controls { grid-template-columns: 1fr; }
+  .seed-controls .button { width: 100%; margin-bottom: 0; }
   .light-direction-options { grid-template-columns: 1fr; }
   .practice-header { gap: 10px; }
   .timer { flex: 1; }
