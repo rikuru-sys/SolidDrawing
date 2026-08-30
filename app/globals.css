@@ -37,7 +37,8 @@ img { max-width: 100%; }
 .eyebrow { margin: 0 0 12px; color: var(--green); font-weight: 700; letter-spacing: .04em; }
 h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spacing: -.045em; font-weight: 700; }
 .lead { max-width: 620px; margin: 24px 0 0; color: var(--muted); font-size: clamp(16px, 2vw, 19px); line-height: 1.9; }
-.feature-list { display: grid; gap: 11px; margin: 26px 0 30px; padding: 0; list-style: none; }
+.hero-actions { margin-top: 24px; }
+.feature-list { display: grid; gap: 11px; margin: 26px 0 0; padding: 0; list-style: none; }
 .feature-list li { display: flex; align-items: center; gap: 11px; }
 .feature-list li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex: 0 0 auto; }
 .button-row { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -203,6 +204,20 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
     padding-top: 8px;
     padding-bottom: 8px;
   }
+
+  .hero-section {
+    min-height: calc(100dvh - 56px);
+    padding: clamp(20px, 3vh, 30px) 0;
+    gap: clamp(28px, 4vw, 56px);
+  }
+
+  .hero-copy h1 { font-size: clamp(44px, 4.7vw, 62px); }
+  .hero-copy .eyebrow { margin-bottom: 8px; }
+  .hero-copy .lead { margin-top: 14px; font-size: 16px; line-height: 1.65; }
+  .hero-actions { margin-top: 16px; }
+  .feature-list { gap: 7px; margin-top: 17px; font-size: 14px; }
+  .hero-visual { height: min(430px, calc(100dvh - 112px)); min-height: 340px; }
+  .visual-caption { bottom: 13px; padding: 6px 10px; font-size: 13px; }
 
   .practice-section {
     padding-top: 14px;
