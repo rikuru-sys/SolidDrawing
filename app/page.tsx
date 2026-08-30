@@ -306,6 +306,11 @@ function drawImageContained(
   );
 }
 
+function formatFileTimestamp(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日_${pad(date.getHours())}時${pad(date.getMinutes())}分`;
+}
+
 function strokeWidth(stroke: Stroke) {
   if (stroke.eraser) return stroke.width * 4;
   if (stroke.guide) return Math.max(1, stroke.width * 0.65);
@@ -847,15 +852,34 @@ export default function Home() {
     context.fillStyle = '#686b60';
     context.font = '18px sans-serif';
     context.fillText(`描画時間 ${currentResult.seconds}秒`, 50, 680);
-    downloadDataUrl(output.toDataURL('image/png'), `solid-drawing-${selectedResult + 1}.png`);
+    downloadDataUrl(
+      output.toDataURL('image/png'),
+      `立体ドローイング_比較_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
+    );
+  };
+
+  const saveDrawing = () => {
+    if (!currentResult) return;
+    downloadDataUrl(
+      currentResult.drawingImage,
+      `立体ドローイング_描画_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
+    );
   };
 
   const saveAllComparisons = async () => {
     if (!attempts.length) return;
     const output = document.createElement('canvas');
-    const rowHeight = 370;
-    output.width = 1240;
-    output.height = 130 + attempts.length * rowHeight;
+    const columnCount = 2;
+    const canvasWidth = 1600;
+    const outerPadding = 40;
+    const columnGap = 20;
+    const rowGap = 20;
+    const headerHeight = 120;
+    const cardHeight = 430;
+    const rowCount = Math.ceil(attempts.length / columnCount);
+    const cardWidth = (canvasWidth - outerPadding * 2 - columnGap) / columnCount;
+    output.width = canvasWidth;
+    output.height = headerHeight + rowCount * cardHeight + Math.max(0, rowCount - 1) * rowGap + 30;
     const context = output.getContext('2d');
     if (!context) return;
 
@@ -863,10 +887,10 @@ export default function Home() {
     context.fillRect(0, 0, output.width, output.height);
     context.fillStyle = '#25261f';
     context.font = 'bold 34px sans-serif';
-    context.fillText('立体ドローイング 練習結果', 50, 55);
+    context.fillText('立体ドローイング　練習結果', outerPadding, 55);
     context.fillStyle = '#686b60';
     context.font = '18px sans-serif';
-    context.fillText(`${attempts.length}回分の見本と描画`, 50, 91);
+    context.fillText(`${attempts.length}回分の見本と描画・2列表示`, outerPadding, 91);
 
     const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
       const image = new Image();
@@ -875,28 +899,53 @@ export default function Home() {
     });
 
     for (const [index, attempt] of attempts.entries()) {
-      const top = 120 + index * rowHeight;
+      const column = index % columnCount;
+      const row = Math.floor(index / columnCount);
+      const left = outerPadding + column * (cardWidth + columnGap);
+      const top = headerHeight + row * (cardHeight + rowGap);
+      const cardPadding = 18;
+      const paneGap = 14;
+      const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
+      const imageTop = top + 82;
+      const imageHeight = 292;
       const [sample, drawing] = await Promise.all([
         load(attempt.sampleImage),
         load(attempt.drawingImage),
       ]);
 
+      context.fillStyle = '#fffef9';
+      context.fillRect(left, top, cardWidth, cardHeight);
+      context.strokeStyle = '#d9d6cc';
+      context.lineWidth = 2;
+      context.strokeRect(left, top, cardWidth, cardHeight);
       context.fillStyle = '#25261f';
       context.font = 'bold 22px sans-serif';
-      context.fillText(`${index + 1}. ${attempt.prompt.shape}`, 50, top + 28);
+      context.fillText(`${index + 1}. ${attempt.prompt.shape}`, left + cardPadding, top + 32);
       context.fillStyle = '#686b60';
       context.font = '16px sans-serif';
-      context.fillText(`描画時間 ${attempt.seconds}秒`, 1040, top + 28);
-      context.fillText('見本', 50, top + 58);
-      context.fillText('描いたもの', 645, top + 58);
+      context.textAlign = 'right';
+      context.fillText(`描画時間 ${attempt.seconds}秒`, left + cardWidth - cardPadding, top + 32);
+      context.textAlign = 'left';
+      context.fillText('見本', left + cardPadding, top + 66);
+      context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 66);
       context.fillStyle = '#ffffff';
-      context.fillRect(50, top + 72, 545, 270);
-      context.fillRect(645, top + 72, 545, 270);
-      drawImageContained(context, sample, 50, top + 72, 545, 270);
-      drawImageContained(context, drawing, 645, top + 72, 545, 270);
+      context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
+      context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
+      drawImageContained(
+        context,
+        drawing,
+        left + cardPadding + paneWidth + paneGap,
+        imageTop,
+        paneWidth,
+        imageHeight,
+      );
     }
 
-    downloadDataUrl(output.toDataURL('image/png'), 'solid-drawing-all-results.png');
+    downloadDataUrl(
+      output.toDataURL('image/png'),
+      `立体ドローイング_全結果_${formatFileTimestamp()}.png`,
+    );
   };
 
   return (
@@ -1311,7 +1360,7 @@ export default function Home() {
                   <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
                 </div>
                 <div className="comparison-footer">
-                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>比較画像を保存</button><button className="button secondary compact" type="button" onClick={() => downloadDataUrl(currentResult.drawingImage, `drawing-${selectedResult + 1}.png`)}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果をまとめて保存</button></div>
+                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>比較画像を保存</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果を2列で保存</button></div>
                   <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
                 </div>
               </section>
