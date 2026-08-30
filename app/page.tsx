@@ -26,6 +26,7 @@ import {
 } from '../src/domain/random/seeded-random';
 import { applyStrokeStyle } from '../src/features/drawing/stroke-rendering';
 import { stabilizeStrokePoint } from '../src/features/drawing/stabilization';
+import { drawingToSvgDataUrl } from '../src/features/drawing/svg-renderer';
 import type {
   DrawingToolId,
   Point,
@@ -55,6 +56,8 @@ type Attempt = {
   sampleImage: string;
   drawingImage: string;
   alignedDrawingImage: string;
+  drawingSvg: string;
+  alignedDrawingSvg: string;
   seconds: number;
   evaluation: ShapeEvaluation;
   practiceMode: PracticeMode;
@@ -519,6 +522,18 @@ export default function Home() {
     return output.toDataURL('image/png');
   }, []);
 
+  const exportDrawingSvg = useCallback((strokesToExport: Stroke[], offsetX = 0, offsetY = 0) => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return '';
+    const bounds = canvas.getBoundingClientRect();
+    return drawingToSvgDataUrl(strokesToExport, {
+      width: bounds.width || canvas.width || 1,
+      height: bounds.height || canvas.height || 1,
+      offsetX,
+      offsetY,
+    });
+  }, []);
+
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (finishingRef.current || !currentPrompt || !sampleCanvasRef.current) return;
     finishingRef.current = true;
@@ -533,6 +548,12 @@ export default function Home() {
     const alignedDrawingImage = practiceSettings.practiceMode === 'sample-only'
       ? ''
       : exportDrawing(evaluation.alignmentX, evaluation.alignmentY);
+    const drawingSvg = practiceSettings.practiceMode === 'sample-only'
+      ? ''
+      : exportDrawingSvg(evaluationStrokes);
+    const alignedDrawingSvg = practiceSettings.practiceMode === 'sample-only'
+      ? ''
+      : exportDrawingSvg(evaluationStrokes, evaluation.alignmentX, evaluation.alignmentY);
     const pointerId = activePointerIdRef.current;
     const drawingCanvas = drawingCanvasRef.current;
     if (drawingCanvas && pointerId !== null && drawingCanvas.hasPointerCapture(pointerId)) {
@@ -550,6 +571,8 @@ export default function Home() {
       sampleImage,
       drawingImage,
       alignedDrawingImage,
+      drawingSvg,
+      alignedDrawingSvg,
       seconds,
       evaluation,
       practiceMode: practiceSettings.practiceMode,
@@ -574,7 +597,7 @@ export default function Home() {
     setRedoStrokes([]);
     setPaused(false);
     window.setTimeout(() => { finishingRef.current = false; }, 0);
-  }, [attempts, currentPrompt, exportDrawing, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex]);
+  }, [attempts, currentPrompt, exportDrawing, exportDrawingSvg, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
@@ -909,7 +932,7 @@ export default function Home() {
     });
     const [sample, drawing] = await Promise.all([
       load(currentResult.sampleImage),
-      load(comparisonMode === 'overlay' ? currentResult.alignedDrawingImage : currentResult.drawingImage),
+      load(comparisonMode === 'overlay' ? currentResult.alignedDrawingSvg : currentResult.drawingSvg),
     ]);
     if (comparisonMode === 'overlay') {
       context.fillText('見本と描画の重ね合わせ', 50, 108);
@@ -1004,7 +1027,7 @@ export default function Home() {
       const imageHeight = 292;
       const [sample, drawing] = await Promise.all([
         load(attempt.sampleImage),
-        load(mode === 'overlay' ? attempt.alignedDrawingImage : attempt.drawingImage),
+        load(mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg),
       ]);
 
       context.fillStyle = '#fffef9';
@@ -1675,7 +1698,7 @@ export default function Home() {
                           <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
                           <img
                             className="overlay-drawing"
-                            src={currentResult.alignedDrawingImage}
+                            src={currentResult.alignedDrawingSvg}
                             alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
                             style={{ opacity: overlayOpacity }}
                           />
@@ -1696,7 +1719,7 @@ export default function Home() {
                     ) : (
                       <div className="comparison-panes">
                         <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
-                        <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
+                        <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingSvg} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
                       </div>
                     )}
                   </div>
