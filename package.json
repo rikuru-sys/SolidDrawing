@@ -11,6 +11,7 @@
     "build:pages": "vite build --config vite.pages.config.ts",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern pages-dist",
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.3",
     "vite": "8.0.13",
+    "vitest": "^4.1.11",
     "wrangler": "4.92.0"
   },
   "type": "module"

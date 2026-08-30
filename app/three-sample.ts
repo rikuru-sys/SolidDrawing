@@ -1,20 +1,8 @@
 import * as THREE from 'three';
+import type { LightDirection, ShapePrompt } from '../src/domain/prompt/types';
 
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
-type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-
-type ThreeShapePrompt = {
-  shape: '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
-  widthScale: number;
-  heightScale: number;
-  depthScale: number;
-  cameraAzimuth: number;
-  cameraElevation: number;
-  objectRotationX: number;
-  objectRotationY: number;
-  objectRotationZ: number;
-  lightDirection: LightDirection;
-};
+type ThreeShapePrompt = Omit<ShapePrompt, 'id' | 'generation'>;
 
 const renderers = new WeakMap<HTMLCanvasElement, THREE.WebGLRenderer>();
 

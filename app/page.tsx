@@ -10,15 +10,21 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPrompts } from '../src/domain/prompt/prompt-generator';
+import type {
+  Difficulty,
+  LightDirection,
+  PromptGeneration,
+  ShapeName,
+  ShapePrompt,
+} from '../src/domain/prompt/types';
+import { createSessionSeed } from '../src/domain/random/seeded-random';
 import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
-type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
 type Tool = 'pen' | 'dashed' | 'guide' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
-type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-type Difficulty = 'easy' | 'hard';
 type ComparisonMode = 'side-by-side' | 'overlay';
 type SampleVisibility = 'always' | 'partway';
 type PracticeMode = 'canvas' | 'sample-only';
@@ -34,19 +40,6 @@ type Stroke = {
   color: string;
   opacity: number;
   stabilization: Stabilization;
-};
-type ShapePrompt = {
-  id: string;
-  shape: ShapeName;
-  widthScale: number;
-  heightScale: number;
-  depthScale: number;
-  cameraAzimuth: number;
-  cameraElevation: number;
-  objectRotationX: number;
-  objectRotationY: number;
-  objectRotationZ: number;
-  lightDirection: LightDirection;
 };
 type Attempt = {
   prompt: ShapePrompt;
@@ -216,6 +209,21 @@ function parseStoredPrompt(value: unknown): ShapePrompt | null {
     || !numericKeys.every((key) => typeof prompt[key] === 'number' && Number.isFinite(prompt[key]))) {
     return null;
   }
+  const storedGeneration = prompt.generation;
+  const generation: PromptGeneration | undefined = storedGeneration
+    && typeof storedGeneration === 'object'
+    && typeof (storedGeneration as Record<string, unknown>).seed === 'number'
+    && Number.isFinite((storedGeneration as Record<string, unknown>).seed)
+    && (storedGeneration as Record<string, unknown>).version === 1
+    && typeof (storedGeneration as Record<string, unknown>).index === 'number'
+    && Number.isInteger((storedGeneration as Record<string, unknown>).index)
+    ? {
+      seed: ((storedGeneration as Record<string, unknown>).seed as number) >>> 0,
+      version: 1,
+      index: (storedGeneration as Record<string, unknown>).index as number,
+    }
+    : undefined;
+
   return {
     id: prompt.id,
     shape: prompt.shape as ShapeName,
@@ -228,6 +236,7 @@ function parseStoredPrompt(value: unknown): ShapePrompt | null {
     objectRotationY: prompt.objectRotationY as number,
     objectRotationZ: prompt.objectRotationZ as number,
     lightDirection: prompt.lightDirection as LightDirection,
+    ...(generation ? { generation } : {}),
   };
 }
 
@@ -268,36 +277,6 @@ const HERO_PROMPT: ShapePrompt = {
   objectRotationZ: 0,
   lightDirection: 'top-left',
 };
-
-const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
-
-function createPrompts(
-  shapes: ShapeName[],
-  count: number,
-  lightDirections: LightDirection[],
-  difficulty: Difficulty,
-): ShapePrompt[] {
-  let previous: ShapeName | undefined;
-  return Array.from({ length: count }, (_, index) => {
-    const available = shapes.length > 1 ? shapes.filter((shape) => shape !== previous) : shapes;
-    const shape = available[Math.floor(Math.random() * available.length)];
-    const hardTilt = randomBetween(0.38, 1.02) * (Math.random() > 0.5 ? 1 : -1);
-    previous = shape;
-    return {
-      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
-      shape,
-      widthScale: randomBetween(0.82, 1.14),
-      heightScale: randomBetween(0.84, 1.15),
-      depthScale: randomBetween(0.78, 1.12),
-      cameraAzimuth: randomBetween(-Math.PI, Math.PI),
-      cameraElevation: randomBetween(0.24, 0.82),
-      objectRotationX: difficulty === 'hard' ? hardTilt : 0,
-      objectRotationY: difficulty === 'hard' ? randomBetween(-Math.PI, Math.PI) : 0,
-      objectRotationZ: difficulty === 'hard' ? randomBetween(-0.55, 0.55) : 0,
-      lightDirection: lightDirections[Math.floor(Math.random() * lightDirections.length)],
-    };
-  });
-}
 
 function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
   renderSample3D(canvas, prompt, style, background);
@@ -1038,12 +1017,15 @@ export default function Home() {
     const normalized = { ...practiceSettings, count };
     setSettings(normalized);
     setSessionSettings(normalized);
-    setPrompts(createPrompts(
-      normalized.shapes,
+    setPrompts(createPrompts({
+      shapes: normalized.shapes,
       count,
-      normalized.lightDirections.length ? normalized.lightDirections : ALL_LIGHT_DIRECTIONS,
-      normalized.difficulty,
-    ));
+      lightDirections: normalized.lightDirections.length
+        ? normalized.lightDirections
+        : ALL_LIGHT_DIRECTIONS,
+      difficulty: normalized.difficulty,
+      seed: createSessionSeed(),
+    }));
     setQuestionIndex(0);
     remainingRef.current = normalized.time ?? 0;
     elapsedRef.current = 0;
