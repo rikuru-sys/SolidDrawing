@@ -40,3 +40,9 @@ export function practiceDurationSeconds({
   if (timedOut) return timeLimit;
   return Math.max(1, timeLimit - Math.max(0, remainingSeconds));
 }
+
+export function formatTimerSeconds(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(safeSeconds % 60).padStart(2, '0')}`;
+}

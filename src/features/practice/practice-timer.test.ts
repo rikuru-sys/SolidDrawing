@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   countdownSnapshot,
   elapsedTimerSeconds,
+  formatTimerSeconds,
   practiceDurationSeconds,
 } from './practice-timer';
 
@@ -68,5 +69,11 @@ describe('practice timer', () => {
       elapsedSeconds: 47,
       timedOut: false,
     })).toBe(47);
+  });
+
+  it('formats whole, non-negative seconds for timer displays', () => {
+    expect(formatTimerSeconds(0)).toBe('00:00');
+    expect(formatTimerSeconds(65.9)).toBe('01:05');
+    expect(formatTimerSeconds(-1)).toBe('00:00');
   });
 });

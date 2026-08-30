@@ -1,12 +1,9 @@
 'use client';
 
-/* eslint-disable @next/next/no-img-element -- comparison images are generated data URLs */
-
 import {
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -43,8 +40,11 @@ import type { ShapeEvaluation } from '../src/features/evaluation/types';
 import {
   countdownSnapshot,
   elapsedTimerSeconds,
+  formatTimerSeconds,
   practiceDurationSeconds,
 } from '../src/features/practice/practice-timer';
+import { ResultsScreen } from '../src/features/results/results-screen';
+import type { Attempt, ComparisonMode } from '../src/features/results/types';
 import {
   ALL_LIGHT_DIRECTIONS,
   ALL_SHAPES,
@@ -52,7 +52,6 @@ import {
   normalizeStoredSettings,
   readStoredSettings,
   saveStoredSettings,
-  type PracticeMode,
   type SampleStyle,
   type Settings,
 } from '../src/features/settings/practice-settings';
@@ -61,18 +60,6 @@ import { LIGHT_DIRECTION_OPTIONS } from '../src/features/settings/settings-optio
 import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
-type ComparisonMode = 'side-by-side' | 'overlay';
-type Attempt = {
-  prompt: ShapePrompt;
-  sampleImage: string;
-  drawingImage: string;
-  alignedDrawingImage: string;
-  drawingSvg: string;
-  alignedDrawingSvg: string;
-  seconds: number;
-  evaluation: ShapeEvaluation;
-  practiceMode: PracticeMode;
-};
 type Favorite = {
   id: string;
   prompt: ShapePrompt;
@@ -174,11 +161,6 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
   renderSample3D(canvas, prompt, style, background);
 }
 
-function formatTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
 function sampleStyleLabel(style: SampleStyle) {
   if (style === 'shadow') return '輪郭線と影';
   if (style === 'hidden-lines') return '輪郭線（点線）';
@@ -251,7 +233,6 @@ export default function Home() {
 
   const currentPrompt = prompts[questionIndex];
   const currentResult = attempts[selectedResult];
-  const resultSeed = attempts[0]?.prompt.generation?.seed;
   const practiceSettings = sessionSettings ?? settings;
   const activeDrawingTool = getDrawingTool(tool);
   const brushCursorSize = activeDrawingTool.getCursorSize(practiceSettings.penWidth);
@@ -274,11 +255,6 @@ export default function Home() {
   const sampleHiddenByMode = practiceSettings.sampleVisibility === 'partway'
     && currentQuestionElapsed >= sampleHideAfterSeconds;
   const secondsUntilSampleHide = Math.max(0, sampleHideAfterSeconds - currentQuestionElapsed);
-
-  const sessionSeconds = useMemo(
-    () => attempts.reduce((total, attempt) => total + attempt.seconds, 0),
-    [attempts],
-  );
 
   useEffect(() => {
     saveStoredSettings(settings);
@@ -1018,7 +994,7 @@ export default function Home() {
                 <span style={{ width: `${((questionIndex + 1) / prompts.length) * 100}%` }} />
               </div>
             </div>
-            <div className="timer" aria-live="polite"><small>{practiceSettings.time === null ? '経過時間' : '残り時間'}</small><strong>{formatTime(practiceSettings.time === null ? elapsed : remaining)}</strong></div>
+            <div className="timer" aria-live="polite"><small>{practiceSettings.time === null ? '経過時間' : '残り時間'}</small><strong>{formatTimerSeconds(practiceSettings.time === null ? elapsed : remaining)}</strong></div>
             <div className="practice-actions"><button className="button secondary compact" type="button" onClick={() => setPaused((value) => !value)}>{paused ? '再開' : '一時停止'}</button><button className="text-button danger" type="button" onClick={stopPractice}>終了</button></div>
           </div>
 
@@ -1241,123 +1217,23 @@ export default function Home() {
       )}
 
       {screen === 'results' && attempts.length > 0 && (
-        <section className="results-section">
-          <div className="results-heading">
-            <div><h2>練習結果</h2><div className="result-meta"><span>{attempts.length}回完了</span><span>合計 {formatTime(sessionSeconds)}</span>{resultSeed !== undefined && <span>シード {resultSeed}</span>}<span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span></div></div>
-            <div className="button-row">
-              <button className="button secondary" type="button" onClick={retryCurrentPrompt}>今回と同じ立体でもう一度</button>
-              <button className="button primary" type="button" onClick={() => startPractice(sessionSettings ?? settings)}>同じ設定でもう一度</button>
-            </div>
-          </div>
-          <div className="result-layout">
-            <nav className="result-list" aria-label="確認する問題">
-              {attempts.map((attempt, index) => (
-                <button key={attempt.prompt.id} className={selectedResult === index ? 'result-item selected' : 'result-item'} type="button" aria-pressed={selectedResult === index} onClick={() => setSelectedResult(index)}>
-                  <strong>{index + 1}　{attempt.prompt.shape}</strong>
-                  <span>{attempt.seconds}秒・{attempt.practiceMode === 'sample-only' ? '見本のみ' : `評価 ${attempt.evaluation.score}点`}</span>
-                </button>
-              ))}
-            </nav>
-            {currentResult && (
-              <section className="comparison-panel">
-                <div className="comparison-heading">
-                  <div className="comparison-title">
-                    <h3>{selectedResult + 1}　{currentResult.prompt.shape}</h3>
-                    <span>{currentResult.practiceMode === 'sample-only'
-                      ? '見本のみ表示モードの練習記録'
-                      : comparisonMode === 'overlay'
-                        ? '中心を合わせて見本と描画を比較'
-                        : '見本と描画を横並びで比較'}</span>
-                  </div>
-                  {currentResult.practiceMode === 'canvas' && (
-                    <div className="comparison-mode-buttons" role="group" aria-label="比較方法">
-                      <button className={comparisonMode === 'side-by-side' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'side-by-side'} onClick={() => setComparisonMode('side-by-side')}>横並び</button>
-                      <button className={comparisonMode === 'overlay' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'overlay'} onClick={() => setComparisonMode('overlay')}>重ね合わせ</button>
-                    </div>
-                  )}
-                </div>
-                <div className={currentResult.practiceMode === 'sample-only'
-                  ? 'comparison-body sample-only-result-body'
-                  : 'comparison-body'}>
-                  <div className="comparison-visual">
-                    {currentResult.practiceMode === 'sample-only' ? (
-                      <>
-                        <div className="comparison-panes sample-only-result">
-                          <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
-                        </div>
-                        <div className="sample-only-result-note">
-                          <strong>自動評価なし</strong>
-                          <span>外部のペイントソフトで描いた結果はこのサイトには保存されないため、形状評価は行いません。</span>
-                        </div>
-                      </>
-                    ) : comparisonMode === 'overlay' ? (
-                      <div className="overlay-comparison">
-                        <div className="overlay-stage">
-                          <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
-                          <img
-                            className="overlay-drawing"
-                            src={currentResult.alignedDrawingSvg}
-                            alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
-                            style={{ opacity: overlayOpacity }}
-                          />
-                        </div>
-                        <label className="overlay-opacity-control">
-                          <span>描画の濃さ {Math.round(overlayOpacity * 100)}%</span>
-                          <input
-                            type="range"
-                            min="0.2"
-                            max="1"
-                            step="0.05"
-                            value={overlayOpacity}
-                            onChange={(event) => setOverlayOpacity(Number(event.target.value))}
-                            aria-label="重ね合わせる描画の濃さ"
-                          />
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="comparison-panes">
-                        <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
-                        <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingSvg} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
-                      </div>
-                    )}
-                  </div>
-                  {currentResult.practiceMode === 'canvas' && (
-                    <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
-                      <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
-                      <div className="evaluation-copy">
-                        <strong>自動形状評価</strong>
-                        <p>{currentResult.evaluation.feedback}</p>
-                        <small>位置だけを合わせ、輪郭45%・傾き25%・大きさ20%・比率10%で細かなずれも評価します。</small>
-                      </div>
-                      <dl className="evaluation-metrics">
-                        <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
-                        <div><dt>傾き</dt><dd>{currentResult.evaluation.angle}</dd></div>
-                        <div><dt>大きさ</dt><dd>{currentResult.evaluation.size}</dd></div>
-                        <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
-                      </dl>
-                    </div>
-                  )}
-                </div>
-                <div className="comparison-footer">
-                  <div className="button-row">
-                    <button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button>
-                    {currentResult.practiceMode === 'sample-only' ? (
-                      <button className="button primary compact" type="button" onClick={saveSample}>見本画像を保存</button>
-                    ) : (
-                      <>
-                        <button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button>
-                        <button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button>
-                        <button className="button secondary compact" type="button" onClick={() => saveAllComparisons('side-by-side')}>全結果：横並び保存</button>
-                        <button className="button primary compact" type="button" onClick={() => saveAllComparisons('overlay')}>全結果：重ね合わせ保存</button>
-                      </>
-                    )}
-                  </div>
-                  <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
-                </div>
-              </section>
-            )}
-          </div>
-        </section>
+        <ResultsScreen
+          attempts={attempts}
+          selectedResult={selectedResult}
+          comparisonMode={comparisonMode}
+          overlayOpacity={overlayOpacity}
+          isCurrentFavorite={isCurrentFavorite}
+          onSelectResult={setSelectedResult}
+          onComparisonModeChange={setComparisonMode}
+          onOverlayOpacityChange={setOverlayOpacity}
+          onRetryCurrent={retryCurrentPrompt}
+          onRetrySession={() => startPractice(sessionSettings ?? settings)}
+          onToggleFavorite={toggleCurrentFavorite}
+          onSaveSample={saveSample}
+          onSaveComparison={saveComparison}
+          onSaveDrawing={saveDrawing}
+          onSaveAllComparisons={saveAllComparisons}
+        />
       )}
     </main>
   );
