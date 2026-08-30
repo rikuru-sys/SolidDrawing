@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useRef,
@@ -13,18 +12,7 @@ import {
   clampSeed,
   createSessionSeed,
 } from '../src/domain/random/seeded-random';
-import { applyStrokeStyle } from '../src/features/drawing/stroke-rendering';
-import { stabilizeStrokePoint } from '../src/features/drawing/stabilization';
-import { drawingToSvgDataUrl } from '../src/features/drawing/svg-renderer';
-import type {
-  DrawingToolId,
-  Point,
-  Stroke,
-} from '../src/features/drawing/types';
-import {
-  createDrawingStroke,
-  getDrawingTool,
-} from '../src/features/drawing/tools/tool-registry';
+import { useDrawingCanvas } from '../src/features/drawing/use-drawing-canvas';
 import {
   evaluateShape,
   unevaluatedShape,
@@ -87,9 +75,6 @@ export default function Home() {
   const [remaining, setRemaining] = useState(DEFAULT_SETTINGS.time ?? 0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [tool, setTool] = useState<DrawingToolId>('pen');
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [redoStrokes, setRedoStrokes] = useState<Stroke[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [selectedResult, setSelectedResult] = useState(0);
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
@@ -100,12 +85,7 @@ export default function Home() {
 
   const heroCanvasRef = useRef<HTMLCanvasElement>(null);
   const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const favoriteCanvasRef = useRef<HTMLCanvasElement>(null);
-  const brushCursorRef = useRef<HTMLDivElement>(null);
-  const activeStrokeRef = useRef<Stroke | null>(null);
-  const activePointerIdRef = useRef<number | null>(null);
-  const strokesRef = useRef<Stroke[]>([]);
   const remainingRef = useRef(DEFAULT_SETTINGS.time ?? 0);
   const elapsedRef = useRef(0);
   const finishingRef = useRef(false);
@@ -114,6 +94,21 @@ export default function Home() {
   const currentPrompt = prompts[questionIndex];
   const currentResult = attempts[selectedResult];
   const practiceSettings = sessionSettings ?? settings;
+  const drawing = useDrawingCanvas({
+    active: screen === 'practice' && practiceSettings.practiceMode === 'canvas',
+    paused,
+    penWidth: practiceSettings.penWidth,
+    penColor: practiceSettings.penColor,
+    penOpacity: practiceSettings.penOpacity,
+    stabilization: practiceSettings.stabilization,
+  });
+  const {
+    exportDrawing,
+    exportDrawingSvg,
+    getCurrentStrokes,
+    releaseActivePointer,
+    resetDrawing,
+  } = drawing;
   const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
   const isCurrentFavorite = currentResult
     ? favorites.some(({ prompt }) => prompt.id === currentResult.prompt.id)
@@ -126,43 +121,6 @@ export default function Home() {
   useEffect(() => {
     saveStoredFavorites(favorites);
   }, [favorites]);
-
-  const paintStroke = useCallback((context: CanvasRenderingContext2D, stroke: Stroke, width: number, height: number) => {
-    if (!stroke.points.length) return;
-    context.save();
-    applyStrokeStyle(context, stroke);
-    if (stroke.points.length === 1) {
-      context.beginPath();
-      context.arc(stroke.points[0].x * width, stroke.points[0].y * height, context.lineWidth / 2, 0, Math.PI * 2);
-      context.fill();
-    } else {
-      context.beginPath();
-      context.moveTo(stroke.points[0].x * width, stroke.points[0].y * height);
-      stroke.points.slice(1).forEach((point) => context.lineTo(point.x * width, point.y * height));
-      context.stroke();
-    }
-    context.restore();
-  }, []);
-
-  const redrawDrawing = useCallback((nextStrokes = strokesRef.current) => {
-    const canvas = drawingCanvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(rect.width * ratio);
-    canvas.height = Math.round(rect.height * ratio);
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, rect.width, rect.height);
-    nextStrokes.forEach((stroke) => paintStroke(context, stroke, rect.width, rect.height));
-  }, [paintStroke]);
-
-  useEffect(() => {
-    strokesRef.current = strokes;
-    if (screen === 'practice') redrawDrawing(strokes);
-  }, [redrawDrawing, screen, strokes]);
 
   useEffect(() => {
     if (screen !== 'home' || !heroCanvasRef.current) return;
@@ -208,50 +166,10 @@ export default function Home() {
     };
   }, [currentPrompt, practiceSettings.sampleStyle, screen]);
 
-  useEffect(() => {
-    if (screen !== 'practice' || !drawingCanvasRef.current) return;
-    const canvas = drawingCanvasRef.current;
-    const observer = new ResizeObserver(() => redrawDrawing());
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [redrawDrawing, screen]);
-
-  const exportDrawing = useCallback((offsetX = 0, offsetY = 0) => {
-    const canvas = drawingCanvasRef.current;
-    if (!canvas) return '';
-    const output = document.createElement('canvas');
-    output.width = canvas.width;
-    output.height = canvas.height;
-    const context = output.getContext('2d');
-    if (!context) return '';
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, output.width, output.height);
-    context.drawImage(
-      canvas,
-      Math.round(offsetX * output.width),
-      Math.round(offsetY * output.height),
-    );
-    return output.toDataURL('image/png');
-  }, []);
-
-  const exportDrawingSvg = useCallback((strokesToExport: Stroke[], offsetX = 0, offsetY = 0) => {
-    const canvas = drawingCanvasRef.current;
-    if (!canvas) return '';
-    const bounds = canvas.getBoundingClientRect();
-    return drawingToSvgDataUrl(strokesToExport, {
-      width: bounds.width || canvas.width || 1,
-      height: bounds.height || canvas.height || 1,
-      offsetX,
-      offsetY,
-    });
-  }, []);
-
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (finishingRef.current || !currentPrompt || !sampleCanvasRef.current) return;
     finishingRef.current = true;
-    const evaluationStrokes = activeStrokeRef.current
-      ? [...strokesRef.current, activeStrokeRef.current]
-      : strokesRef.current;
+    const evaluationStrokes = getCurrentStrokes();
     const evaluation = practiceSettings.practiceMode === 'sample-only'
       ? unevaluatedShape()
       : evaluateShape(sampleCanvasRef.current, evaluationStrokes);
@@ -266,13 +184,7 @@ export default function Home() {
     const alignedDrawingSvg = practiceSettings.practiceMode === 'sample-only'
       ? ''
       : exportDrawingSvg(evaluationStrokes, evaluation.alignmentX, evaluation.alignmentY);
-    const pointerId = activePointerIdRef.current;
-    const drawingCanvas = drawingCanvasRef.current;
-    if (drawingCanvas && pointerId !== null && drawingCanvas.hasPointerCapture(pointerId)) {
-      drawingCanvas.releasePointerCapture(pointerId);
-    }
-    activeStrokeRef.current = null;
-    activePointerIdRef.current = null;
+    releaseActivePointer();
     const seconds = practiceDurationSeconds({
       timeLimit: practiceSettings.time,
       remainingSeconds: remainingRef.current,
@@ -306,11 +218,10 @@ export default function Home() {
     elapsedRef.current = 0;
     setRemaining(remainingRef.current);
     setElapsed(0);
-    setStrokes([]);
-    setRedoStrokes([]);
+    resetDrawing();
     setPaused(false);
     window.setTimeout(() => { finishingRef.current = false; }, 0);
-  }, [attempts, currentPrompt, exportDrawing, exportDrawingSvg, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex]);
+  }, [attempts, currentPrompt, exportDrawing, exportDrawingSvg, getCurrentStrokes, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex, releaseActivePointer, resetDrawing]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
@@ -402,13 +313,10 @@ export default function Home() {
     setQuestionIndex(0);
     remainingRef.current = normalized.time ?? 0;
     elapsedRef.current = 0;
-    activeStrokeRef.current = null;
-    activePointerIdRef.current = null;
     setRemaining(remainingRef.current);
     setElapsed(0);
     setPaused(false);
-    setStrokes([]);
-    setRedoStrokes([]);
+    resetDrawing();
     setAttempts([]);
     setSelectedResult(0);
     finishingRef.current = false;
@@ -426,13 +334,10 @@ export default function Home() {
     setQuestionIndex(0);
     remainingRef.current = retrySettings.time ?? 0;
     elapsedRef.current = 0;
-    activeStrokeRef.current = null;
-    activePointerIdRef.current = null;
     setRemaining(remainingRef.current);
     setElapsed(0);
     setPaused(false);
-    setStrokes([]);
-    setRedoStrokes([]);
+    resetDrawing();
     finishingRef.current = false;
     setScreen('practice');
   };
@@ -463,13 +368,10 @@ export default function Home() {
     setQuestionIndex(0);
     remainingRef.current = favoriteSettings.time ?? 0;
     elapsedRef.current = 0;
-    activeStrokeRef.current = null;
-    activePointerIdRef.current = null;
     setRemaining(remainingRef.current);
     setElapsed(0);
     setPaused(false);
-    setStrokes([]);
-    setRedoStrokes([]);
+    resetDrawing();
     setAttempts([]);
     setSelectedResult(0);
     finishingRef.current = false;
@@ -480,114 +382,6 @@ export default function Home() {
     if (!selectedFavorite) return;
     setFavorites((current) => current.filter(({ id }) => id !== selectedFavorite.id));
     setSelectedFavoriteId(null);
-  };
-
-  const canvasPoint = (event: ReactPointerEvent<HTMLCanvasElement>): Point => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
-      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
-    };
-  };
-
-  const updateBrushCursor = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    const cursor = brushCursorRef.current;
-    if (!cursor) return;
-    if (event.pointerType === 'touch' || paused) {
-      cursor.style.opacity = '0';
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    cursor.style.left = `${event.clientX - rect.left}px`;
-    cursor.style.top = `${event.clientY - rect.top}px`;
-    cursor.style.opacity = '1';
-  };
-
-  const hideBrushCursor = () => {
-    if (brushCursorRef.current) brushCursorRef.current.style.opacity = '0';
-  };
-
-  const beginStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (paused) return;
-    updateBrushCursor(event);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    activePointerIdRef.current = event.pointerId;
-    activeStrokeRef.current = createDrawingStroke(tool, {
-      point: canvasPoint(event),
-      width: practiceSettings.penWidth,
-      color: practiceSettings.penColor,
-      opacity: practiceSettings.penOpacity,
-      stabilization: practiceSettings.stabilization,
-    });
-    setRedoStrokes([]);
-  };
-
-  const continueStroke = (event: ReactPointerEvent<HTMLCanvasElement>, finishing = false) => {
-    updateBrushCursor(event);
-    const stroke = activeStrokeRef.current;
-    const canvas = drawingCanvasRef.current;
-    if (!stroke || !canvas || paused) return;
-    const rawPoint = canvasPoint(event);
-    const previousPoint = stroke.points[stroke.points.length - 1];
-    const rect = canvas.getBoundingClientRect();
-    const nextPoint = stabilizeStrokePoint(
-      previousPoint,
-      rawPoint,
-      stroke.stabilization,
-      rect.width,
-      rect.height,
-      finishing,
-    );
-    if (Math.hypot(nextPoint.x - previousPoint.x, nextPoint.y - previousPoint.y) < 0.0001) return;
-    const strokeTool = getDrawingTool(stroke.tool);
-    const dashOffset = strokeTool.continuesDashPattern
-      ? stroke.points.slice(1).reduce((total, point, index) => {
-        const start = stroke.points[index];
-        return total + Math.hypot(
-          (point.x - start.x) * rect.width,
-          (point.y - start.y) * rect.height,
-        );
-      }, 0)
-      : 0;
-    stroke.points.push(nextPoint);
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    context.save();
-    applyStrokeStyle(context, stroke);
-    if (strokeTool.continuesDashPattern) context.lineDashOffset = -dashOffset;
-    context.beginPath();
-    context.moveTo(previousPoint.x * rect.width, previousPoint.y * rect.height);
-    context.lineTo(nextPoint.x * rect.width, nextPoint.y * rect.height);
-    context.stroke();
-    context.restore();
-  };
-
-  const endStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    const stroke = activeStrokeRef.current;
-    if (stroke && event.type === 'pointerup') continueStroke(event, true);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    activePointerIdRef.current = null;
-    if (!stroke) return;
-    activeStrokeRef.current = null;
-    setStrokes((current) => [...current, stroke]);
-  };
-
-  const undo = () => {
-    setStrokes((current) => {
-      const last = current[current.length - 1];
-      if (!last) return current;
-      setRedoStrokes((redo) => [...redo, last]);
-      return current.slice(0, -1);
-    });
-  };
-
-  const redo = () => {
-    setRedoStrokes((current) => {
-      const last = current[current.length - 1];
-      if (!last) return current;
-      setStrokes((drawn) => [...drawn, last]);
-      return current.slice(0, -1);
-    });
   };
 
   const stopPractice = () => {
@@ -694,25 +488,25 @@ export default function Home() {
           remainingSeconds={remaining}
           elapsedSeconds={elapsed}
           paused={paused}
-          tool={tool}
-          strokeCount={strokes.length}
-          redoCount={redoStrokes.length}
+          tool={drawing.tool}
+          strokeCount={drawing.strokes.length}
+          redoCount={drawing.redoStrokes.length}
           sampleCanvasRef={sampleCanvasRef}
-          drawingCanvasRef={drawingCanvasRef}
-          brushCursorRef={brushCursorRef}
+          drawingCanvasRef={drawing.drawingCanvasRef}
+          brushCursorRef={drawing.brushCursorRef}
           onTogglePaused={() => setPaused((value) => !value)}
           onStop={stopPractice}
           onNext={() => finishCurrent(false)}
-          onToolChange={setTool}
+          onToolChange={drawing.setTool}
           onPenStyleChange={updatePracticePenStyle}
-          onUndo={undo}
-          onRedo={redo}
-          onClear={() => { setStrokes([]); setRedoStrokes([]); }}
-          onPointerEnter={updateBrushCursor}
-          onPointerDown={beginStroke}
-          onPointerMove={continueStroke}
-          onPointerEnd={endStroke}
-          onPointerLeave={hideBrushCursor}
+          onUndo={drawing.undo}
+          onRedo={drawing.redo}
+          onClear={drawing.clear}
+          onPointerEnter={drawing.updateBrushCursor}
+          onPointerDown={drawing.beginStroke}
+          onPointerMove={drawing.continueStroke}
+          onPointerEnd={drawing.endStroke}
+          onPointerLeave={drawing.hideBrushCursor}
         />
       )}
 
