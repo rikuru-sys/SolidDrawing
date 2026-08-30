@@ -20,6 +20,7 @@ type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type Difficulty = 'easy' | 'hard';
 type ComparisonMode = 'side-by-side' | 'overlay';
+type SampleVisibility = 'always' | 'partway';
 
 type Point = { x: number; y: number };
 type Stroke = {
@@ -73,6 +74,7 @@ type Settings = {
   sampleStyle: SampleStyle;
   lightDirections: LightDirection[];
   difficulty: Difficulty;
+  sampleVisibility: SampleVisibility;
 };
 type Favorite = {
   id: string;
@@ -108,6 +110,7 @@ const DEFAULT_SETTINGS: Settings = {
   sampleStyle: 'shaded',
   lightDirections: [...ALL_LIGHT_DIRECTIONS],
   difficulty: 'easy',
+  sampleVisibility: 'always',
 };
 
 const freshDefaultSettings = (): Settings => ({
@@ -160,6 +163,7 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     sampleStyle,
     lightDirections: lightDirections.length ? lightDirections : [...ALL_LIGHT_DIRECTIONS],
     difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
+    sampleVisibility: parsed.sampleVisibility === 'partway' ? 'partway' : 'always',
   };
 }
 
@@ -695,6 +699,15 @@ export default function Home() {
   const selectedFavoriteLight = selectedFavorite
     ? LIGHT_DIRECTIONS.find(({ value }) => value === selectedFavorite.prompt.lightDirection)
     : undefined;
+  const sampleHideAfterSeconds = practiceSettings.time === null
+    ? 15
+    : Math.ceil(practiceSettings.time / 2);
+  const currentQuestionElapsed = practiceSettings.time === null
+    ? elapsed
+    : Math.max(0, practiceSettings.time - remaining);
+  const sampleHiddenByMode = practiceSettings.sampleVisibility === 'partway'
+    && currentQuestionElapsed >= sampleHideAfterSeconds;
+  const secondsUntilSampleHide = Math.max(0, sampleHideAfterSeconds - currentQuestionElapsed);
 
   const sessionSeconds = useMemo(
     () => attempts.reduce((total, attempt) => total + attempt.seconds, 0),
@@ -1507,6 +1520,29 @@ export default function Home() {
                   onClick={() => setSettings((current) => ({ ...current, sampleStyle: 'hidden-lines' }))}
                 >輪郭線（見えない部分は点線）</button>
               </div>
+              <div className="sample-visibility-setting">
+                <h4>練習中の表示時間</h4>
+                <div className="difficulty-options">
+                  <button
+                    className={settings.sampleVisibility === 'always' ? 'choice-button selected' : 'choice-button'}
+                    type="button"
+                    aria-pressed={settings.sampleVisibility === 'always'}
+                    onClick={() => setSettings((current) => ({ ...current, sampleVisibility: 'always' }))}
+                  >
+                    <strong>常に表示</strong>
+                    <small>練習が終わるまで見本を表示します</small>
+                  </button>
+                  <button
+                    className={settings.sampleVisibility === 'partway' ? 'choice-button selected' : 'choice-button'}
+                    type="button"
+                    aria-pressed={settings.sampleVisibility === 'partway'}
+                    onClick={() => setSettings((current) => ({ ...current, sampleVisibility: 'partway' }))}
+                  >
+                    <strong>途中で隠す</strong>
+                    <small>時間の半分、指定なしは15秒後に隠します</small>
+                  </button>
+                </div>
+              </div>
               {settings.sampleStyle === 'shadow' && (
                 <fieldset className="light-direction-fieldset">
                   <legend>使用する光源方向</legend>
@@ -1568,21 +1604,40 @@ export default function Home() {
               <div className="work-panel-header">
                 <strong>見本</strong>
                 <small>
-                  {practiceSettings.sampleStyle === 'shadow' && currentLight
+                  {(practiceSettings.sampleStyle === 'shadow' && currentLight
                     ? `${practiceSettings.difficulty === 'hard' ? '難しい' : '簡単'}・光源 ${currentLight.label} ${currentLight.arrow}`
                     : practiceSettings.difficulty === 'hard'
                       ? '難しい・立体の向きもランダム'
-                      : '簡単・見る方向はランダム'}
+                      : '簡単・見る方向はランダム')
+                    + (practiceSettings.sampleVisibility === 'partway' ? '・途中で非表示' : '')}
                 </small>
               </div>
               <div className="canvas-stage">
-                <canvas ref={sampleCanvasRef} className={paused ? 'sample-canvas hidden-sample' : 'sample-canvas'} aria-label={`${currentPrompt.shape}の見本`} />
-                {practiceSettings.sampleStyle === 'shadow' && currentLight && !paused && (
+                <canvas
+                  ref={sampleCanvasRef}
+                  className={paused || sampleHiddenByMode ? 'sample-canvas hidden-sample' : 'sample-canvas'}
+                  aria-label={`${currentPrompt.shape}の見本`}
+                  aria-hidden={paused || sampleHiddenByMode}
+                />
+                {practiceSettings.sampleStyle === 'shadow' && currentLight && !paused && !sampleHiddenByMode && (
                   <span className="light-direction-badge">
                     光源 {currentLight.label} <b aria-hidden="true">{currentLight.arrow}</b>
                   </span>
                 )}
-                {paused && <div className="pause-cover"><strong>一時停止中</strong><span>再開すると見本を表示します</span></div>}
+                {practiceSettings.sampleVisibility === 'partway' && !paused && !sampleHiddenByMode && (
+                  <span className="sample-hide-countdown">あと {secondsUntilSampleHide}秒で非表示</span>
+                )}
+                {paused ? (
+                  <div className="pause-cover">
+                    <strong>一時停止中</strong>
+                    <span>{sampleHiddenByMode ? '再開後も見本は非表示です' : '再開すると見本を表示します'}</span>
+                  </div>
+                ) : sampleHiddenByMode ? (
+                  <div className="sample-hidden-cover" role="status">
+                    <strong>見本を隠しました</strong>
+                    <span>記憶を頼りに描きましょう</span>
+                  </div>
+                ) : null}
               </div>
             </section>
             <section className="work-panel drawing-panel">
@@ -1714,6 +1769,7 @@ export default function Home() {
                 <div className="favorite-meta">
                   <span><small>難易度</small><strong>{selectedFavorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}</strong></span>
                   <span><small>見本表示</small><strong>{sampleStyleLabel(selectedFavorite.settings.sampleStyle)}</strong></span>
+                  <span><small>表示時間</small><strong>{selectedFavorite.settings.sampleVisibility === 'partway' ? '途中で隠す' : '常に表示'}</strong></span>
                   <span><small>制限時間</small><strong>{selectedFavorite.settings.time === null ? '指定なし' : `${selectedFavorite.settings.time}秒`}</strong></span>
                 </div>
                 <div className="favorite-actions">

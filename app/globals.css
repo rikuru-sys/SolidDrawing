@@ -82,6 +82,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .choice-button.selected { border-color: var(--green); background: var(--green); color: white; font-weight: 700; }
 .sample-style-options { display: grid; gap: 8px; }
 .sample-style-options .choice-button { text-align: left; }
+.sample-visibility-setting { margin-top: 17px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sample-visibility-setting h4 { margin: 0 0 10px; font-size: 14px; }
 .light-direction-fieldset { min-width: 0; margin: 16px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
 .light-direction-fieldset legend { padding: 0 6px; font-size: 14px; font-weight: 700; }
 .light-direction-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -134,14 +136,16 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .sample-canvas { transition: filter .18s ease, opacity .18s ease; }
 .light-direction-badge { position: absolute; z-index: 2; top: 11px; left: 11px; padding: 7px 10px; border: 1px solid rgba(53, 104, 77, .22); border-radius: 999px; background: rgba(255, 254, 249, .9); color: var(--green-dark); font-size: 13px; font-weight: 700; pointer-events: none; box-shadow: 0 3px 12px rgba(45, 48, 38, .08); }
 .light-direction-badge b { margin-left: 3px; font-size: 17px; line-height: 0; }
+.sample-hide-countdown { position: absolute; z-index: 2; top: 11px; right: 11px; padding: 7px 10px; border: 1px solid rgba(196, 134, 55, .28); border-radius: 999px; background: rgba(255, 250, 236, .92); color: #825918; font-size: 13px; font-weight: 700; pointer-events: none; box-shadow: 0 3px 12px rgba(45, 48, 38, .08); }
 .drawing-canvas { touch-action: none; cursor: none; }
 .brush-cursor { position: absolute; z-index: 3; pointer-events: none; border: 1px solid #30322c; border-radius: 50%; opacity: 0; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .92); }
 .brush-cursor.dashed { border-style: dotted; }
 .brush-cursor.guide { border-style: dashed; }
 .brush-cursor.eraser { border-color: var(--green); background: rgba(53, 104, 77, .08); }
 .hidden-sample { filter: blur(16px); opacity: .12; }
-.pause-cover { position: absolute; inset: 0; display: grid; place-content: center; gap: 5px; text-align: center; background: rgba(241, 239, 232, .82); }
-.pause-cover span { color: var(--muted); font-size: 14px; }
+.pause-cover, .sample-hidden-cover { position: absolute; inset: 0; display: grid; place-content: center; gap: 5px; padding: 24px; text-align: center; background: rgba(241, 239, 232, .82); }
+.sample-hidden-cover { background: rgba(241, 239, 232, .94); }
+.pause-cover span, .sample-hidden-cover span { color: var(--muted); font-size: 14px; }
 .drawing-pause-shield { position: absolute; inset: 0; background: rgba(241, 239, 232, .26); cursor: not-allowed; }
 .drawing-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px; border-top: 1px solid var(--line); }
 .drawing-tool-group, .drawing-style-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
@@ -215,7 +219,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .favorite-preview-heading h3 { margin-top: 3px; font-size: 21px; }
 .favorite-canvas-stage { min-height: clamp(330px, 42vw, 500px); position: relative; display: grid; place-items: center; overflow: hidden; background: var(--canvas); }
 .favorite-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
-.favorite-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border-top: 1px solid var(--line); background: var(--line); }
+.favorite-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; border-top: 1px solid var(--line); background: var(--line); }
 .favorite-meta span { min-width: 0; padding: 12px 14px; background: var(--surface-soft); }
 .favorite-meta small, .favorite-meta strong { display: block; }
 .favorite-meta small { margin-bottom: 3px; color: var(--muted); }
