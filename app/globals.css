@@ -219,6 +219,34 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .hero-visual { height: min(430px, calc(100dvh - 112px)); min-height: 340px; }
   .visual-caption { bottom: 13px; padding: 6px 10px; font-size: 13px; }
 
+  .results-section {
+    padding-top: 14px;
+    padding-bottom: 20px;
+  }
+
+  .results-heading { gap: 12px; margin-bottom: 10px; }
+  .results-heading h2 { margin-bottom: 2px; font-size: 30px; }
+  .results-heading .button-row { justify-content: flex-end; }
+  .results-heading .button { min-height: 38px; padding: 7px 12px; font-size: 14px; }
+  .result-meta { gap: 12px; font-size: 13px; }
+  .result-layout { grid-template-columns: 160px minmax(0, 1fr); gap: 10px; }
+  .result-list { max-height: calc(100dvh - 150px); gap: 6px; padding-right: 3px; overflow-y: auto; }
+  .result-item { min-height: 46px; padding: 6px 9px; border-radius: 9px; }
+  .result-item strong { font-size: 14px; }
+  .result-item span { margin-top: 1px; font-size: 12px; }
+  .comparison-panel { padding: 10px; border-radius: 12px; }
+  .comparison-heading { margin-bottom: 8px; }
+  .comparison-heading h3 { font-size: 17px; }
+  .comparison-heading span { font-size: 13px; }
+  .comparison-panes { gap: 8px; }
+  .compare-pane { border-radius: 9px; }
+  .compare-pane figcaption { padding: 6px 9px; font-size: 13px; }
+  .compare-pane > div { height: clamp(190px, calc(100dvh - 340px), 340px); min-height: 0; }
+  .compare-pane img { max-height: none; }
+  .comparison-footer { flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .comparison-footer .button-row { gap: 6px; }
+  .comparison-footer .button.compact { min-height: 34px; padding: 5px 9px; font-size: 13px; }
+
   .practice-section {
     padding-top: 14px;
     padding-bottom: 20px;
