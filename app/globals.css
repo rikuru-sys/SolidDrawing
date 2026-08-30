@@ -154,8 +154,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .drawing-tool-group, .drawing-style-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .history-tools { margin-left: auto; }
 .drawing-style-controls { min-height: 37px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); }
-.toolbar-width-control, .toolbar-color-control, .toolbar-opacity-control { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
-.toolbar-width-control select { min-height: 27px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.toolbar-width-control, .toolbar-stabilization-control, .toolbar-color-control, .toolbar-opacity-control { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.toolbar-width-control select, .toolbar-stabilization-control select { min-height: 27px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }
 .toolbar-color-control input[type="color"] { width: 30px; height: 27px; padding: 1px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer; }
 .toolbar-opacity-control input[type="range"] { width: 82px; accent-color: var(--green); }
 .tool-button { min-height: 37px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); cursor: pointer; }

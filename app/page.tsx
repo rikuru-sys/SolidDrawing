@@ -22,6 +22,7 @@ type Difficulty = 'easy' | 'hard';
 type ComparisonMode = 'side-by-side' | 'overlay';
 type SampleVisibility = 'always' | 'partway';
 type PracticeMode = 'canvas' | 'sample-only';
+type Stabilization = 'off' | 'low' | 'medium';
 
 type Point = { x: number; y: number };
 type Stroke = {
@@ -32,6 +33,7 @@ type Stroke = {
   guide: boolean;
   color: string;
   opacity: number;
+  stabilization: Stabilization;
 };
 type ShapePrompt = {
   id: string;
@@ -78,6 +80,7 @@ type Settings = {
   difficulty: Difficulty;
   sampleVisibility: SampleVisibility;
   practiceMode: PracticeMode;
+  stabilization: Stabilization;
 };
 type Favorite = {
   id: string;
@@ -115,6 +118,7 @@ const DEFAULT_SETTINGS: Settings = {
   difficulty: 'easy',
   sampleVisibility: 'always',
   practiceMode: 'canvas',
+  stabilization: 'low',
 };
 
 const freshDefaultSettings = (): Settings => ({
@@ -169,6 +173,9 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
     sampleVisibility: parsed.sampleVisibility === 'partway' ? 'partway' : 'always',
     practiceMode: parsed.practiceMode === 'sample-only' ? 'sample-only' : 'canvas',
+    stabilization: parsed.stabilization === 'off' || parsed.stabilization === 'medium'
+      ? parsed.stabilization
+      : 'low',
   };
 }
 
@@ -671,6 +678,33 @@ function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: Stroke) {
     : []);
 }
 
+function stabilizeStrokePoint(
+  previous: Point,
+  next: Point,
+  stabilization: Stabilization,
+  width: number,
+  height: number,
+  finishing = false,
+) {
+  if (stabilization === 'off') return next;
+  const distance = Math.hypot(
+    (next.x - previous.x) * width,
+    (next.y - previous.y) * height,
+  );
+  const baseStrength = stabilization === 'low' ? 0.68 : 0.45;
+  const adaptiveStrength = stabilization === 'low'
+    ? Math.min(0.24, distance / 80)
+    : Math.min(0.4, distance / 60);
+  const finishingStrength = stabilization === 'low' ? 0.9 : 0.76;
+  const strength = finishing
+    ? Math.max(finishingStrength, baseStrength + adaptiveStrength)
+    : baseStrength + adaptiveStrength;
+  return {
+    x: previous.x + (next.x - previous.x) * strength,
+    y: previous.y + (next.y - previous.y) * strength,
+  };
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
@@ -986,7 +1020,7 @@ export default function Home() {
     setValidation('');
   };
 
-  const updatePracticePenStyle = (patch: Partial<Pick<Settings, 'penWidth' | 'penColor' | 'penOpacity'>>) => {
+  const updatePracticePenStyle = (patch: Partial<Pick<Settings, 'penWidth' | 'penColor' | 'penOpacity' | 'stabilization'>>) => {
     setSessionSettings((current) => ({ ...(current ?? settings), ...patch }));
     setSettings((current) => ({ ...current, ...patch }));
   };
@@ -1131,18 +1165,28 @@ export default function Home() {
       guide: tool === 'guide',
       color: practiceSettings.penColor,
       opacity: practiceSettings.penOpacity,
+      stabilization: tool === 'eraser' ? 'off' : practiceSettings.stabilization,
     };
     setRedoStrokes([]);
   };
 
-  const continueStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+  const continueStroke = (event: ReactPointerEvent<HTMLCanvasElement>, finishing = false) => {
     updateBrushCursor(event);
     const stroke = activeStrokeRef.current;
     const canvas = drawingCanvasRef.current;
     if (!stroke || !canvas || paused) return;
-    const nextPoint = canvasPoint(event);
+    const rawPoint = canvasPoint(event);
     const previousPoint = stroke.points[stroke.points.length - 1];
     const rect = canvas.getBoundingClientRect();
+    const nextPoint = stabilizeStrokePoint(
+      previousPoint,
+      rawPoint,
+      stroke.stabilization,
+      rect.width,
+      rect.height,
+      finishing,
+    );
+    if (Math.hypot(nextPoint.x - previousPoint.x, nextPoint.y - previousPoint.y) < 0.0001) return;
     const dashOffset = stroke.dashed
       ? stroke.points.slice(1).reduce((total, point, index) => {
         const start = stroke.points[index];
@@ -1167,6 +1211,7 @@ export default function Home() {
 
   const endStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const stroke = activeStrokeRef.current;
+    if (stroke && event.type === 'pointerup') continueStroke(event, true);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     activePointerIdRef.current = null;
     if (!stroke) return;
@@ -1529,6 +1574,11 @@ export default function Home() {
                         <option value="2">細い</option><option value="3">普通</option><option value="5">太い</option>
                       </select>
                     </label>
+                    <label className="field-label">手振れ補正
+                      <select value={settings.stabilization} onChange={(event) => setSettings((current) => ({ ...current, stabilization: event.target.value as Stabilization }))}>
+                        <option value="off">なし</option><option value="low">弱</option><option value="medium">中</option>
+                      </select>
+                    </label>
                     <label className="field-label">ペン色
                       <span className="color-setting">
                         <input
@@ -1557,7 +1607,7 @@ export default function Home() {
                   </>
                 )}
               </div>
-              {settings.practiceMode === 'canvas' && <p className="setting-note">補助線は、選んだペン色を使って通常より細く薄く描画します。</p>}
+              {settings.practiceMode === 'canvas' && <p className="setting-note">手振れ補正はペン・点線・補助線に適用し、消しゴムは遅延なしで動きます。</p>}
             </section>
             <section className="settings-card">
               <h3>見本の表示</h3>
@@ -1758,6 +1808,18 @@ export default function Home() {
                       <option value="2">細い</option>
                       <option value="3">普通</option>
                       <option value="5">太い</option>
+                    </select>
+                  </label>
+                  <label className="toolbar-stabilization-control">
+                    <span>手振れ</span>
+                    <select
+                      value={practiceSettings.stabilization}
+                      onChange={(event) => updatePracticePenStyle({ stabilization: event.target.value as Stabilization })}
+                      aria-label="練習中の手振れ補正"
+                    >
+                      <option value="off">なし</option>
+                      <option value="low">弱</option>
+                      <option value="medium">中</option>
                     </select>
                   </label>
                   <label className="toolbar-color-control">
