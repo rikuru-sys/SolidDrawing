@@ -24,28 +24,30 @@ import {
   MAX_SEED,
   type SeedMode,
 } from '../src/domain/random/seeded-random';
+import {
+  applyEvaluationStrokeStyle,
+  applyStrokeStyle,
+} from '../src/features/drawing/stroke-rendering';
+import { stabilizeStrokePoint } from '../src/features/drawing/stabilization';
+import type {
+  DrawingToolId,
+  Point,
+  Stabilization,
+  Stroke,
+} from '../src/features/drawing/types';
+import {
+  createDrawingStroke,
+  DRAWING_TOOLS,
+  getDrawingTool,
+} from '../src/features/drawing/tools/tool-registry';
 import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
-type Tool = 'pen' | 'dashed' | 'guide' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type ComparisonMode = 'side-by-side' | 'overlay';
 type SampleVisibility = 'always' | 'partway';
 type PracticeMode = 'canvas' | 'sample-only';
-type Stabilization = 'off' | 'low' | 'medium';
-
-type Point = { x: number; y: number };
-type Stroke = {
-  points: Point[];
-  width: number;
-  eraser: boolean;
-  dashed: boolean;
-  guide: boolean;
-  color: string;
-  opacity: number;
-  stabilization: Stabilization;
-};
 type Attempt = {
   prompt: ShapePrompt;
   sampleImage: string;
@@ -546,14 +548,12 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   }
 
   strokes.forEach((stroke) => {
-    if (stroke.guide || !stroke.points.length) return;
+    if (!stroke.points.length) return;
     drawingContext.save();
-    drawingContext.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
-    drawingContext.strokeStyle = '#000000';
-    drawingContext.fillStyle = '#000000';
-    drawingContext.lineWidth = stroke.eraser ? stroke.width * 4 : Math.max(1.5, stroke.width * 0.75);
-    drawingContext.lineCap = 'round';
-    drawingContext.lineJoin = 'round';
+    if (!applyEvaluationStrokeStyle(drawingContext, stroke)) {
+      drawingContext.restore();
+      return;
+    }
     if (stroke.points.length === 1) {
       const point = stroke.points[0];
       drawingContext.beginPath();
@@ -646,58 +646,6 @@ function formatEvaluationDetails(evaluation: ShapeEvaluation) {
   return `輪郭 ${evaluation.outline}点　傾き ${evaluation.angle}点　大きさ ${evaluation.size}点　比率 ${evaluation.proportion}点`;
 }
 
-function strokeWidth(stroke: Stroke) {
-  if (stroke.eraser) return stroke.width * 4;
-  if (stroke.guide) return Math.max(1, stroke.width * 0.65);
-  return stroke.width;
-}
-
-function strokeOpacity(stroke: Stroke) {
-  if (stroke.eraser) return 1;
-  if (stroke.guide) return Math.min(0.35, stroke.opacity * 0.4);
-  return stroke.opacity;
-}
-
-function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: Stroke) {
-  context.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
-  context.globalAlpha = strokeOpacity(stroke);
-  context.strokeStyle = stroke.color;
-  context.fillStyle = stroke.color;
-  context.lineWidth = strokeWidth(stroke);
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
-  context.setLineDash(stroke.dashed && !stroke.eraser
-    ? [Math.max(0.2, context.lineWidth * 0.2), context.lineWidth * 2.2]
-    : []);
-}
-
-function stabilizeStrokePoint(
-  previous: Point,
-  next: Point,
-  stabilization: Stabilization,
-  width: number,
-  height: number,
-  finishing = false,
-) {
-  if (stabilization === 'off') return next;
-  const distance = Math.hypot(
-    (next.x - previous.x) * width,
-    (next.y - previous.y) * height,
-  );
-  const baseStrength = stabilization === 'low' ? 0.68 : 0.45;
-  const adaptiveStrength = stabilization === 'low'
-    ? Math.min(0.24, distance / 80)
-    : Math.min(0.4, distance / 60);
-  const finishingStrength = stabilization === 'low' ? 0.9 : 0.76;
-  const strength = finishing
-    ? Math.max(finishingStrength, baseStrength + adaptiveStrength)
-    : baseStrength + adaptiveStrength;
-  return {
-    x: previous.x + (next.x - previous.x) * strength,
-    y: previous.y + (next.y - previous.y) * strength,
-  };
-}
-
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
@@ -707,7 +655,7 @@ export default function Home() {
   const [remaining, setRemaining] = useState(DEFAULT_SETTINGS.time ?? 0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [tool, setTool] = useState<Tool>('pen');
+  const [tool, setTool] = useState<DrawingToolId>('pen');
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [redoStrokes, setRedoStrokes] = useState<Stroke[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
@@ -735,6 +683,8 @@ export default function Home() {
   const currentResult = attempts[selectedResult];
   const resultSeed = attempts[0]?.prompt.generation?.seed;
   const practiceSettings = sessionSettings ?? settings;
+  const activeDrawingTool = getDrawingTool(tool);
+  const brushCursorSize = activeDrawingTool.getCursorSize(practiceSettings.penWidth);
   const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
   const isCurrentFavorite = currentResult
     ? favorites.some(({ prompt }) => prompt.id === currentResult.prompt.id)
@@ -1160,16 +1110,13 @@ export default function Home() {
     updateBrushCursor(event);
     event.currentTarget.setPointerCapture(event.pointerId);
     activePointerIdRef.current = event.pointerId;
-    activeStrokeRef.current = {
-      points: [canvasPoint(event)],
+    activeStrokeRef.current = createDrawingStroke(tool, {
+      point: canvasPoint(event),
       width: practiceSettings.penWidth,
-      eraser: tool === 'eraser',
-      dashed: tool === 'dashed',
-      guide: tool === 'guide',
       color: practiceSettings.penColor,
       opacity: practiceSettings.penOpacity,
-      stabilization: tool === 'eraser' ? 'off' : practiceSettings.stabilization,
-    };
+      stabilization: practiceSettings.stabilization,
+    });
     setRedoStrokes([]);
   };
 
@@ -1190,7 +1137,8 @@ export default function Home() {
       finishing,
     );
     if (Math.hypot(nextPoint.x - previousPoint.x, nextPoint.y - previousPoint.y) < 0.0001) return;
-    const dashOffset = stroke.dashed
+    const strokeTool = getDrawingTool(stroke.tool);
+    const dashOffset = strokeTool.continuesDashPattern
       ? stroke.points.slice(1).reduce((total, point, index) => {
         const start = stroke.points[index];
         return total + Math.hypot(
@@ -1204,7 +1152,7 @@ export default function Home() {
     if (!context) return;
     context.save();
     applyStrokeStyle(context, stroke);
-    if (stroke.dashed) context.lineDashOffset = -dashOffset;
+    if (strokeTool.continuesDashPattern) context.lineDashOffset = -dashOffset;
     context.beginPath();
     context.moveTo(previousPoint.x * rect.width, previousPoint.y * rect.height);
     context.lineTo(nextPoint.x * rect.width, nextPoint.y * rect.height);
@@ -1829,17 +1777,11 @@ export default function Home() {
                   ref={brushCursorRef}
                   className={`brush-cursor ${tool}`}
                   style={{
-                    width: tool === 'eraser'
-                      ? practiceSettings.penWidth * 4
-                      : tool === 'guide'
-                        ? Math.max(1, practiceSettings.penWidth * 0.65)
-                        : practiceSettings.penWidth,
-                    height: tool === 'eraser'
-                      ? practiceSettings.penWidth * 4
-                      : tool === 'guide'
-                        ? Math.max(1, practiceSettings.penWidth * 0.65)
-                        : practiceSettings.penWidth,
-                    borderColor: tool === 'eraser' ? undefined : practiceSettings.penColor,
+                    width: brushCursorSize,
+                    height: brushCursorSize,
+                    borderColor: activeDrawingTool.cursorUsesPenColor
+                      ? practiceSettings.penColor
+                      : undefined,
                   }}
                   aria-hidden="true"
                 />
@@ -1847,10 +1789,17 @@ export default function Home() {
               </div>
               <div className="drawing-toolbar" aria-label="描画ツール">
                 <div className="drawing-tool-group">
-                  <button className={tool === 'pen' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}>ペン</button>
-                  <button className={tool === 'dashed' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'dashed'} onClick={() => setTool('dashed')}>点線</button>
-                  <button className={tool === 'guide' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'guide'} onClick={() => setTool('guide')}>補助線</button>
-                  <button className={tool === 'eraser' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>消しゴム</button>
+                  {DRAWING_TOOLS.map((drawingTool) => (
+                    <button
+                      key={drawingTool.id}
+                      className={tool === drawingTool.id ? 'tool-button selected' : 'tool-button'}
+                      type="button"
+                      aria-pressed={tool === drawingTool.id}
+                      onClick={() => setTool(drawingTool.id)}
+                    >
+                      {drawingTool.label}
+                    </button>
+                  ))}
                 </div>
                 <div className="drawing-style-controls">
                   <label className="toolbar-width-control">
