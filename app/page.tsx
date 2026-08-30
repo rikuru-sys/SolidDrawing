@@ -620,6 +620,10 @@ function formatFileTimestamp(date = new Date()) {
   return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日_${pad(date.getHours())}時${pad(date.getMinutes())}分`;
 }
 
+function formatEvaluationDetails(evaluation: ShapeEvaluation) {
+  return `輪郭 ${evaluation.outline}点　傾き ${evaluation.angle}点　大きさ ${evaluation.size}点　比率 ${evaluation.proportion}点`;
+}
+
 function strokeWidth(stroke: Stroke) {
   if (stroke.eraser) return stroke.width * 4;
   if (stroke.guide) return Math.max(1, stroke.width * 0.65);
@@ -1167,7 +1171,7 @@ export default function Home() {
     if (!currentResult) return;
     const output = document.createElement('canvas');
     output.width = 1240;
-    output.height = 720;
+    output.height = 740;
     const context = output.getContext('2d');
     if (!context) return;
     context.fillStyle = '#f1efe8';
@@ -1207,7 +1211,8 @@ export default function Home() {
     }
     context.fillStyle = '#686b60';
     context.font = '18px sans-serif';
-    context.fillText(`描画時間 ${currentResult.seconds}秒　自動形状評価 ${currentResult.evaluation.score}点`, 50, 680);
+    context.fillText(`描画時間 ${currentResult.seconds}秒　総合評価 ${currentResult.evaluation.score}点`, 50, 674);
+    context.fillText(formatEvaluationDetails(currentResult.evaluation), 50, 708);
     downloadDataUrl(
       output.toDataURL('image/png'),
       `立体ドローイング_${comparisonMode === 'overlay' ? '重ね合わせ' : '比較'}_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
@@ -1266,7 +1271,7 @@ export default function Home() {
       const cardPadding = 18;
       const paneGap = 14;
       const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
-      const imageTop = top + 82;
+      const imageTop = top + 104;
       const imageHeight = 292;
       const [sample, drawing] = await Promise.all([
         load(attempt.sampleImage),
@@ -1290,9 +1295,12 @@ export default function Home() {
         top + 32,
       );
       context.textAlign = 'left';
+      context.font = '15px sans-serif';
+      context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
+      context.font = '16px sans-serif';
       if (mode === 'overlay') {
         const imageWidth = cardWidth - cardPadding * 2;
-        context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 66);
+        context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 88);
         context.fillStyle = '#ffffff';
         context.fillRect(left + cardPadding, imageTop, imageWidth, imageHeight);
         drawImageContained(context, sample, left + cardPadding, imageTop, imageWidth, imageHeight);
@@ -1302,8 +1310,8 @@ export default function Home() {
         drawImageContained(context, drawing, left + cardPadding, imageTop, imageWidth, imageHeight);
         context.restore();
       } else {
-        context.fillText('見本', left + cardPadding, top + 66);
-        context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 66);
+        context.fillText('見本', left + cardPadding, top + 88);
+        context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
         context.fillStyle = '#ffffff';
         context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
         context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
