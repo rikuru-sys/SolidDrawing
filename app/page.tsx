@@ -440,21 +440,27 @@ function lineAngleMatch(sampleMask: Uint8Array, drawingMask: Uint8Array, size: n
     for (let x = 0; x < size; x += 1) {
       const index = y * size + x;
       if (!drawingMask[index] || index % 3 !== 0) continue;
+      const drawingDirection = localLineDirection(drawingMask, size, x, y);
+      if (!drawingDirection) continue;
+      totalWeight += drawingDirection.confidence;
+      sampleCount += 1;
       const samplePoint = nearestMaskPoint(sampleMask, size, x, y, tolerance);
       if (!samplePoint) continue;
-      const drawingDirection = localLineDirection(drawingMask, size, x, y);
       const sampleDirection = localLineDirection(sampleMask, size, samplePoint.x, samplePoint.y);
-      if (!drawingDirection || !sampleDirection) continue;
+      if (!sampleDirection) continue;
       let difference = Math.abs(drawingDirection.angle - sampleDirection.angle) % Math.PI;
       difference = Math.min(difference, Math.PI - difference);
-      const similarity = Math.max(0, 1 - difference / (Math.PI / 4));
+      const similarity = Math.max(0, 1 - difference / (Math.PI / 6));
       const weight = Math.min(drawingDirection.confidence, sampleDirection.confidence);
       matchedWeight += similarity * weight;
-      totalWeight += weight;
-      sampleCount += 1;
     }
   }
   return sampleCount >= 12 && totalWeight ? matchedWeight / totalWeight : null;
+}
+
+function strictMetricScore(ratio: number) {
+  const normalizedRatio = Math.max(0, Math.min(1, ratio));
+  return Math.round(Math.pow(normalizedRatio, 1.2) * 100);
 }
 
 function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
@@ -571,7 +577,7 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
     Math.round(alignmentX * size),
     Math.round(alignmentY * size),
   );
-  const tolerance = 8;
+  const tolerance = 5;
   const precision = maskMatch(centeredDrawingMask, dilateMask(sampleMask, size, tolerance));
   const recall = maskMatch(sampleMask, dilateMask(centeredDrawingMask, size, tolerance));
   const outlineRatio = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
@@ -584,11 +590,11 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   const drawingAspect = drawingBounds.width / drawingBounds.height;
   const aspectRatio = Math.min(sampleAspect, drawingAspect) / Math.max(sampleAspect, drawingAspect);
   const sizeRatio = (widthRatio + heightRatio) / 2;
-  const outline = Math.round(outlineRatio * 100);
-  const angle = Math.round(angleRatio * 100);
-  const sizeScore = Math.round(sizeRatio * 100);
-  const proportion = Math.round(aspectRatio * 100);
-  const score = Math.round(outline * 0.5 + angle * 0.2 + sizeScore * 0.2 + proportion * 0.1);
+  const outline = strictMetricScore(outlineRatio);
+  const angle = strictMetricScore(angleRatio);
+  const sizeScore = strictMetricScore(sizeRatio);
+  const proportion = strictMetricScore(aspectRatio);
+  const score = Math.round(outline * 0.45 + angle * 0.25 + sizeScore * 0.2 + proportion * 0.1);
 
   let feedback = '輪郭・線の傾き・大きさ・比率がよく合っています。重ね合わせでも細部を確認しましょう。';
   if (outline < 45) feedback = '見本の角や曲線を追い、輪郭線の方向をそろえると近づきます。';
@@ -1786,7 +1792,7 @@ export default function Home() {
                     <div className="evaluation-copy">
                       <strong>自動形状評価</strong>
                       <p>{currentResult.evaluation.feedback}</p>
-                      <small>位置だけを合わせ、拡大・縮小せずに線の傾き・形・大きさを評価します。</small>
+                      <small>位置だけを合わせ、輪郭45%・傾き25%・大きさ20%・比率10%で細かなずれも評価します。</small>
                     </div>
                     <dl className="evaluation-metrics">
                       <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
