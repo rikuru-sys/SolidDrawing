@@ -34,7 +34,6 @@ import {
   evaluateShape,
   unevaluatedShape,
 } from '../src/features/evaluation/shape-evaluator';
-import type { ShapeEvaluation } from '../src/features/evaluation/types';
 import { FavoritesScreen } from '../src/features/favorites/favorites-screen';
 import type { Favorite } from '../src/features/favorites/types';
 import {
@@ -43,6 +42,12 @@ import {
   practiceDurationSeconds,
 } from '../src/features/practice/practice-timer';
 import { PracticeScreen, type PracticePenStylePatch } from '../src/features/practice/practice-screen';
+import {
+  downloadAllAttemptComparisons,
+  downloadAttemptComparison,
+  downloadAttemptDrawing,
+  downloadAttemptSample,
+} from '../src/features/results/result-export';
 import { ResultsScreen } from '../src/features/results/results-screen';
 import type { Attempt, ComparisonMode } from '../src/features/results/types';
 import {
@@ -152,37 +157,6 @@ const HERO_PROMPT: ShapePrompt = {
 
 function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
   renderSample3D(canvas, prompt, style, background);
-}
-
-function drawImageContained(
-  context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  const sourceWidth = image.naturalWidth || image.width;
-  const sourceHeight = image.naturalHeight || image.height;
-  const scale = Math.min(width / sourceWidth, height / sourceHeight);
-  const drawWidth = sourceWidth * scale;
-  const drawHeight = sourceHeight * scale;
-  context.drawImage(
-    image,
-    x + (width - drawWidth) / 2,
-    y + (height - drawHeight) / 2,
-    drawWidth,
-    drawHeight,
-  );
-}
-
-function formatFileTimestamp(date = new Date()) {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日_${pad(date.getHours())}時${pad(date.getMinutes())}分`;
-}
-
-function formatEvaluationDetails(evaluation: ShapeEvaluation) {
-  return `輪郭 ${evaluation.outline}点　傾き ${evaluation.angle}点　大きさ ${evaluation.size}点　比率 ${evaluation.proportion}点`;
 }
 
 export default function Home() {
@@ -708,185 +682,26 @@ export default function Home() {
     if (window.confirm(message)) finishCurrent(true);
   };
 
-  const downloadDataUrl = (url: string, name: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
-  };
-
-  const saveComparison = async () => {
+  const saveComparison = () => {
     if (!currentResult) return;
-    const output = document.createElement('canvas');
-    output.width = 1240;
-    output.height = 740;
-    const context = output.getContext('2d');
-    if (!context) return;
-    context.fillStyle = '#f1efe8';
-    context.fillRect(0, 0, output.width, output.height);
-    context.fillStyle = '#25261f';
-    context.font = 'bold 32px sans-serif';
-    context.fillText(`${selectedResult + 1}. ${currentResult.prompt.shape}`, 50, 56);
-    context.font = '20px sans-serif';
-
-    const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.src = source;
+    void downloadAttemptComparison({
+      attempt: currentResult,
+      index: selectedResult,
+      mode: comparisonMode,
+      overlayOpacity,
     });
-    const [sample, drawing] = await Promise.all([
-      load(currentResult.sampleImage),
-      load(comparisonMode === 'overlay' ? currentResult.alignedDrawingSvg : currentResult.drawingSvg),
-    ]);
-    if (comparisonMode === 'overlay') {
-      context.fillText('見本と描画の重ね合わせ', 50, 108);
-      context.fillStyle = '#ffffff';
-      context.fillRect(180, 130, 880, 500);
-      drawImageContained(context, sample, 180, 130, 880, 500);
-      context.save();
-      context.globalAlpha = overlayOpacity;
-      context.globalCompositeOperation = 'multiply';
-      drawImageContained(context, drawing, 180, 130, 880, 500);
-      context.restore();
-    } else {
-      context.fillText('見本', 50, 108);
-      context.fillText('描いたもの', 645, 108);
-      context.fillStyle = '#ffffff';
-      context.fillRect(50, 130, 545, 500);
-      context.fillRect(645, 130, 545, 500);
-      drawImageContained(context, sample, 50, 130, 545, 500);
-      drawImageContained(context, drawing, 645, 130, 545, 500);
-    }
-    context.fillStyle = '#686b60';
-    context.font = '18px sans-serif';
-    context.fillText(`描画時間 ${currentResult.seconds}秒　総合評価 ${currentResult.evaluation.score}点`, 50, 674);
-    context.fillText(formatEvaluationDetails(currentResult.evaluation), 50, 708);
-    downloadDataUrl(
-      output.toDataURL('image/png'),
-      `立体ドローイング_${comparisonMode === 'overlay' ? '重ね合わせ' : '比較'}_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
-    );
   };
 
   const saveDrawing = () => {
-    if (!currentResult) return;
-    downloadDataUrl(
-      currentResult.drawingImage,
-      `立体ドローイング_描画_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
-    );
+    if (currentResult) downloadAttemptDrawing(currentResult, selectedResult);
   };
 
   const saveSample = () => {
-    if (!currentResult) return;
-    downloadDataUrl(
-      currentResult.sampleImage,
-      `立体ドローイング_見本_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
-    );
+    if (currentResult) downloadAttemptSample(currentResult, selectedResult);
   };
 
-  const saveAllComparisons = async (mode: ComparisonMode) => {
-    if (!attempts.length) return;
-    const output = document.createElement('canvas');
-    const columnCount = 2;
-    const canvasWidth = 1600;
-    const outerPadding = 40;
-    const columnGap = 20;
-    const rowGap = 20;
-    const headerHeight = 120;
-    const cardHeight = 430;
-    const rowCount = Math.ceil(attempts.length / columnCount);
-    const cardWidth = (canvasWidth - outerPadding * 2 - columnGap) / columnCount;
-    output.width = canvasWidth;
-    output.height = headerHeight + rowCount * cardHeight + Math.max(0, rowCount - 1) * rowGap + 30;
-    const context = output.getContext('2d');
-    if (!context) return;
-
-    context.fillStyle = '#f1efe8';
-    context.fillRect(0, 0, output.width, output.height);
-    context.fillStyle = '#25261f';
-    context.font = 'bold 34px sans-serif';
-    context.fillText('立体ドローイング　練習結果', outerPadding, 55);
-    context.fillStyle = '#686b60';
-    context.font = '18px sans-serif';
-    context.fillText(
-      `${attempts.length}回分・${mode === 'overlay' ? '中心合わせ重ね合わせ' : '見本と描画の横並び'}・2列表示`,
-      outerPadding,
-      91,
-    );
-
-    const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.src = source;
-    });
-
-    for (const [index, attempt] of attempts.entries()) {
-      const column = index % columnCount;
-      const row = Math.floor(index / columnCount);
-      const left = outerPadding + column * (cardWidth + columnGap);
-      const top = headerHeight + row * (cardHeight + rowGap);
-      const cardPadding = 18;
-      const paneGap = 14;
-      const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
-      const imageTop = top + 104;
-      const imageHeight = 292;
-      const [sample, drawing] = await Promise.all([
-        load(attempt.sampleImage),
-        load(mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg),
-      ]);
-
-      context.fillStyle = '#fffef9';
-      context.fillRect(left, top, cardWidth, cardHeight);
-      context.strokeStyle = '#d9d6cc';
-      context.lineWidth = 2;
-      context.strokeRect(left, top, cardWidth, cardHeight);
-      context.fillStyle = '#25261f';
-      context.font = 'bold 22px sans-serif';
-      context.fillText(`${index + 1}. ${attempt.prompt.shape}`, left + cardPadding, top + 32);
-      context.fillStyle = '#686b60';
-      context.font = '16px sans-serif';
-      context.textAlign = 'right';
-      context.fillText(
-        `描画時間 ${attempt.seconds}秒・評価 ${attempt.evaluation.score}点`,
-        left + cardWidth - cardPadding,
-        top + 32,
-      );
-      context.textAlign = 'left';
-      context.font = '15px sans-serif';
-      context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
-      context.font = '16px sans-serif';
-      if (mode === 'overlay') {
-        const imageWidth = cardWidth - cardPadding * 2;
-        context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 88);
-        context.fillStyle = '#ffffff';
-        context.fillRect(left + cardPadding, imageTop, imageWidth, imageHeight);
-        drawImageContained(context, sample, left + cardPadding, imageTop, imageWidth, imageHeight);
-        context.save();
-        context.globalAlpha = overlayOpacity;
-        context.globalCompositeOperation = 'multiply';
-        drawImageContained(context, drawing, left + cardPadding, imageTop, imageWidth, imageHeight);
-        context.restore();
-      } else {
-        context.fillText('見本', left + cardPadding, top + 88);
-        context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
-        context.fillStyle = '#ffffff';
-        context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
-        context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-        drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
-        drawImageContained(
-          context,
-          drawing,
-          left + cardPadding + paneWidth + paneGap,
-          imageTop,
-          paneWidth,
-          imageHeight,
-        );
-      }
-    }
-
-    downloadDataUrl(
-      output.toDataURL('image/png'),
-      `立体ドローイング_全結果_${mode === 'overlay' ? '重ね合わせ' : '横並び'}_${formatFileTimestamp()}.png`,
-    );
+  const saveAllComparisons = (mode: ComparisonMode) => {
+    void downloadAllAttemptComparisons({ attempts, mode, overlayOpacity });
   };
 
   return (
