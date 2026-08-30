@@ -19,6 +19,7 @@ type Tool = 'pen' | 'guide' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type Difficulty = 'easy' | 'hard';
+type ComparisonMode = 'side-by-side' | 'overlay';
 
 type Point = { x: number; y: number };
 type Stroke = {
@@ -47,6 +48,14 @@ type Attempt = {
   sampleImage: string;
   drawingImage: string;
   seconds: number;
+  evaluation: ShapeEvaluation;
+};
+type ShapeEvaluation = {
+  score: number;
+  outline: number;
+  proportion: number;
+  position: number;
+  feedback: string;
 };
 type Settings = {
   shapes: ShapeName[];
@@ -306,6 +315,183 @@ function drawImageContained(
   );
 }
 
+function dilateMask(mask: Uint8Array, size: number, radius: number) {
+  const output = new Uint8Array(mask.length);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (!mask[y * size + x]) continue;
+      const minY = Math.max(0, y - radius);
+      const maxY = Math.min(size - 1, y + radius);
+      const minX = Math.max(0, x - radius);
+      const maxX = Math.min(size - 1, x + radius);
+      for (let targetY = minY; targetY <= maxY; targetY += 1) {
+        for (let targetX = minX; targetX <= maxX; targetX += 1) {
+          output[targetY * size + targetX] = 1;
+        }
+      }
+    }
+  }
+  return output;
+}
+
+function maskMatch(source: Uint8Array, dilatedTarget: Uint8Array) {
+  let total = 0;
+  let matched = 0;
+  source.forEach((value, index) => {
+    if (!value) return;
+    total += 1;
+    if (dilatedTarget[index]) matched += 1;
+  });
+  return total ? matched / total : 0;
+}
+
+function maskBounds(mask: Uint8Array, size: number) {
+  let minX = size;
+  let minY = size;
+  let maxX = -1;
+  let maxY = -1;
+  mask.forEach((value, index) => {
+    if (!value) return;
+    const x = index % size;
+    const y = Math.floor(index / size);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  });
+  if (maxX < 0 || maxY < 0) return null;
+  return {
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
+function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
+  const size = 180;
+  const sampleAnalysis = document.createElement('canvas');
+  sampleAnalysis.width = size;
+  sampleAnalysis.height = size;
+  const sampleContext = sampleAnalysis.getContext('2d', { willReadFrequently: true });
+  const drawingAnalysis = document.createElement('canvas');
+  drawingAnalysis.width = size;
+  drawingAnalysis.height = size;
+  const drawingContext = drawingAnalysis.getContext('2d', { willReadFrequently: true });
+  if (!sampleContext || !drawingContext) {
+    return { score: 0, outline: 0, proportion: 0, position: 0, feedback: '評価を作成できませんでした。' };
+  }
+
+  sampleContext.fillStyle = '#ffffff';
+  sampleContext.fillRect(0, 0, size, size);
+  sampleContext.drawImage(sampleCanvas, 0, 0, size, size);
+  const samplePixels = sampleContext.getImageData(0, 0, size, size).data;
+  const luminance = new Float32Array(size * size);
+  for (let index = 0; index < luminance.length; index += 1) {
+    const pixel = index * 4;
+    luminance[index] = samplePixels[pixel] * 0.2126
+      + samplePixels[pixel + 1] * 0.7152
+      + samplePixels[pixel + 2] * 0.0722;
+  }
+
+  const sampleMask = new Uint8Array(size * size);
+  for (let y = 1; y < size - 1; y += 1) {
+    for (let x = 1; x < size - 1; x += 1) {
+      const index = y * size + x;
+      const value = luminance[index];
+      const contrast = Math.max(
+        Math.abs(value - luminance[index - 1]),
+        Math.abs(value - luminance[index + 1]),
+        Math.abs(value - luminance[index - size]),
+        Math.abs(value - luminance[index + size]),
+      );
+      if (value < 150 || (value < 251 && contrast > 9)) sampleMask[index] = 1;
+    }
+  }
+
+  // The shadow style includes a long ground line. Ignore it so the score focuses on the solid itself.
+  for (let y = 1; y < size - 1; y += 1) {
+    let rowPixels = 0;
+    for (let x = 0; x < size; x += 1) rowPixels += sampleMask[y * size + x];
+    if (rowPixels <= size * 0.55) continue;
+    for (let targetY = Math.max(0, y - 1); targetY <= Math.min(size - 1, y + 1); targetY += 1) {
+      sampleMask.fill(0, targetY * size, (targetY + 1) * size);
+    }
+  }
+
+  strokes.forEach((stroke) => {
+    if (stroke.guide || !stroke.points.length) return;
+    drawingContext.save();
+    drawingContext.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
+    drawingContext.strokeStyle = '#000000';
+    drawingContext.fillStyle = '#000000';
+    drawingContext.lineWidth = stroke.eraser ? stroke.width * 4 : Math.max(1.5, stroke.width * 0.75);
+    drawingContext.lineCap = 'round';
+    drawingContext.lineJoin = 'round';
+    if (stroke.points.length === 1) {
+      const point = stroke.points[0];
+      drawingContext.beginPath();
+      drawingContext.arc(point.x * size, point.y * size, drawingContext.lineWidth / 2, 0, Math.PI * 2);
+      drawingContext.fill();
+    } else {
+      drawingContext.beginPath();
+      drawingContext.moveTo(stroke.points[0].x * size, stroke.points[0].y * size);
+      stroke.points.slice(1).forEach((point) => drawingContext.lineTo(point.x * size, point.y * size));
+      drawingContext.stroke();
+    }
+    drawingContext.restore();
+  });
+
+  const drawingPixels = drawingContext.getImageData(0, 0, size, size).data;
+  const drawingMask = new Uint8Array(size * size);
+  for (let index = 0; index < drawingMask.length; index += 1) {
+    if (drawingPixels[index * 4 + 3] > 24) drawingMask[index] = 1;
+  }
+
+  const sampleBounds = maskBounds(sampleMask, size);
+  const drawingBounds = maskBounds(drawingMask, size);
+  const drawnPixelCount = drawingMask.reduce((total, value) => total + value, 0);
+  if (!sampleBounds || !drawingBounds || drawnPixelCount < 12) {
+    return {
+      score: 0,
+      outline: 0,
+      proportion: 0,
+      position: 0,
+      feedback: '評価できる主線が少ないため、ペンで輪郭をもう少し描いてみましょう。',
+    };
+  }
+
+  const tolerance = 8;
+  const precision = maskMatch(drawingMask, dilateMask(sampleMask, size, tolerance));
+  const recall = maskMatch(sampleMask, dilateMask(drawingMask, size, tolerance));
+  const outlineRatio = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
+  const widthRatio = Math.min(sampleBounds.width, drawingBounds.width)
+    / Math.max(sampleBounds.width, drawingBounds.width);
+  const heightRatio = Math.min(sampleBounds.height, drawingBounds.height)
+    / Math.max(sampleBounds.height, drawingBounds.height);
+  const sampleAspect = sampleBounds.width / sampleBounds.height;
+  const drawingAspect = drawingBounds.width / drawingBounds.height;
+  const aspectRatio = Math.min(sampleAspect, drawingAspect) / Math.max(sampleAspect, drawingAspect);
+  const proportionRatio = (widthRatio + heightRatio + aspectRatio) / 3;
+  const centerDistance = Math.hypot(
+    sampleBounds.centerX - drawingBounds.centerX,
+    sampleBounds.centerY - drawingBounds.centerY,
+  );
+  const positionRatio = Math.max(0, 1 - centerDistance / (size * 0.35));
+  const outline = Math.round(outlineRatio * 100);
+  const proportion = Math.round(proportionRatio * 100);
+  const position = Math.round(positionRatio * 100);
+  const score = Math.round(outline * 0.65 + proportion * 0.2 + position * 0.15);
+
+  let feedback = '輪郭・大きさ・位置がよく合っています。重ね合わせでも細部を確認しましょう。';
+  if (outline < 45) feedback = '見本の角や曲線を追い、輪郭線の方向をそろえると近づきます。';
+  else if (proportion < 65) feedback = '全体の縦横比と大きさを見比べてみましょう。';
+  else if (position < 65) feedback = '描き始める位置と、画面内の中心を意識してみましょう。';
+  else if (score < 80) feedback = '形はおおむね合っています。重ね合わせでずれた辺を確認しましょう。';
+
+  return { score, outline, proportion, position, feedback };
+}
+
 function formatFileTimestamp(date = new Date()) {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日_${pad(date.getHours())}時${pad(date.getMinutes())}分`;
@@ -347,6 +533,8 @@ export default function Home() {
   const [redoStrokes, setRedoStrokes] = useState<Stroke[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [selectedResult, setSelectedResult] = useState(0);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
+  const [overlayOpacity, setOverlayOpacity] = useState(0.72);
   const [validation, setValidation] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(readStoredFavorites);
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
@@ -505,6 +693,10 @@ export default function Home() {
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (finishingRef.current || !currentPrompt || !sampleCanvasRef.current) return;
     finishingRef.current = true;
+    const evaluationStrokes = activeStrokeRef.current
+      ? [...strokesRef.current, activeStrokeRef.current]
+      : strokesRef.current;
+    const evaluation = evaluateShape(sampleCanvasRef.current, evaluationStrokes);
     const sampleImage = sampleCanvasRef.current.toDataURL('image/png');
     const drawingImage = exportDrawing();
     const pointerId = activePointerIdRef.current;
@@ -519,7 +711,13 @@ export default function Home() {
       : timedOut
         ? practiceSettings.time
         : Math.max(1, practiceSettings.time - remainingRef.current);
-    const nextAttempts = [...attempts, { prompt: currentPrompt, sampleImage, drawingImage, seconds }];
+    const nextAttempts = [...attempts, {
+      prompt: currentPrompt,
+      sampleImage,
+      drawingImage,
+      seconds,
+      evaluation,
+    }];
     setAttempts(nextAttempts);
 
     const isLast = questionIndex >= prompts.length - 1;
@@ -835,8 +1033,6 @@ export default function Home() {
     context.font = 'bold 32px sans-serif';
     context.fillText(`${selectedResult + 1}. ${currentResult.prompt.shape}`, 50, 56);
     context.font = '20px sans-serif';
-    context.fillText('見本', 50, 108);
-    context.fillText('描いたもの', 645, 108);
 
     const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
       const image = new Image();
@@ -844,17 +1040,31 @@ export default function Home() {
       image.src = source;
     });
     const [sample, drawing] = await Promise.all([load(currentResult.sampleImage), load(currentResult.drawingImage)]);
-    context.fillStyle = '#ffffff';
-    context.fillRect(50, 130, 545, 500);
-    context.fillRect(645, 130, 545, 500);
-    drawImageContained(context, sample, 50, 130, 545, 500);
-    drawImageContained(context, drawing, 645, 130, 545, 500);
+    if (comparisonMode === 'overlay') {
+      context.fillText('見本と描画の重ね合わせ', 50, 108);
+      context.fillStyle = '#ffffff';
+      context.fillRect(180, 130, 880, 500);
+      drawImageContained(context, sample, 180, 130, 880, 500);
+      context.save();
+      context.globalAlpha = overlayOpacity;
+      context.globalCompositeOperation = 'multiply';
+      drawImageContained(context, drawing, 180, 130, 880, 500);
+      context.restore();
+    } else {
+      context.fillText('見本', 50, 108);
+      context.fillText('描いたもの', 645, 108);
+      context.fillStyle = '#ffffff';
+      context.fillRect(50, 130, 545, 500);
+      context.fillRect(645, 130, 545, 500);
+      drawImageContained(context, sample, 50, 130, 545, 500);
+      drawImageContained(context, drawing, 645, 130, 545, 500);
+    }
     context.fillStyle = '#686b60';
     context.font = '18px sans-serif';
-    context.fillText(`描画時間 ${currentResult.seconds}秒`, 50, 680);
+    context.fillText(`描画時間 ${currentResult.seconds}秒　自動形状評価 ${currentResult.evaluation.score}点`, 50, 680);
     downloadDataUrl(
       output.toDataURL('image/png'),
-      `立体ドローイング_比較_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
+      `立体ドローイング_${comparisonMode === 'overlay' ? '重ね合わせ' : '比較'}_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
     );
   };
 
@@ -924,7 +1134,11 @@ export default function Home() {
       context.fillStyle = '#686b60';
       context.font = '16px sans-serif';
       context.textAlign = 'right';
-      context.fillText(`描画時間 ${attempt.seconds}秒`, left + cardWidth - cardPadding, top + 32);
+      context.fillText(
+        `描画時間 ${attempt.seconds}秒・評価 ${attempt.evaluation.score}点`,
+        left + cardWidth - cardPadding,
+        top + 32,
+      );
       context.textAlign = 'left';
       context.fillText('見本', left + cardPadding, top + 66);
       context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 66);
@@ -1348,19 +1562,67 @@ export default function Home() {
             <nav className="result-list" aria-label="比較する問題">
               {attempts.map((attempt, index) => (
                 <button key={attempt.prompt.id} className={selectedResult === index ? 'result-item selected' : 'result-item'} type="button" aria-pressed={selectedResult === index} onClick={() => setSelectedResult(index)}>
-                  <strong>{index + 1}　{attempt.prompt.shape}</strong><span>{attempt.seconds}秒</span>
+                  <strong>{index + 1}　{attempt.prompt.shape}</strong><span>{attempt.seconds}秒・評価 {attempt.evaluation.score}点</span>
                 </button>
               ))}
             </nav>
             {currentResult && (
               <section className="comparison-panel">
-                <div className="comparison-heading"><h3>{selectedResult + 1}　{currentResult.prompt.shape}</h3><span>見本と描画を横並びで比較</span></div>
-                <div className="comparison-panes">
-                  <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
-                  <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
+                <div className="comparison-heading">
+                  <div className="comparison-title">
+                    <h3>{selectedResult + 1}　{currentResult.prompt.shape}</h3>
+                    <span>{comparisonMode === 'overlay' ? '見本に描画を重ねて比較' : '見本と描画を横並びで比較'}</span>
+                  </div>
+                  <div className="comparison-mode-buttons" role="group" aria-label="比較方法">
+                    <button className={comparisonMode === 'side-by-side' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'side-by-side'} onClick={() => setComparisonMode('side-by-side')}>横並び</button>
+                    <button className={comparisonMode === 'overlay' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'overlay'} onClick={() => setComparisonMode('overlay')}>重ね合わせ</button>
+                  </div>
+                </div>
+                {comparisonMode === 'overlay' ? (
+                  <div className="overlay-comparison">
+                    <div className="overlay-stage">
+                      <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
+                      <img
+                        className="overlay-drawing"
+                        src={currentResult.drawingImage}
+                        alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
+                        style={{ opacity: overlayOpacity }}
+                      />
+                    </div>
+                    <label className="overlay-opacity-control">
+                      <span>描画の濃さ {Math.round(overlayOpacity * 100)}%</span>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="1"
+                        step="0.05"
+                        value={overlayOpacity}
+                        onChange={(event) => setOverlayOpacity(Number(event.target.value))}
+                        aria-label="重ね合わせる描画の濃さ"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="comparison-panes">
+                    <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
+                    <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
+                  </div>
+                )}
+                <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
+                  <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
+                  <div className="evaluation-copy">
+                    <strong>自動形状評価</strong>
+                    <p>{currentResult.evaluation.feedback}</p>
+                    <small>線の位置を画像解析した練習用の目安です。</small>
+                  </div>
+                  <dl className="evaluation-metrics">
+                    <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
+                    <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
+                    <div><dt>位置</dt><dd>{currentResult.evaluation.position}</dd></div>
+                  </dl>
                 </div>
                 <div className="comparison-footer">
-                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>比較画像を保存</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果を2列で保存</button></div>
+                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果を2列で保存</button></div>
                   <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
                 </div>
               </section>
