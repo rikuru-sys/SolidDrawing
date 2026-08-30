@@ -54,8 +54,8 @@ type Attempt = {
 type ShapeEvaluation = {
   score: number;
   outline: number;
+  size: number;
   proportion: number;
-  position: number;
   feedback: string;
 };
 type Settings = {
@@ -369,6 +369,18 @@ function maskBounds(mask: Uint8Array, size: number) {
   };
 }
 
+function translateMask(mask: Uint8Array, size: number, offsetX: number, offsetY: number) {
+  const output = new Uint8Array(mask.length);
+  mask.forEach((value, index) => {
+    if (!value) return;
+    const x = (index % size) + offsetX;
+    const y = Math.floor(index / size) + offsetY;
+    if (x < 0 || x >= size || y < 0 || y >= size) return;
+    output[y * size + x] = 1;
+  });
+  return output;
+}
+
 function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
   const size = 180;
   const sampleAnalysis = document.createElement('canvas');
@@ -380,7 +392,7 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   drawingAnalysis.height = size;
   const drawingContext = drawingAnalysis.getContext('2d', { willReadFrequently: true });
   if (!sampleContext || !drawingContext) {
-    return { score: 0, outline: 0, proportion: 0, position: 0, feedback: '評価を作成できませんでした。' };
+    return { score: 0, outline: 0, size: 0, proportion: 0, feedback: '評価を作成できませんでした。' };
   }
 
   sampleContext.fillStyle = '#ffffff';
@@ -456,15 +468,22 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
     return {
       score: 0,
       outline: 0,
+      size: 0,
       proportion: 0,
-      position: 0,
       feedback: '評価できる主線が少ないため、ペンで輪郭をもう少し描いてみましょう。',
     };
   }
 
+  // Match only the centers. Deliberately keep the drawing at its original scale so size remains scorable.
+  const centeredDrawingMask = translateMask(
+    drawingMask,
+    size,
+    Math.round(sampleBounds.centerX - drawingBounds.centerX),
+    Math.round(sampleBounds.centerY - drawingBounds.centerY),
+  );
   const tolerance = 8;
-  const precision = maskMatch(drawingMask, dilateMask(sampleMask, size, tolerance));
-  const recall = maskMatch(sampleMask, dilateMask(drawingMask, size, tolerance));
+  const precision = maskMatch(centeredDrawingMask, dilateMask(sampleMask, size, tolerance));
+  const recall = maskMatch(sampleMask, dilateMask(centeredDrawingMask, size, tolerance));
   const outlineRatio = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
   const widthRatio = Math.min(sampleBounds.width, drawingBounds.width)
     / Math.max(sampleBounds.width, drawingBounds.width);
@@ -473,24 +492,19 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   const sampleAspect = sampleBounds.width / sampleBounds.height;
   const drawingAspect = drawingBounds.width / drawingBounds.height;
   const aspectRatio = Math.min(sampleAspect, drawingAspect) / Math.max(sampleAspect, drawingAspect);
-  const proportionRatio = (widthRatio + heightRatio + aspectRatio) / 3;
-  const centerDistance = Math.hypot(
-    sampleBounds.centerX - drawingBounds.centerX,
-    sampleBounds.centerY - drawingBounds.centerY,
-  );
-  const positionRatio = Math.max(0, 1 - centerDistance / (size * 0.35));
+  const sizeRatio = (widthRatio + heightRatio) / 2;
   const outline = Math.round(outlineRatio * 100);
-  const proportion = Math.round(proportionRatio * 100);
-  const position = Math.round(positionRatio * 100);
-  const score = Math.round(outline * 0.65 + proportion * 0.2 + position * 0.15);
+  const sizeScore = Math.round(sizeRatio * 100);
+  const proportion = Math.round(aspectRatio * 100);
+  const score = Math.round(outline * 0.7 + sizeScore * 0.2 + proportion * 0.1);
 
-  let feedback = '輪郭・大きさ・位置がよく合っています。重ね合わせでも細部を確認しましょう。';
+  let feedback = '輪郭・大きさ・比率がよく合っています。重ね合わせでも細部を確認しましょう。';
   if (outline < 45) feedback = '見本の角や曲線を追い、輪郭線の方向をそろえると近づきます。';
-  else if (proportion < 65) feedback = '全体の縦横比と大きさを見比べてみましょう。';
-  else if (position < 65) feedback = '描き始める位置と、画面内の中心を意識してみましょう。';
+  else if (sizeScore < 70) feedback = '形を拡大・縮小せず見比べ、見本と同じ大きさを意識してみましょう。';
+  else if (proportion < 70) feedback = '全体の縦横比を見比べてみましょう。';
   else if (score < 80) feedback = '形はおおむね合っています。重ね合わせでずれた辺を確認しましょう。';
 
-  return { score, outline, proportion, position, feedback };
+  return { score, outline, size: sizeScore, proportion, feedback };
 }
 
 function formatFileTimestamp(date = new Date()) {
@@ -1606,48 +1620,52 @@ export default function Home() {
                     <button className={comparisonMode === 'overlay' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'overlay'} onClick={() => setComparisonMode('overlay')}>重ね合わせ</button>
                   </div>
                 </div>
-                {comparisonMode === 'overlay' ? (
-                  <div className="overlay-comparison">
-                    <div className="overlay-stage">
-                      <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
-                      <img
-                        className="overlay-drawing"
-                        src={currentResult.drawingImage}
-                        alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
-                        style={{ opacity: overlayOpacity }}
-                      />
+                <div className="comparison-body">
+                  <div className="comparison-visual">
+                    {comparisonMode === 'overlay' ? (
+                      <div className="overlay-comparison">
+                        <div className="overlay-stage">
+                          <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
+                          <img
+                            className="overlay-drawing"
+                            src={currentResult.drawingImage}
+                            alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
+                            style={{ opacity: overlayOpacity }}
+                          />
+                        </div>
+                        <label className="overlay-opacity-control">
+                          <span>描画の濃さ {Math.round(overlayOpacity * 100)}%</span>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="1"
+                            step="0.05"
+                            value={overlayOpacity}
+                            onChange={(event) => setOverlayOpacity(Number(event.target.value))}
+                            aria-label="重ね合わせる描画の濃さ"
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="comparison-panes">
+                        <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
+                        <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
+                    <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
+                    <div className="evaluation-copy">
+                      <strong>自動形状評価</strong>
+                      <p>{currentResult.evaluation.feedback}</p>
+                      <small>位置だけを合わせ、拡大・縮小せずに形と大きさを評価します。</small>
                     </div>
-                    <label className="overlay-opacity-control">
-                      <span>描画の濃さ {Math.round(overlayOpacity * 100)}%</span>
-                      <input
-                        type="range"
-                        min="0.2"
-                        max="1"
-                        step="0.05"
-                        value={overlayOpacity}
-                        onChange={(event) => setOverlayOpacity(Number(event.target.value))}
-                        aria-label="重ね合わせる描画の濃さ"
-                      />
-                    </label>
+                    <dl className="evaluation-metrics">
+                      <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
+                      <div><dt>大きさ</dt><dd>{currentResult.evaluation.size}</dd></div>
+                      <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
+                    </dl>
                   </div>
-                ) : (
-                  <div className="comparison-panes">
-                    <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
-                    <figure className="compare-pane"><figcaption>描いたもの</figcaption><div><img src={currentResult.drawingImage} alt={`${currentResult.prompt.shape}を描いた結果`} /></div></figure>
-                  </div>
-                )}
-                <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
-                  <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
-                  <div className="evaluation-copy">
-                    <strong>自動形状評価</strong>
-                    <p>{currentResult.evaluation.feedback}</p>
-                    <small>線の位置を画像解析した練習用の目安です。</small>
-                  </div>
-                  <dl className="evaluation-metrics">
-                    <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
-                    <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
-                    <div><dt>位置</dt><dd>{currentResult.evaluation.position}</dd></div>
-                  </dl>
                 </div>
                 <div className="comparison-footer">
                   <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果を2列で保存</button></div>

@@ -173,6 +173,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .comparison-mode-buttons { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
 .comparison-mode-buttons button { min-height: 34px; padding: 6px 11px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
 .comparison-mode-buttons button.selected { background: var(--green); color: white; font-weight: 700; }
+.comparison-body { display: grid; gap: 12px; }
+.comparison-visual { min-width: 0; }
 .comparison-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .compare-pane { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
 .compare-pane figcaption { padding: 9px 11px; background: var(--surface-soft); font-weight: 700; }
@@ -184,7 +186,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .overlay-stage .overlay-drawing { mix-blend-mode: multiply; }
 .overlay-opacity-control { min-height: 43px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 7px 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 700; }
 .overlay-opacity-control input { width: min(220px, 42%); accent-color: var(--green); }
-.evaluation-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; margin-top: 12px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.evaluation-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; margin: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
 .evaluation-score { width: 62px; height: 62px; display: flex; align-items: baseline; justify-content: center; place-self: center; padding-top: 11px; border: 2px solid var(--green); border-radius: 50%; color: var(--green-dark); background: var(--surface); }
 .evaluation-summary.medium .evaluation-score { border-color: #bd8a3c; color: #875d20; }
 .evaluation-summary.low .evaluation-score { border-color: var(--danger); color: var(--danger); }
@@ -223,6 +225,13 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .favorite-empty > span { color: #c29d37; font-size: 48px; line-height: 1; }
 .favorite-empty h3, .favorite-empty p { margin: 0; }
 .favorite-empty p { margin-bottom: 10px; color: var(--muted); }
+
+@media (min-width: 861px) and (orientation: landscape) {
+  .comparison-body { grid-template-columns: minmax(0, 1fr) 250px; align-items: stretch; }
+  .evaluation-summary { grid-template-columns: 1fr; align-content: start; }
+  .evaluation-metrics { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .evaluation-metrics div { min-width: 0; }
+}
 
 @media (min-width: 861px) and (orientation: landscape) and (max-height: 900px) {
   .app-header {
@@ -267,10 +276,10 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .comparison-panes { gap: 8px; }
   .compare-pane { border-radius: 9px; }
   .compare-pane figcaption { padding: 6px 9px; font-size: 13px; }
-  .compare-pane > div, .overlay-stage { height: clamp(150px, calc(100dvh - 460px), 300px); min-height: 0; }
+  .compare-pane > div, .overlay-stage { height: clamp(170px, calc(100dvh - 360px), 340px); min-height: 0; }
   .compare-pane img { max-height: none; }
   .overlay-opacity-control { min-height: 34px; padding: 4px 9px; }
-  .evaluation-summary { gap: 10px; margin-top: 8px; padding: 7px 9px; }
+  .evaluation-summary { gap: 10px; padding: 7px 9px; }
   .evaluation-score { width: 50px; height: 50px; padding-top: 8px; }
   .evaluation-score strong { font-size: 22px; }
   .evaluation-copy p { margin: 2px 0 0; font-size: 12px; line-height: 1.35; }
