@@ -2,23 +2,23 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://solid-drawing-practice.pastel-minutes.chatgpt.site'),
+  metadataBase: new URL('https://rikuru-sys.github.io/SolidDrawing/'),
   title: '立体ドローイング',
   description: 'ランダムな立体を観察して描く、短時間ドローイング練習サイト',
-  alternates: { canonical: 'https://solid-drawing-practice.pastel-minutes.chatgpt.site' },
+  alternates: { canonical: 'https://rikuru-sys.github.io/SolidDrawing/' },
   openGraph: {
     title: '立体ドローイング',
     description: '短時間で、形を見る力を鍛える',
     type: 'website',
     locale: 'ja_JP',
-    url: 'https://solid-drawing-practice.pastel-minutes.chatgpt.site',
-    images: [{ url: 'https://solid-drawing-practice.pastel-minutes.chatgpt.site/og.png', width: 1200, height: 630, alt: '立体ドローイング' }],
+    url: 'https://rikuru-sys.github.io/SolidDrawing/',
+    images: [{ url: 'https://rikuru-sys.github.io/SolidDrawing/og.png', width: 1200, height: 630, alt: '立体ドローイング' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: '立体ドローイング',
     description: '短時間で、形を見る力を鍛える',
-    images: ['https://solid-drawing-practice.pastel-minutes.chatgpt.site/og.png'],
+    images: ['https://rikuru-sys.github.io/SolidDrawing/og.png'],
   },
 };
 
