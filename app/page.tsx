@@ -54,6 +54,7 @@ type Attempt = {
 type ShapeEvaluation = {
   score: number;
   outline: number;
+  angle: number;
   size: number;
   proportion: number;
   feedback: string;
@@ -381,6 +382,78 @@ function translateMask(mask: Uint8Array, size: number, offsetX: number, offsetY:
   return output;
 }
 
+function localLineDirection(mask: Uint8Array, size: number, centerX: number, centerY: number) {
+  const radius = 5;
+  const points: Point[] = [];
+  for (let y = Math.max(0, centerY - radius); y <= Math.min(size - 1, centerY + radius); y += 1) {
+    for (let x = Math.max(0, centerX - radius); x <= Math.min(size - 1, centerX + radius); x += 1) {
+      if (mask[y * size + x]) points.push({ x, y });
+    }
+  }
+  if (points.length < 4) return null;
+  const meanX = points.reduce((total, point) => total + point.x, 0) / points.length;
+  const meanY = points.reduce((total, point) => total + point.y, 0) / points.length;
+  let covarianceX = 0;
+  let covarianceY = 0;
+  let covarianceXY = 0;
+  points.forEach((point) => {
+    const x = point.x - meanX;
+    const y = point.y - meanY;
+    covarianceX += x * x;
+    covarianceY += y * y;
+    covarianceXY += x * y;
+  });
+  const trace = covarianceX + covarianceY;
+  if (!trace) return null;
+  const separation = Math.hypot(covarianceX - covarianceY, 2 * covarianceXY);
+  const confidence = separation / trace;
+  if (confidence < 0.18) return null;
+  return {
+    angle: 0.5 * Math.atan2(2 * covarianceXY, covarianceX - covarianceY),
+    confidence,
+  };
+}
+
+function nearestMaskPoint(mask: Uint8Array, size: number, x: number, y: number, radius: number) {
+  let nearest: Point | null = null;
+  let nearestDistance = radius * radius + 1;
+  for (let targetY = Math.max(0, y - radius); targetY <= Math.min(size - 1, y + radius); targetY += 1) {
+    for (let targetX = Math.max(0, x - radius); targetX <= Math.min(size - 1, x + radius); targetX += 1) {
+      if (!mask[targetY * size + targetX]) continue;
+      const distance = (targetX - x) ** 2 + (targetY - y) ** 2;
+      if (distance >= nearestDistance) continue;
+      nearestDistance = distance;
+      nearest = { x: targetX, y: targetY };
+    }
+  }
+  return nearest;
+}
+
+function lineAngleMatch(sampleMask: Uint8Array, drawingMask: Uint8Array, size: number, tolerance: number) {
+  let totalWeight = 0;
+  let matchedWeight = 0;
+  let sampleCount = 0;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = y * size + x;
+      if (!drawingMask[index] || index % 3 !== 0) continue;
+      const samplePoint = nearestMaskPoint(sampleMask, size, x, y, tolerance);
+      if (!samplePoint) continue;
+      const drawingDirection = localLineDirection(drawingMask, size, x, y);
+      const sampleDirection = localLineDirection(sampleMask, size, samplePoint.x, samplePoint.y);
+      if (!drawingDirection || !sampleDirection) continue;
+      let difference = Math.abs(drawingDirection.angle - sampleDirection.angle) % Math.PI;
+      difference = Math.min(difference, Math.PI - difference);
+      const similarity = Math.max(0, 1 - difference / (Math.PI / 4));
+      const weight = Math.min(drawingDirection.confidence, sampleDirection.confidence);
+      matchedWeight += similarity * weight;
+      totalWeight += weight;
+      sampleCount += 1;
+    }
+  }
+  return sampleCount >= 12 && totalWeight ? matchedWeight / totalWeight : null;
+}
+
 function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
   const size = 180;
   const sampleAnalysis = document.createElement('canvas');
@@ -392,7 +465,7 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   drawingAnalysis.height = size;
   const drawingContext = drawingAnalysis.getContext('2d', { willReadFrequently: true });
   if (!sampleContext || !drawingContext) {
-    return { score: 0, outline: 0, size: 0, proportion: 0, feedback: '評価を作成できませんでした。' };
+    return { score: 0, outline: 0, angle: 0, size: 0, proportion: 0, feedback: '評価を作成できませんでした。' };
   }
 
   sampleContext.fillStyle = '#ffffff';
@@ -468,6 +541,7 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
     return {
       score: 0,
       outline: 0,
+      angle: 0,
       size: 0,
       proportion: 0,
       feedback: '評価できる主線が少ないため、ペンで輪郭をもう少し描いてみましょう。',
@@ -485,6 +559,7 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   const precision = maskMatch(centeredDrawingMask, dilateMask(sampleMask, size, tolerance));
   const recall = maskMatch(sampleMask, dilateMask(centeredDrawingMask, size, tolerance));
   const outlineRatio = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
+  const angleRatio = lineAngleMatch(sampleMask, centeredDrawingMask, size, tolerance) ?? outlineRatio;
   const widthRatio = Math.min(sampleBounds.width, drawingBounds.width)
     / Math.max(sampleBounds.width, drawingBounds.width);
   const heightRatio = Math.min(sampleBounds.height, drawingBounds.height)
@@ -494,17 +569,19 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   const aspectRatio = Math.min(sampleAspect, drawingAspect) / Math.max(sampleAspect, drawingAspect);
   const sizeRatio = (widthRatio + heightRatio) / 2;
   const outline = Math.round(outlineRatio * 100);
+  const angle = Math.round(angleRatio * 100);
   const sizeScore = Math.round(sizeRatio * 100);
   const proportion = Math.round(aspectRatio * 100);
-  const score = Math.round(outline * 0.7 + sizeScore * 0.2 + proportion * 0.1);
+  const score = Math.round(outline * 0.5 + angle * 0.2 + sizeScore * 0.2 + proportion * 0.1);
 
-  let feedback = '輪郭・大きさ・比率がよく合っています。重ね合わせでも細部を確認しましょう。';
+  let feedback = '輪郭・線の傾き・大きさ・比率がよく合っています。重ね合わせでも細部を確認しましょう。';
   if (outline < 45) feedback = '見本の角や曲線を追い、輪郭線の方向をそろえると近づきます。';
+  else if (angle < 60) feedback = '水平線・垂直線・斜線の傾きを、見本の辺と見比べてみましょう。';
   else if (sizeScore < 70) feedback = '形を拡大・縮小せず見比べ、見本と同じ大きさを意識してみましょう。';
   else if (proportion < 70) feedback = '全体の縦横比を見比べてみましょう。';
   else if (score < 80) feedback = '形はおおむね合っています。重ね合わせでずれた辺を確認しましょう。';
 
-  return { score, outline, size: sizeScore, proportion, feedback };
+  return { score, outline, angle, size: sizeScore, proportion, feedback };
 }
 
 function formatFileTimestamp(date = new Date()) {
@@ -1658,10 +1735,11 @@ export default function Home() {
                     <div className="evaluation-copy">
                       <strong>自動形状評価</strong>
                       <p>{currentResult.evaluation.feedback}</p>
-                      <small>位置だけを合わせ、拡大・縮小せずに形と大きさを評価します。</small>
+                      <small>位置だけを合わせ、拡大・縮小せずに線の傾き・形・大きさを評価します。</small>
                     </div>
                     <dl className="evaluation-metrics">
                       <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
+                      <div><dt>傾き</dt><dd>{currentResult.evaluation.angle}</dd></div>
                       <div><dt>大きさ</dt><dd>{currentResult.evaluation.size}</dd></div>
                       <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
                     </dl>
