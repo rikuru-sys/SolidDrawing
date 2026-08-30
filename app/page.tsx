@@ -48,6 +48,7 @@ type Attempt = {
   prompt: ShapePrompt;
   sampleImage: string;
   drawingImage: string;
+  alignedDrawingImage: string;
   seconds: number;
   evaluation: ShapeEvaluation;
 };
@@ -57,6 +58,8 @@ type ShapeEvaluation = {
   angle: number;
   size: number;
   proportion: number;
+  alignmentX: number;
+  alignmentY: number;
   feedback: string;
 };
 type Settings = {
@@ -465,7 +468,16 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   drawingAnalysis.height = size;
   const drawingContext = drawingAnalysis.getContext('2d', { willReadFrequently: true });
   if (!sampleContext || !drawingContext) {
-    return { score: 0, outline: 0, angle: 0, size: 0, proportion: 0, feedback: '評価を作成できませんでした。' };
+    return {
+      score: 0,
+      outline: 0,
+      angle: 0,
+      size: 0,
+      proportion: 0,
+      alignmentX: 0,
+      alignmentY: 0,
+      feedback: '評価を作成できませんでした。',
+    };
   }
 
   sampleContext.fillStyle = '#ffffff';
@@ -544,16 +556,20 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
       angle: 0,
       size: 0,
       proportion: 0,
+      alignmentX: 0,
+      alignmentY: 0,
       feedback: '評価できる主線が少ないため、ペンで輪郭をもう少し描いてみましょう。',
     };
   }
 
   // Match only the centers. Deliberately keep the drawing at its original scale so size remains scorable.
+  const alignmentX = (sampleBounds.centerX - drawingBounds.centerX) / size;
+  const alignmentY = (sampleBounds.centerY - drawingBounds.centerY) / size;
   const centeredDrawingMask = translateMask(
     drawingMask,
     size,
-    Math.round(sampleBounds.centerX - drawingBounds.centerX),
-    Math.round(sampleBounds.centerY - drawingBounds.centerY),
+    Math.round(alignmentX * size),
+    Math.round(alignmentY * size),
   );
   const tolerance = 8;
   const precision = maskMatch(centeredDrawingMask, dilateMask(sampleMask, size, tolerance));
@@ -581,7 +597,16 @@ function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): Shap
   else if (proportion < 70) feedback = '全体の縦横比を見比べてみましょう。';
   else if (score < 80) feedback = '形はおおむね合っています。重ね合わせでずれた辺を確認しましょう。';
 
-  return { score, outline, angle, size: sizeScore, proportion, feedback };
+  return {
+    score,
+    outline,
+    angle,
+    size: sizeScore,
+    proportion,
+    alignmentX,
+    alignmentY,
+    feedback,
+  };
 }
 
 function formatFileTimestamp(date = new Date()) {
@@ -771,7 +796,7 @@ export default function Home() {
     return () => observer.disconnect();
   }, [redrawDrawing, screen]);
 
-  const exportDrawing = useCallback(() => {
+  const exportDrawing = useCallback((offsetX = 0, offsetY = 0) => {
     const canvas = drawingCanvasRef.current;
     if (!canvas) return '';
     const output = document.createElement('canvas');
@@ -781,7 +806,11 @@ export default function Home() {
     if (!context) return '';
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, output.width, output.height);
-    context.drawImage(canvas, 0, 0);
+    context.drawImage(
+      canvas,
+      Math.round(offsetX * output.width),
+      Math.round(offsetY * output.height),
+    );
     return output.toDataURL('image/png');
   }, []);
 
@@ -794,6 +823,7 @@ export default function Home() {
     const evaluation = evaluateShape(sampleCanvasRef.current, evaluationStrokes);
     const sampleImage = sampleCanvasRef.current.toDataURL('image/png');
     const drawingImage = exportDrawing();
+    const alignedDrawingImage = exportDrawing(evaluation.alignmentX, evaluation.alignmentY);
     const pointerId = activePointerIdRef.current;
     const drawingCanvas = drawingCanvasRef.current;
     if (drawingCanvas && pointerId !== null && drawingCanvas.hasPointerCapture(pointerId)) {
@@ -810,6 +840,7 @@ export default function Home() {
       prompt: currentPrompt,
       sampleImage,
       drawingImage,
+      alignedDrawingImage,
       seconds,
       evaluation,
     }];
@@ -1145,7 +1176,10 @@ export default function Home() {
       image.onload = () => resolve(image);
       image.src = source;
     });
-    const [sample, drawing] = await Promise.all([load(currentResult.sampleImage), load(currentResult.drawingImage)]);
+    const [sample, drawing] = await Promise.all([
+      load(currentResult.sampleImage),
+      load(comparisonMode === 'overlay' ? currentResult.alignedDrawingImage : currentResult.drawingImage),
+    ]);
     if (comparisonMode === 'overlay') {
       context.fillText('見本と描画の重ね合わせ', 50, 108);
       context.fillStyle = '#ffffff';
@@ -1690,7 +1724,7 @@ export default function Home() {
                 <div className="comparison-heading">
                   <div className="comparison-title">
                     <h3>{selectedResult + 1}　{currentResult.prompt.shape}</h3>
-                    <span>{comparisonMode === 'overlay' ? '見本に描画を重ねて比較' : '見本と描画を横並びで比較'}</span>
+                    <span>{comparisonMode === 'overlay' ? '中心を合わせて見本と描画を比較' : '見本と描画を横並びで比較'}</span>
                   </div>
                   <div className="comparison-mode-buttons" role="group" aria-label="比較方法">
                     <button className={comparisonMode === 'side-by-side' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'side-by-side'} onClick={() => setComparisonMode('side-by-side')}>横並び</button>
@@ -1705,7 +1739,7 @@ export default function Home() {
                           <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
                           <img
                             className="overlay-drawing"
-                            src={currentResult.drawingImage}
+                            src={currentResult.alignedDrawingImage}
                             alt={`${currentResult.prompt.shape}を描いた結果の重ね合わせ`}
                             style={{ opacity: overlayOpacity }}
                           />
