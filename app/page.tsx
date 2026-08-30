@@ -15,7 +15,7 @@ import { disposeSample3D, renderSample3D } from './three-sample';
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
-type Tool = 'pen' | 'guide' | 'eraser';
+type Tool = 'pen' | 'dashed' | 'guide' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type Difficulty = 'easy' | 'hard';
@@ -26,6 +26,7 @@ type Stroke = {
   points: Point[];
   width: number;
   eraser: boolean;
+  dashed: boolean;
   guide: boolean;
   color: string;
   opacity: number;
@@ -517,6 +518,9 @@ function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: Stroke) {
   context.lineWidth = strokeWidth(stroke);
   context.lineCap = 'round';
   context.lineJoin = 'round';
+  context.setLineDash(stroke.dashed && !stroke.eraser
+    ? [Math.max(0.2, context.lineWidth * 0.2), context.lineWidth * 2.2]
+    : []);
 }
 
 export default function Home() {
@@ -814,7 +818,7 @@ export default function Home() {
     setValidation('');
   };
 
-  const updatePracticePenStyle = (patch: Partial<Pick<Settings, 'penColor' | 'penOpacity'>>) => {
+  const updatePracticePenStyle = (patch: Partial<Pick<Settings, 'penWidth' | 'penColor' | 'penOpacity'>>) => {
     setSessionSettings((current) => ({ ...(current ?? settings), ...patch }));
     setSettings((current) => ({ ...current, ...patch }));
   };
@@ -955,6 +959,7 @@ export default function Home() {
       points: [canvasPoint(event)],
       width: practiceSettings.penWidth,
       eraser: tool === 'eraser',
+      dashed: tool === 'dashed',
       guide: tool === 'guide',
       color: practiceSettings.penColor,
       opacity: practiceSettings.penOpacity,
@@ -969,12 +974,22 @@ export default function Home() {
     if (!stroke || !canvas || paused) return;
     const nextPoint = canvasPoint(event);
     const previousPoint = stroke.points[stroke.points.length - 1];
-    stroke.points.push(nextPoint);
     const rect = canvas.getBoundingClientRect();
+    const dashOffset = stroke.dashed
+      ? stroke.points.slice(1).reduce((total, point, index) => {
+        const start = stroke.points[index];
+        return total + Math.hypot(
+          (point.x - start.x) * rect.width,
+          (point.y - start.y) * rect.height,
+        );
+      }, 0)
+      : 0;
+    stroke.points.push(nextPoint);
     const context = canvas.getContext('2d');
     if (!context) return;
     context.save();
     applyStrokeStyle(context, stroke);
+    if (stroke.dashed) context.lineDashOffset = -dashOffset;
     context.beginPath();
     context.moveTo(previousPoint.x * rect.width, previousPoint.y * rect.height);
     context.lineTo(nextPoint.x * rect.width, nextPoint.y * rect.height);
@@ -1451,10 +1466,23 @@ export default function Home() {
               <div className="drawing-toolbar" aria-label="描画ツール">
                 <div className="drawing-tool-group">
                   <button className={tool === 'pen' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}>ペン</button>
+                  <button className={tool === 'dashed' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'dashed'} onClick={() => setTool('dashed')}>点線</button>
                   <button className={tool === 'guide' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'guide'} onClick={() => setTool('guide')}>補助線</button>
                   <button className={tool === 'eraser' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>消しゴム</button>
                 </div>
                 <div className="drawing-style-controls">
+                  <label className="toolbar-width-control">
+                    <span>太さ</span>
+                    <select
+                      value={practiceSettings.penWidth}
+                      onChange={(event) => updatePracticePenStyle({ penWidth: Number(event.target.value) })}
+                      aria-label="練習中のペンの太さ"
+                    >
+                      <option value="2">細い</option>
+                      <option value="3">普通</option>
+                      <option value="5">太い</option>
+                    </select>
+                  </label>
                   <label className="toolbar-color-control">
                     <span>色</span>
                     <input
