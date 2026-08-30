@@ -66,6 +66,29 @@ export function freshDefaultSettings(): Settings {
   };
 }
 
+export function updateSettings(settings: Settings, patch: Partial<Settings>): Settings {
+  return { ...settings, ...patch };
+}
+
+export function toggleShapeSelection(settings: Settings, shape: ShapeName): Settings {
+  return updateSettings(settings, {
+    shapes: settings.shapes.includes(shape)
+      ? settings.shapes.filter((item) => item !== shape)
+      : [...settings.shapes, shape],
+  });
+}
+
+export function toggleLightDirectionSelection(
+  settings: Settings,
+  direction: LightDirection,
+): Settings {
+  return updateSettings(settings, {
+    lightDirections: settings.lightDirections.includes(direction)
+      ? settings.lightDirections.filter((item) => item !== direction)
+      : [...settings.lightDirections, direction],
+  });
+}
+
 export function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
   const shapes = Array.isArray(parsed.shapes)
     ? parsed.shapes.filter((shape): shape is ShapeName => ALL_SHAPES.includes(shape as ShapeName))
