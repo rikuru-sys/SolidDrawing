@@ -1216,7 +1216,7 @@ export default function Home() {
     );
   };
 
-  const saveAllComparisons = async () => {
+  const saveAllComparisons = async (mode: ComparisonMode) => {
     if (!attempts.length) return;
     const output = document.createElement('canvas');
     const columnCount = 2;
@@ -1240,7 +1240,11 @@ export default function Home() {
     context.fillText('立体ドローイング　練習結果', outerPadding, 55);
     context.fillStyle = '#686b60';
     context.font = '18px sans-serif';
-    context.fillText(`${attempts.length}回分の見本と描画・2列表示`, outerPadding, 91);
+    context.fillText(
+      `${attempts.length}回分・${mode === 'overlay' ? '中心合わせ重ね合わせ' : '見本と描画の横並び'}・2列表示`,
+      outerPadding,
+      91,
+    );
 
     const load = (source: string) => new Promise<HTMLImageElement>((resolve) => {
       const image = new Image();
@@ -1260,7 +1264,7 @@ export default function Home() {
       const imageHeight = 292;
       const [sample, drawing] = await Promise.all([
         load(attempt.sampleImage),
-        load(attempt.drawingImage),
+        load(mode === 'overlay' ? attempt.alignedDrawingImage : attempt.drawingImage),
       ]);
 
       context.fillStyle = '#fffef9';
@@ -1280,25 +1284,38 @@ export default function Home() {
         top + 32,
       );
       context.textAlign = 'left';
-      context.fillText('見本', left + cardPadding, top + 66);
-      context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 66);
-      context.fillStyle = '#ffffff';
-      context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
-      context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
-      drawImageContained(
-        context,
-        drawing,
-        left + cardPadding + paneWidth + paneGap,
-        imageTop,
-        paneWidth,
-        imageHeight,
-      );
+      if (mode === 'overlay') {
+        const imageWidth = cardWidth - cardPadding * 2;
+        context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 66);
+        context.fillStyle = '#ffffff';
+        context.fillRect(left + cardPadding, imageTop, imageWidth, imageHeight);
+        drawImageContained(context, sample, left + cardPadding, imageTop, imageWidth, imageHeight);
+        context.save();
+        context.globalAlpha = overlayOpacity;
+        context.globalCompositeOperation = 'multiply';
+        drawImageContained(context, drawing, left + cardPadding, imageTop, imageWidth, imageHeight);
+        context.restore();
+      } else {
+        context.fillText('見本', left + cardPadding, top + 66);
+        context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 66);
+        context.fillStyle = '#ffffff';
+        context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
+        context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+        drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
+        drawImageContained(
+          context,
+          drawing,
+          left + cardPadding + paneWidth + paneGap,
+          imageTop,
+          paneWidth,
+          imageHeight,
+        );
+      }
     }
 
     downloadDataUrl(
       output.toDataURL('image/png'),
-      `立体ドローイング_全結果_${formatFileTimestamp()}.png`,
+      `立体ドローイング_全結果_${mode === 'overlay' ? '重ね合わせ' : '横並び'}_${formatFileTimestamp()}.png`,
     );
   };
 
@@ -1780,7 +1797,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="comparison-footer">
-                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button primary compact" type="button" onClick={saveAllComparisons}>全結果を2列で保存</button></div>
+                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button secondary compact" type="button" onClick={() => saveAllComparisons('side-by-side')}>全結果：横並び保存</button><button className="button primary compact" type="button" onClick={() => saveAllComparisons('overlay')}>全結果：重ね合わせ保存</button></div>
                   <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
                 </div>
               </section>
