@@ -91,6 +91,11 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .field-label { display: grid; gap: 7px; font-weight: 700; }
 .field-label input, .field-label select { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); color: var(--ink); }
 .field-label small { color: var(--muted); font-weight: 400; }
+.color-setting, .opacity-setting { min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); font-weight: 400; }
+.color-setting input[type="color"] { width: 42px; min-height: 30px; padding: 2px; cursor: pointer; }
+.color-setting span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.opacity-setting input[type="range"] { min-width: 0; min-height: auto; padding: 0; accent-color: var(--green); }
+.opacity-setting output { min-width: 42px; text-align: right; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .readonly-setting { min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
 .readonly-setting span { font-weight: 700; }
 .readonly-setting small { color: var(--muted); }
@@ -130,12 +135,19 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
 .light-direction-badge b { margin-left: 3px; font-size: 17px; line-height: 0; }
 .drawing-canvas { touch-action: none; cursor: none; }
 .brush-cursor { position: absolute; z-index: 3; pointer-events: none; border: 1px solid #30322c; border-radius: 50%; opacity: 0; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .92); }
+.brush-cursor.guide { border-style: dashed; }
 .brush-cursor.eraser { border-color: var(--green); background: rgba(53, 104, 77, .08); }
 .hidden-sample { filter: blur(16px); opacity: .12; }
 .pause-cover { position: absolute; inset: 0; display: grid; place-content: center; gap: 5px; text-align: center; background: rgba(241, 239, 232, .82); }
 .pause-cover span { color: var(--muted); font-size: 14px; }
 .drawing-pause-shield { position: absolute; inset: 0; background: rgba(241, 239, 232, .26); cursor: not-allowed; }
-.drawing-toolbar { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px; border-top: 1px solid var(--line); }
+.drawing-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px; border-top: 1px solid var(--line); }
+.drawing-tool-group, .drawing-style-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.history-tools { margin-left: auto; }
+.drawing-style-controls { min-height: 37px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); }
+.toolbar-color-control, .toolbar-opacity-control { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.toolbar-color-control input[type="color"] { width: 30px; height: 27px; padding: 1px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer; }
+.toolbar-opacity-control input[type="range"] { width: 82px; accent-color: var(--green); }
 .tool-button { min-height: 37px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); cursor: pointer; }
 .tool-button.selected { border-color: var(--green); background: var(--green-soft); font-weight: 700; }
 .practice-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 14px; }
@@ -217,7 +229,8 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
     padding: 8px 12px;
   }
 
-  .drawing-toolbar { padding: 7px; }
+  .drawing-toolbar { gap: 6px 9px; padding: 7px; }
+  .drawing-style-controls { min-height: 34px; padding: 2px 7px; }
   .tool-button { min-height: 34px; padding: 5px 9px; }
   .practice-footer { margin-top: 10px; }
 }
@@ -248,6 +261,7 @@ h1 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.12; letter-spa
   .result-list { grid-template-columns: repeat(3, 1fr); }
   .favorite-list { grid-template-columns: repeat(3, 1fr); }
   .comparison-panes { grid-template-columns: 1fr; }
+  .history-tools { margin-left: 0; }
   .comparison-footer { align-items: flex-start; flex-direction: column; }
 }
 

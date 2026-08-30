@@ -15,13 +15,20 @@ import { disposeSample3D, renderSample3D } from './three-sample';
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 type ShapeName = '立方体' | '直方体' | '円柱' | '楕円柱' | '三角錐' | '円錐';
 type Layout = 'top' | 'bottom' | 'left' | 'right';
-type Tool = 'pen' | 'eraser';
+type Tool = 'pen' | 'guide' | 'eraser';
 type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type Difficulty = 'easy' | 'hard';
 
 type Point = { x: number; y: number };
-type Stroke = { points: Point[]; width: number; eraser: boolean };
+type Stroke = {
+  points: Point[];
+  width: number;
+  eraser: boolean;
+  guide: boolean;
+  color: string;
+  opacity: number;
+};
 type ShapePrompt = {
   id: string;
   shape: ShapeName;
@@ -47,6 +54,8 @@ type Settings = {
   count: number;
   layout: Layout;
   penWidth: number;
+  penColor: string;
+  penOpacity: number;
   sampleStyle: SampleStyle;
   lightDirections: LightDirection[];
   difficulty: Difficulty;
@@ -80,6 +89,8 @@ const DEFAULT_SETTINGS: Settings = {
   count: 10,
   layout: 'left',
   penWidth: 3,
+  penColor: '#30322c',
+  penOpacity: 1,
   sampleStyle: 'shaded',
   lightDirections: [...ALL_LIGHT_DIRECTIONS],
   difficulty: 'easy',
@@ -114,6 +125,12 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     const penWidth = typeof parsed.penWidth === 'number' && [2, 3, 5].includes(parsed.penWidth)
       ? parsed.penWidth
       : DEFAULT_SETTINGS.penWidth;
+    const penColor = typeof parsed.penColor === 'string' && /^#[0-9a-f]{6}$/i.test(parsed.penColor)
+      ? parsed.penColor
+      : DEFAULT_SETTINGS.penColor;
+    const penOpacity = typeof parsed.penOpacity === 'number' && Number.isFinite(parsed.penOpacity)
+      ? Math.max(0.1, Math.min(1, parsed.penOpacity))
+      : DEFAULT_SETTINGS.penOpacity;
     const sampleStyle = parsed.sampleStyle === 'shadow' || parsed.sampleStyle === 'hidden-lines'
       ? parsed.sampleStyle
       : 'shaded';
@@ -124,6 +141,8 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     count,
     layout,
     penWidth,
+    penColor,
+    penOpacity,
     sampleStyle,
     lightDirections: lightDirections.length ? lightDirections : [...ALL_LIGHT_DIRECTIONS],
     difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
@@ -287,6 +306,28 @@ function drawImageContained(
   );
 }
 
+function strokeWidth(stroke: Stroke) {
+  if (stroke.eraser) return stroke.width * 4;
+  if (stroke.guide) return Math.max(1, stroke.width * 0.65);
+  return stroke.width;
+}
+
+function strokeOpacity(stroke: Stroke) {
+  if (stroke.eraser) return 1;
+  if (stroke.guide) return Math.min(0.35, stroke.opacity * 0.4);
+  return stroke.opacity;
+}
+
+function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: Stroke) {
+  context.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
+  context.globalAlpha = strokeOpacity(stroke);
+  context.strokeStyle = stroke.color;
+  context.fillStyle = stroke.color;
+  context.lineWidth = strokeWidth(stroke);
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
@@ -356,12 +397,7 @@ export default function Home() {
   const paintStroke = useCallback((context: CanvasRenderingContext2D, stroke: Stroke, width: number, height: number) => {
     if (!stroke.points.length) return;
     context.save();
-    context.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
-    context.strokeStyle = '#30322c';
-    context.fillStyle = '#30322c';
-    context.lineWidth = stroke.eraser ? stroke.width * 4 : stroke.width;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
+    applyStrokeStyle(context, stroke);
     if (stroke.points.length === 1) {
       context.beginPath();
       context.arc(stroke.points[0].x * width, stroke.points[0].y * height, context.lineWidth / 2, 0, Math.PI * 2);
@@ -575,6 +611,11 @@ export default function Home() {
     setValidation('');
   };
 
+  const updatePracticePenStyle = (patch: Partial<Pick<Settings, 'penColor' | 'penOpacity'>>) => {
+    setSessionSettings((current) => ({ ...(current ?? settings), ...patch }));
+    setSettings((current) => ({ ...current, ...patch }));
+  };
+
   const startPractice = (practiceSettings: Settings = settings) => {
     const count = Math.max(1, Math.min(20, Number(practiceSettings.count) || 1));
     if (!practiceSettings.shapes.length) {
@@ -711,6 +752,9 @@ export default function Home() {
       points: [canvasPoint(event)],
       width: practiceSettings.penWidth,
       eraser: tool === 'eraser',
+      guide: tool === 'guide',
+      color: practiceSettings.penColor,
+      opacity: practiceSettings.penOpacity,
     };
     setRedoStrokes([]);
   };
@@ -727,11 +771,7 @@ export default function Home() {
     const context = canvas.getContext('2d');
     if (!context) return;
     context.save();
-    context.globalCompositeOperation = stroke.eraser ? 'destination-out' : 'source-over';
-    context.strokeStyle = '#30322c';
-    context.lineWidth = stroke.eraser ? stroke.width * 4 : stroke.width;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
+    applyStrokeStyle(context, stroke);
     context.beginPath();
     context.moveTo(previousPoint.x * rect.width, previousPoint.y * rect.height);
     context.lineTo(nextPoint.x * rect.width, nextPoint.y * rect.height);
@@ -983,7 +1023,33 @@ export default function Home() {
                     <option value="2">細い</option><option value="3">普通</option><option value="5">太い</option>
                   </select>
                 </label>
+                <label className="field-label">ペン色
+                  <span className="color-setting">
+                    <input
+                      type="color"
+                      value={settings.penColor}
+                      onChange={(event) => setSettings((current) => ({ ...current, penColor: event.target.value }))}
+                      aria-label="ペン色"
+                    />
+                    <span>{settings.penColor.toUpperCase()}</span>
+                  </span>
+                </label>
+                <label className="field-label">ペンの不透明度
+                  <span className="opacity-setting">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={settings.penOpacity}
+                      onChange={(event) => setSettings((current) => ({ ...current, penOpacity: Number(event.target.value) }))}
+                      aria-label="ペンの不透明度"
+                    />
+                    <output>{Math.round(settings.penOpacity * 100)}%</output>
+                  </span>
+                </label>
               </div>
+              <p className="setting-note">補助線は、選んだペン色を使って通常より細く薄く描画します。</p>
             </section>
             <section className="settings-card">
               <h3>見本の表示</h3>
@@ -1103,19 +1169,56 @@ export default function Home() {
                   ref={brushCursorRef}
                   className={`brush-cursor ${tool}`}
                   style={{
-                    width: tool === 'eraser' ? practiceSettings.penWidth * 4 : practiceSettings.penWidth,
-                    height: tool === 'eraser' ? practiceSettings.penWidth * 4 : practiceSettings.penWidth,
+                    width: tool === 'eraser'
+                      ? practiceSettings.penWidth * 4
+                      : tool === 'guide'
+                        ? Math.max(1, practiceSettings.penWidth * 0.65)
+                        : practiceSettings.penWidth,
+                    height: tool === 'eraser'
+                      ? practiceSettings.penWidth * 4
+                      : tool === 'guide'
+                        ? Math.max(1, practiceSettings.penWidth * 0.65)
+                        : practiceSettings.penWidth,
+                    borderColor: tool === 'eraser' ? undefined : practiceSettings.penColor,
                   }}
                   aria-hidden="true"
                 />
                 {paused && <div className="drawing-pause-shield" aria-hidden="true" />}
               </div>
               <div className="drawing-toolbar" aria-label="描画ツール">
-                <button className={tool === 'pen' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}>ペン</button>
-                <button className={tool === 'eraser' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>消しゴム</button>
-                <button className="tool-button" type="button" disabled={!strokes.length} onClick={undo}>元に戻す</button>
-                <button className="tool-button" type="button" disabled={!redoStrokes.length} onClick={redo}>やり直す</button>
-                <button className="tool-button" type="button" disabled={!strokes.length} onClick={() => { setStrokes([]); setRedoStrokes([]); }}>全消去</button>
+                <div className="drawing-tool-group">
+                  <button className={tool === 'pen' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}>ペン</button>
+                  <button className={tool === 'guide' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'guide'} onClick={() => setTool('guide')}>補助線</button>
+                  <button className={tool === 'eraser' ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>消しゴム</button>
+                </div>
+                <div className="drawing-style-controls">
+                  <label className="toolbar-color-control">
+                    <span>色</span>
+                    <input
+                      type="color"
+                      value={practiceSettings.penColor}
+                      onChange={(event) => updatePracticePenStyle({ penColor: event.target.value })}
+                      aria-label="練習中のペン色"
+                    />
+                  </label>
+                  <label className="toolbar-opacity-control">
+                    <span>濃さ {Math.round(practiceSettings.penOpacity * 100)}%</span>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={practiceSettings.penOpacity}
+                      onChange={(event) => updatePracticePenStyle({ penOpacity: Number(event.target.value) })}
+                      aria-label="練習中のペンの不透明度"
+                    />
+                  </label>
+                </div>
+                <div className="drawing-tool-group history-tools">
+                  <button className="tool-button" type="button" disabled={!strokes.length} onClick={undo}>元に戻す</button>
+                  <button className="tool-button" type="button" disabled={!redoStrokes.length} onClick={redo}>やり直す</button>
+                  <button className="tool-button" type="button" disabled={!strokes.length} onClick={() => { setStrokes([]); setRedoStrokes([]); }}>全消去</button>
+                </div>
               </div>
             </section>
           </div>
