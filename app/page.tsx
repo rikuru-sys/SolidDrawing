@@ -21,6 +21,7 @@ type LightDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type Difficulty = 'easy' | 'hard';
 type ComparisonMode = 'side-by-side' | 'overlay';
 type SampleVisibility = 'always' | 'partway';
+type PracticeMode = 'canvas' | 'sample-only';
 
 type Point = { x: number; y: number };
 type Stroke = {
@@ -52,6 +53,7 @@ type Attempt = {
   alignedDrawingImage: string;
   seconds: number;
   evaluation: ShapeEvaluation;
+  practiceMode: PracticeMode;
 };
 type ShapeEvaluation = {
   score: number;
@@ -75,6 +77,7 @@ type Settings = {
   lightDirections: LightDirection[];
   difficulty: Difficulty;
   sampleVisibility: SampleVisibility;
+  practiceMode: PracticeMode;
 };
 type Favorite = {
   id: string;
@@ -111,6 +114,7 @@ const DEFAULT_SETTINGS: Settings = {
   lightDirections: [...ALL_LIGHT_DIRECTIONS],
   difficulty: 'easy',
   sampleVisibility: 'always',
+  practiceMode: 'canvas',
 };
 
 const freshDefaultSettings = (): Settings => ({
@@ -164,6 +168,7 @@ function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
     lightDirections: lightDirections.length ? lightDirections : [...ALL_LIGHT_DIRECTIONS],
     difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
     sampleVisibility: parsed.sampleVisibility === 'partway' ? 'partway' : 'always',
+    practiceMode: parsed.practiceMode === 'sample-only' ? 'sample-only' : 'canvas',
   };
 }
 
@@ -465,6 +470,19 @@ function lineAngleMatch(sampleMask: Uint8Array, drawingMask: Uint8Array, size: n
 function strictMetricScore(ratio: number) {
   const normalizedRatio = Math.max(0, Math.min(1, ratio));
   return Math.round(Math.pow(normalizedRatio, 1.2) * 100);
+}
+
+function unevaluatedShape(): ShapeEvaluation {
+  return {
+    score: 0,
+    outline: 0,
+    angle: 0,
+    size: 0,
+    proportion: 0,
+    alignmentX: 0,
+    alignmentY: 0,
+    feedback: '見本のみ表示モードでは、自動形状評価を行いません。',
+  };
 }
 
 function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
@@ -843,10 +861,14 @@ export default function Home() {
     const evaluationStrokes = activeStrokeRef.current
       ? [...strokesRef.current, activeStrokeRef.current]
       : strokesRef.current;
-    const evaluation = evaluateShape(sampleCanvasRef.current, evaluationStrokes);
+    const evaluation = practiceSettings.practiceMode === 'sample-only'
+      ? unevaluatedShape()
+      : evaluateShape(sampleCanvasRef.current, evaluationStrokes);
     const sampleImage = sampleCanvasRef.current.toDataURL('image/png');
-    const drawingImage = exportDrawing();
-    const alignedDrawingImage = exportDrawing(evaluation.alignmentX, evaluation.alignmentY);
+    const drawingImage = practiceSettings.practiceMode === 'sample-only' ? '' : exportDrawing();
+    const alignedDrawingImage = practiceSettings.practiceMode === 'sample-only'
+      ? ''
+      : exportDrawing(evaluation.alignmentX, evaluation.alignmentY);
     const pointerId = activePointerIdRef.current;
     const drawingCanvas = drawingCanvasRef.current;
     if (drawingCanvas && pointerId !== null && drawingCanvas.hasPointerCapture(pointerId)) {
@@ -866,6 +888,7 @@ export default function Home() {
       alignedDrawingImage,
       seconds,
       evaluation,
+      practiceMode: practiceSettings.practiceMode,
     }];
     setAttempts(nextAttempts);
 
@@ -887,7 +910,7 @@ export default function Home() {
     setRedoStrokes([]);
     setPaused(false);
     window.setTimeout(() => { finishingRef.current = false; }, 0);
-  }, [attempts, currentPrompt, exportDrawing, practiceSettings.time, prompts.length, questionIndex]);
+  }, [attempts, currentPrompt, exportDrawing, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
@@ -1170,7 +1193,10 @@ export default function Home() {
   };
 
   const stopPractice = () => {
-    if (window.confirm('ここまでの描画を保存して、比較画面へ移動しますか？')) finishCurrent(true);
+    const message = practiceSettings.practiceMode === 'sample-only'
+      ? 'ここまでの練習を記録して、結果画面へ移動しますか？'
+      : 'ここまでの描画を保存して、比較画面へ移動しますか？';
+    if (window.confirm(message)) finishCurrent(true);
   };
 
   const downloadDataUrl = (url: string, name: string) => {
@@ -1237,6 +1263,14 @@ export default function Home() {
     downloadDataUrl(
       currentResult.drawingImage,
       `立体ドローイング_描画_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
+    );
+  };
+
+  const saveSample = () => {
+    if (!currentResult) return;
+    downloadDataUrl(
+      currentResult.sampleImage,
+      `立体ドローイング_見本_${selectedResult + 1}_${currentResult.prompt.shape}_${formatFileTimestamp()}.png`,
     );
   };
 
@@ -1431,6 +1465,29 @@ export default function Home() {
                 </button>
               </div>
             </section>
+            <section className="settings-card wide-card">
+              <h3>練習方法</h3>
+              <div className="difficulty-options">
+                <button
+                  className={settings.practiceMode === 'canvas' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.practiceMode === 'canvas'}
+                  onClick={() => setSettings((current) => ({ ...current, practiceMode: 'canvas' }))}
+                >
+                  <strong>サイト内で描く</strong>
+                  <small>見本と描画スペースを表示し、最後に自動評価します</small>
+                </button>
+                <button
+                  className={settings.practiceMode === 'sample-only' ? 'choice-button selected' : 'choice-button'}
+                  type="button"
+                  aria-pressed={settings.practiceMode === 'sample-only'}
+                  onClick={() => setSettings((current) => ({ ...current, practiceMode: 'sample-only' }))}
+                >
+                  <strong>見本のみ表示</strong>
+                  <small>使い慣れたペイントソフトで描くため、見本を大きく表示します</small>
+                </button>
+              </div>
+            </section>
             <section className="settings-card">
               <h3>出題する立体</h3>
               <div className="shape-options">
@@ -1459,44 +1516,48 @@ export default function Home() {
               </div>
             </section>
             <section className="settings-card">
-              <h3>回数と描画ツール</h3>
-              <div className="field-grid">
+              <h3>{settings.practiceMode === 'sample-only' ? '練習回数' : '回数と描画ツール'}</h3>
+              <div className={settings.practiceMode === 'sample-only' ? 'field-grid single-field-grid' : 'field-grid'}>
                 <label className="field-label">練習回数
                   <input type="number" min="1" max="20" value={settings.count} onChange={(event) => setSettings((current) => ({ ...current, count: Number(event.target.value) }))} />
                   <small>1〜20回</small>
                 </label>
-                <label className="field-label">線の太さ
-                  <select value={settings.penWidth} onChange={(event) => setSettings((current) => ({ ...current, penWidth: Number(event.target.value) }))}>
-                    <option value="2">細い</option><option value="3">普通</option><option value="5">太い</option>
-                  </select>
-                </label>
-                <label className="field-label">ペン色
-                  <span className="color-setting">
-                    <input
-                      type="color"
-                      value={settings.penColor}
-                      onChange={(event) => setSettings((current) => ({ ...current, penColor: event.target.value }))}
-                      aria-label="ペン色"
-                    />
-                    <span>{settings.penColor.toUpperCase()}</span>
-                  </span>
-                </label>
-                <label className="field-label">ペンの不透明度
-                  <span className="opacity-setting">
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="1"
-                      step="0.1"
-                      value={settings.penOpacity}
-                      onChange={(event) => setSettings((current) => ({ ...current, penOpacity: Number(event.target.value) }))}
-                      aria-label="ペンの不透明度"
-                    />
-                    <output>{Math.round(settings.penOpacity * 100)}%</output>
-                  </span>
-                </label>
+                {settings.practiceMode === 'canvas' && (
+                  <>
+                    <label className="field-label">線の太さ
+                      <select value={settings.penWidth} onChange={(event) => setSettings((current) => ({ ...current, penWidth: Number(event.target.value) }))}>
+                        <option value="2">細い</option><option value="3">普通</option><option value="5">太い</option>
+                      </select>
+                    </label>
+                    <label className="field-label">ペン色
+                      <span className="color-setting">
+                        <input
+                          type="color"
+                          value={settings.penColor}
+                          onChange={(event) => setSettings((current) => ({ ...current, penColor: event.target.value }))}
+                          aria-label="ペン色"
+                        />
+                        <span>{settings.penColor.toUpperCase()}</span>
+                      </span>
+                    </label>
+                    <label className="field-label">ペンの不透明度
+                      <span className="opacity-setting">
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1"
+                          step="0.1"
+                          value={settings.penOpacity}
+                          onChange={(event) => setSettings((current) => ({ ...current, penOpacity: Number(event.target.value) }))}
+                          aria-label="ペンの不透明度"
+                        />
+                        <output>{Math.round(settings.penOpacity * 100)}%</output>
+                      </span>
+                    </label>
+                  </>
+                )}
               </div>
-              <p className="setting-note">補助線は、選んだペン色を使って通常より細く薄く描画します。</p>
+              {settings.practiceMode === 'canvas' && <p className="setting-note">補助線は、選んだペン色を使って通常より細く薄く描画します。</p>}
             </section>
             <section className="settings-card">
               <h3>見本の表示</h3>
@@ -1563,23 +1624,25 @@ export default function Home() {
               )}
               <p className="setting-note">問題ごとに3Dカメラの方向と比率をランダム生成</p>
             </section>
-            <section className="settings-card wide-card">
-              <h3>見本と描画スペースの配置</h3>
-              <div className="layout-options">
-                {LAYOUTS.map((layout) => (
-                  <button
-                    key={layout.value}
-                    className={settings.layout === layout.value ? 'layout-choice selected' : 'layout-choice'}
-                    type="button"
-                    aria-pressed={settings.layout === layout.value}
-                    onClick={() => setSettings((current) => ({ ...current, layout: layout.value }))}
-                  >
-                    <span className={`layout-mini ${layout.value}`} aria-hidden="true"><i /><i /></span>
-                    <span>{layout.label}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
+            {settings.practiceMode === 'canvas' && (
+              <section className="settings-card wide-card">
+                <h3>見本と描画スペースの配置</h3>
+                <div className="layout-options">
+                  {LAYOUTS.map((layout) => (
+                    <button
+                      key={layout.value}
+                      className={settings.layout === layout.value ? 'layout-choice selected' : 'layout-choice'}
+                      type="button"
+                      aria-pressed={settings.layout === layout.value}
+                      onClick={() => setSettings((current) => ({ ...current, layout: layout.value }))}
+                    >
+                      <span className={`layout-mini ${layout.value}`} aria-hidden="true"><i /><i /></span>
+                      <span>{layout.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
           {validation && <p className="validation-message" role="alert">{validation}</p>}
           <div className="settings-footer"><button className="button primary" type="button" onClick={() => startPractice()}>この設定で始める</button></div>
@@ -1599,7 +1662,9 @@ export default function Home() {
             <div className="practice-actions"><button className="button secondary compact" type="button" onClick={() => setPaused((value) => !value)}>{paused ? '再開' : '一時停止'}</button><button className="text-button danger" type="button" onClick={stopPractice}>終了</button></div>
           </div>
 
-          <div className={`workspace-layout layout-${practiceSettings.layout}`}>
+          <div className={practiceSettings.practiceMode === 'sample-only'
+            ? 'workspace-layout sample-only-layout'
+            : `workspace-layout layout-${practiceSettings.layout}`}>
             <section className="work-panel sample-panel">
               <div className="work-panel-header">
                 <strong>見本</strong>
@@ -1640,7 +1705,8 @@ export default function Home() {
                 ) : null}
               </div>
             </section>
-            <section className="work-panel drawing-panel">
+            {practiceSettings.practiceMode === 'canvas' && (
+              <section className="work-panel drawing-panel">
               <div className="work-panel-header"><strong>描画スペース</strong><small>ペン・タッチ・マウス対応</small></div>
               <div className="canvas-stage">
                 <canvas
@@ -1722,11 +1788,22 @@ export default function Home() {
                   <button className="tool-button" type="button" disabled={!strokes.length} onClick={() => { setStrokes([]); setRedoStrokes([]); }}>全消去</button>
                 </div>
               </div>
-            </section>
+              </section>
+            )}
           </div>
           <div className="practice-footer">
-            <p>{practiceSettings.time === null ? '描き終わったら「保存して次へ」を押します。' : '時間終了後、自動保存して次の問題へ進みます。'}</p>
-            {practiceSettings.time === null && <button className="button primary compact" type="button" onClick={() => finishCurrent(false)}>保存して次へ</button>}
+            <p>{practiceSettings.practiceMode === 'sample-only'
+              ? practiceSettings.time === null
+                ? '外部ソフトで描き終わったら「次の見本へ」を押します。'
+                : '時間終了後、自動的に次の見本へ進みます。'
+              : practiceSettings.time === null
+                ? '描き終わったら「保存して次へ」を押します。'
+                : '時間終了後、自動保存して次の問題へ進みます。'}</p>
+            {practiceSettings.time === null && (
+              <button className="button primary compact" type="button" onClick={() => finishCurrent(false)}>
+                {practiceSettings.practiceMode === 'sample-only' ? '次の見本へ' : '保存して次へ'}
+              </button>
+            )}
           </div>
         </section>
       )}
@@ -1749,7 +1826,7 @@ export default function Home() {
                     onClick={() => setSelectedFavoriteId(favorite.id)}
                   >
                     <strong>★ {favorite.prompt.shape}</strong>
-                    <span>{favorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{favorite.settings.time === null ? '時間指定なし' : `${favorite.settings.time}秒`}</span>
+                    <span>{favorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{favorite.settings.practiceMode === 'sample-only' ? '見本のみ' : 'サイト内描画'}・{favorite.settings.time === null ? '時間指定なし' : `${favorite.settings.time}秒`}</span>
                   </button>
                 ))}
               </nav>
@@ -1768,6 +1845,7 @@ export default function Home() {
                 </div>
                 <div className="favorite-meta">
                   <span><small>難易度</small><strong>{selectedFavorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}</strong></span>
+                  <span><small>練習方法</small><strong>{selectedFavorite.settings.practiceMode === 'sample-only' ? '見本のみ' : 'サイト内で描く'}</strong></span>
                   <span><small>見本表示</small><strong>{sampleStyleLabel(selectedFavorite.settings.sampleStyle)}</strong></span>
                   <span><small>表示時間</small><strong>{selectedFavorite.settings.sampleVisibility === 'partway' ? '途中で隠す' : '常に表示'}</strong></span>
                   <span><small>制限時間</small><strong>{selectedFavorite.settings.time === null ? '指定なし' : `${selectedFavorite.settings.time}秒`}</strong></span>
@@ -1799,10 +1877,11 @@ export default function Home() {
             </div>
           </div>
           <div className="result-layout">
-            <nav className="result-list" aria-label="比較する問題">
+            <nav className="result-list" aria-label="確認する問題">
               {attempts.map((attempt, index) => (
                 <button key={attempt.prompt.id} className={selectedResult === index ? 'result-item selected' : 'result-item'} type="button" aria-pressed={selectedResult === index} onClick={() => setSelectedResult(index)}>
-                  <strong>{index + 1}　{attempt.prompt.shape}</strong><span>{attempt.seconds}秒・評価 {attempt.evaluation.score}点</span>
+                  <strong>{index + 1}　{attempt.prompt.shape}</strong>
+                  <span>{attempt.seconds}秒・{attempt.practiceMode === 'sample-only' ? '見本のみ' : `評価 ${attempt.evaluation.score}点`}</span>
                 </button>
               ))}
             </nav>
@@ -1811,16 +1890,34 @@ export default function Home() {
                 <div className="comparison-heading">
                   <div className="comparison-title">
                     <h3>{selectedResult + 1}　{currentResult.prompt.shape}</h3>
-                    <span>{comparisonMode === 'overlay' ? '中心を合わせて見本と描画を比較' : '見本と描画を横並びで比較'}</span>
+                    <span>{currentResult.practiceMode === 'sample-only'
+                      ? '見本のみ表示モードの練習記録'
+                      : comparisonMode === 'overlay'
+                        ? '中心を合わせて見本と描画を比較'
+                        : '見本と描画を横並びで比較'}</span>
                   </div>
-                  <div className="comparison-mode-buttons" role="group" aria-label="比較方法">
-                    <button className={comparisonMode === 'side-by-side' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'side-by-side'} onClick={() => setComparisonMode('side-by-side')}>横並び</button>
-                    <button className={comparisonMode === 'overlay' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'overlay'} onClick={() => setComparisonMode('overlay')}>重ね合わせ</button>
-                  </div>
+                  {currentResult.practiceMode === 'canvas' && (
+                    <div className="comparison-mode-buttons" role="group" aria-label="比較方法">
+                      <button className={comparisonMode === 'side-by-side' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'side-by-side'} onClick={() => setComparisonMode('side-by-side')}>横並び</button>
+                      <button className={comparisonMode === 'overlay' ? 'selected' : ''} type="button" aria-pressed={comparisonMode === 'overlay'} onClick={() => setComparisonMode('overlay')}>重ね合わせ</button>
+                    </div>
+                  )}
                 </div>
-                <div className="comparison-body">
+                <div className={currentResult.practiceMode === 'sample-only'
+                  ? 'comparison-body sample-only-result-body'
+                  : 'comparison-body'}>
                   <div className="comparison-visual">
-                    {comparisonMode === 'overlay' ? (
+                    {currentResult.practiceMode === 'sample-only' ? (
+                      <>
+                        <div className="comparison-panes sample-only-result">
+                          <figure className="compare-pane"><figcaption>見本</figcaption><div><img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} /></div></figure>
+                        </div>
+                        <div className="sample-only-result-note">
+                          <strong>自動評価なし</strong>
+                          <span>外部のペイントソフトで描いた結果はこのサイトには保存されないため、形状評価は行いません。</span>
+                        </div>
+                      </>
+                    ) : comparisonMode === 'overlay' ? (
                       <div className="overlay-comparison">
                         <div className="overlay-stage">
                           <img src={currentResult.sampleImage} alt={`${currentResult.prompt.shape}の見本`} />
@@ -1851,23 +1948,37 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
-                    <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
-                    <div className="evaluation-copy">
-                      <strong>自動形状評価</strong>
-                      <p>{currentResult.evaluation.feedback}</p>
-                      <small>位置だけを合わせ、輪郭45%・傾き25%・大きさ20%・比率10%で細かなずれも評価します。</small>
+                  {currentResult.practiceMode === 'canvas' && (
+                    <div className={`evaluation-summary ${currentResult.evaluation.score >= 80 ? 'high' : currentResult.evaluation.score >= 60 ? 'medium' : 'low'}`}>
+                      <div className="evaluation-score"><strong>{currentResult.evaluation.score}</strong><span>点</span></div>
+                      <div className="evaluation-copy">
+                        <strong>自動形状評価</strong>
+                        <p>{currentResult.evaluation.feedback}</p>
+                        <small>位置だけを合わせ、輪郭45%・傾き25%・大きさ20%・比率10%で細かなずれも評価します。</small>
+                      </div>
+                      <dl className="evaluation-metrics">
+                        <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
+                        <div><dt>傾き</dt><dd>{currentResult.evaluation.angle}</dd></div>
+                        <div><dt>大きさ</dt><dd>{currentResult.evaluation.size}</dd></div>
+                        <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
+                      </dl>
                     </div>
-                    <dl className="evaluation-metrics">
-                      <div><dt>輪郭</dt><dd>{currentResult.evaluation.outline}</dd></div>
-                      <div><dt>傾き</dt><dd>{currentResult.evaluation.angle}</dd></div>
-                      <div><dt>大きさ</dt><dd>{currentResult.evaluation.size}</dd></div>
-                      <div><dt>比率</dt><dd>{currentResult.evaluation.proportion}</dd></div>
-                    </dl>
-                  </div>
+                  )}
                 </div>
                 <div className="comparison-footer">
-                  <div className="button-row"><button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button><button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button><button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button><button className="button secondary compact" type="button" onClick={() => saveAllComparisons('side-by-side')}>全結果：横並び保存</button><button className="button primary compact" type="button" onClick={() => saveAllComparisons('overlay')}>全結果：重ね合わせ保存</button></div>
+                  <div className="button-row">
+                    <button className={isCurrentFavorite ? 'button favorite selected compact' : 'button favorite compact'} type="button" aria-pressed={isCurrentFavorite} onClick={toggleCurrentFavorite}>{isCurrentFavorite ? '★ お気に入り済み' : '☆ お気に入りに追加'}</button>
+                    {currentResult.practiceMode === 'sample-only' ? (
+                      <button className="button primary compact" type="button" onClick={saveSample}>見本画像を保存</button>
+                    ) : (
+                      <>
+                        <button className="button secondary compact" type="button" onClick={saveComparison}>{comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button>
+                        <button className="button secondary compact" type="button" onClick={saveDrawing}>描画だけ保存</button>
+                        <button className="button secondary compact" type="button" onClick={() => saveAllComparisons('side-by-side')}>全結果：横並び保存</button>
+                        <button className="button primary compact" type="button" onClick={() => saveAllComparisons('overlay')}>全結果：重ね合わせ保存</button>
+                      </>
+                    )}
+                  </div>
                   <div className="button-row"><button className="button secondary compact" type="button" disabled={selectedResult === 0} onClick={() => setSelectedResult((index) => index - 1)}>前へ</button><button className="button secondary compact" type="button" disabled={selectedResult === attempts.length - 1} onClick={() => setSelectedResult((index) => index + 1)}>次へ</button></div>
                 </div>
               </section>
