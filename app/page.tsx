@@ -12,7 +12,6 @@ import {
 } from 'react';
 import { createPrompts } from '../src/domain/prompt/prompt-generator';
 import type {
-  Difficulty,
   LightDirection,
   PromptGeneration,
   ShapeName,
@@ -22,7 +21,6 @@ import {
   clampSeed,
   createSessionSeed,
   MAX_SEED,
-  type SeedMode,
 } from '../src/domain/random/seeded-random';
 import { applyStrokeStyle } from '../src/features/drawing/stroke-rendering';
 import { stabilizeStrokePoint } from '../src/features/drawing/stabilization';
@@ -43,14 +41,28 @@ import {
   unevaluatedShape,
 } from '../src/features/evaluation/shape-evaluator';
 import type { ShapeEvaluation } from '../src/features/evaluation/types';
+import {
+  countdownSnapshot,
+  elapsedTimerSeconds,
+  practiceDurationSeconds,
+} from '../src/features/practice/practice-timer';
+import {
+  ALL_LIGHT_DIRECTIONS,
+  ALL_SHAPES,
+  DEFAULT_SETTINGS,
+  normalizeStoredSettings,
+  readStoredSettings,
+  saveStoredSettings,
+  TIME_CHOICES,
+  type Layout,
+  type PracticeMode,
+  type SampleStyle,
+  type Settings,
+} from '../src/features/settings/practice-settings';
 import { disposeSample3D, renderSample3D } from './three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
-type Layout = 'top' | 'bottom' | 'left' | 'right';
-type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
 type ComparisonMode = 'side-by-side' | 'overlay';
-type SampleVisibility = 'always' | 'partway';
-type PracticeMode = 'canvas' | 'sample-only';
 type Attempt = {
   prompt: ShapePrompt;
   sampleImage: string;
@@ -62,23 +74,6 @@ type Attempt = {
   evaluation: ShapeEvaluation;
   practiceMode: PracticeMode;
 };
-type Settings = {
-  shapes: ShapeName[];
-  time: number | null;
-  count: number;
-  layout: Layout;
-  penWidth: number;
-  penColor: string;
-  penOpacity: number;
-  sampleStyle: SampleStyle;
-  lightDirections: LightDirection[];
-  difficulty: Difficulty;
-  sampleVisibility: SampleVisibility;
-  practiceMode: PracticeMode;
-  stabilization: Stabilization;
-  seedMode: SeedMode;
-  fixedSeed: number;
-};
 type Favorite = {
   id: string;
   prompt: ShapePrompt;
@@ -86,8 +81,6 @@ type Favorite = {
   createdAt: number;
 };
 
-const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
-const TIME_CHOICES: Array<number | null> = [10, 15, 20, 30, 40, 45, 50, 60, null];
 const LAYOUTS: Array<{ value: Layout; label: string }> = [
   { value: 'top', label: '見本が上' },
   { value: 'bottom', label: '見本が下' },
@@ -100,105 +93,6 @@ const LIGHT_DIRECTIONS: Array<{ value: LightDirection; label: string; arrow: str
   { value: 'bottom-left', label: '左下', arrow: '↗' },
   { value: 'bottom-right', label: '右下', arrow: '↖' },
 ];
-const ALL_LIGHT_DIRECTIONS = LIGHT_DIRECTIONS.map(({ value }) => value);
-
-const DEFAULT_SETTINGS: Settings = {
-  shapes: [...ALL_SHAPES],
-  time: 30,
-  count: 10,
-  layout: 'left',
-  penWidth: 3,
-  penColor: '#30322c',
-  penOpacity: 1,
-  sampleStyle: 'shaded',
-  lightDirections: [...ALL_LIGHT_DIRECTIONS],
-  difficulty: 'easy',
-  sampleVisibility: 'always',
-  practiceMode: 'canvas',
-  stabilization: 'low',
-  seedMode: 'random',
-  fixedSeed: 123456789,
-};
-
-const freshDefaultSettings = (): Settings => ({
-  ...DEFAULT_SETTINGS,
-  shapes: [...ALL_SHAPES],
-  lightDirections: [...ALL_LIGHT_DIRECTIONS],
-});
-
-function normalizeStoredSettings(parsed: Record<string, unknown>): Settings {
-    const shapes = Array.isArray(parsed.shapes)
-      ? parsed.shapes.filter((shape): shape is ShapeName => ALL_SHAPES.includes(shape as ShapeName))
-      : [];
-    const lightDirections = Array.isArray(parsed.lightDirections)
-      ? parsed.lightDirections.filter((direction): direction is LightDirection => (
-        ALL_LIGHT_DIRECTIONS.includes(direction as LightDirection)
-      ))
-      : [];
-    const time = parsed.time === null
-      || (typeof parsed.time === 'number' && TIME_CHOICES.includes(parsed.time))
-      ? parsed.time as number | null
-      : DEFAULT_SETTINGS.time;
-    const count = typeof parsed.count === 'number' && Number.isFinite(parsed.count)
-      ? Math.max(1, Math.min(20, Math.round(parsed.count)))
-      : DEFAULT_SETTINGS.count;
-    const layout = typeof parsed.layout === 'string'
-      && LAYOUTS.some(({ value }) => value === parsed.layout)
-      ? parsed.layout as Layout
-      : DEFAULT_SETTINGS.layout;
-    const penWidth = typeof parsed.penWidth === 'number' && [2, 3, 5].includes(parsed.penWidth)
-      ? parsed.penWidth
-      : DEFAULT_SETTINGS.penWidth;
-    const penColor = typeof parsed.penColor === 'string' && /^#[0-9a-f]{6}$/i.test(parsed.penColor)
-      ? parsed.penColor
-      : DEFAULT_SETTINGS.penColor;
-    const penOpacity = typeof parsed.penOpacity === 'number' && Number.isFinite(parsed.penOpacity)
-      ? Math.max(0.1, Math.min(1, parsed.penOpacity))
-      : DEFAULT_SETTINGS.penOpacity;
-    const sampleStyle = parsed.sampleStyle === 'shadow' || parsed.sampleStyle === 'hidden-lines'
-      ? parsed.sampleStyle
-      : 'shaded';
-    const fixedSeed = typeof parsed.fixedSeed === 'number' && Number.isFinite(parsed.fixedSeed)
-      ? clampSeed(parsed.fixedSeed)
-      : DEFAULT_SETTINGS.fixedSeed;
-
-  return {
-    shapes: shapes.length ? shapes : [...ALL_SHAPES],
-    time,
-    count,
-    layout,
-    penWidth,
-    penColor,
-    penOpacity,
-    sampleStyle,
-    lightDirections: lightDirections.length ? lightDirections : [...ALL_LIGHT_DIRECTIONS],
-    difficulty: parsed.difficulty === 'hard' ? 'hard' : 'easy',
-    sampleVisibility: parsed.sampleVisibility === 'partway' ? 'partway' : 'always',
-    practiceMode: parsed.practiceMode === 'sample-only' ? 'sample-only' : 'canvas',
-    stabilization: parsed.stabilization === 'off' || parsed.stabilization === 'medium'
-      ? parsed.stabilization
-      : 'low',
-    seedMode: parsed.seedMode === 'fixed' ? 'fixed' : 'random',
-    fixedSeed,
-  };
-}
-
-function readStoredSettings(): Settings {
-  if (typeof window === 'undefined') return freshDefaultSettings();
-  try {
-    const saved = window.localStorage.getItem('solid-drawing-settings');
-    if (!saved) return freshDefaultSettings();
-    return normalizeStoredSettings(JSON.parse(saved) as Record<string, unknown>);
-  } catch {
-    try {
-      window.localStorage.removeItem('solid-drawing-settings');
-    } catch {
-      // Storage may be unavailable in privacy-restricted browsing modes.
-    }
-    return freshDefaultSettings();
-  }
-}
-
 function parseStoredPrompt(value: unknown): ShapePrompt | null {
   if (!value || typeof value !== 'object') return null;
   const prompt = value as Record<string, unknown>;
@@ -400,11 +294,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem('solid-drawing-settings', JSON.stringify(settings));
-    } catch {
-      // Continue with in-memory settings when browser storage is unavailable.
-    }
+    saveStoredSettings(settings);
   }, [settings]);
 
   useEffect(() => {
@@ -561,11 +451,12 @@ export default function Home() {
     }
     activeStrokeRef.current = null;
     activePointerIdRef.current = null;
-    const seconds = practiceSettings.time === null
-      ? elapsedRef.current
-      : timedOut
-        ? practiceSettings.time
-        : Math.max(1, practiceSettings.time - remainingRef.current);
+    const seconds = practiceDurationSeconds({
+      timeLimit: practiceSettings.time,
+      remainingSeconds: remainingRef.current,
+      elapsedSeconds: elapsedRef.current,
+      timedOut,
+    });
     const nextAttempts = [...attempts, {
       prompt: currentPrompt,
       sampleImage,
@@ -612,7 +503,7 @@ export default function Home() {
     if (practiceSettings.time === null) {
       const startingElapsed = elapsedRef.current;
       const tick = () => {
-        const nextElapsed = Math.floor(startingElapsed + (performance.now() - startedAt) / 1000);
+        const nextElapsed = elapsedTimerSeconds(startingElapsed, startedAt, performance.now());
         if (nextElapsed !== elapsedRef.current) {
           elapsedRef.current = nextElapsed;
           setElapsed(nextElapsed);
@@ -622,8 +513,8 @@ export default function Home() {
     } else {
       const deadline = startedAt + Math.max(0, remainingRef.current) * 1000;
       const tick = () => {
-        const millisecondsLeft = deadline - performance.now();
-        if (millisecondsLeft <= 0) {
+        const snapshot = countdownSnapshot(deadline, performance.now());
+        if (snapshot.complete) {
           if (finished) return;
           finished = true;
           remainingRef.current = 0;
@@ -632,7 +523,7 @@ export default function Home() {
           window.setTimeout(() => finishRef.current(false, true), 0);
           return;
         }
-        const nextRemaining = Math.ceil(millisecondsLeft / 1000);
+        const nextRemaining = snapshot.remainingSeconds;
         if (nextRemaining !== remainingRef.current) {
           remainingRef.current = nextRemaining;
           setRemaining(nextRemaining);
