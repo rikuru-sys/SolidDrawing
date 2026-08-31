@@ -1,6 +1,12 @@
 import type { Difficulty, LightDirection, ShapeName } from '../../domain/prompt/types';
 import { clampSeed, type SeedMode } from '../../domain/random/seeded-random';
 import type { Stabilization } from '../drawing/types';
+import {
+  browserLocalStorage,
+  readJsonStorage,
+  writeJsonStorage,
+  type JsonStorage,
+} from '../../shared/storage/json-storage';
 
 export type Layout = 'top' | 'bottom' | 'left' | 'right';
 export type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
@@ -25,7 +31,7 @@ export type Settings = {
   fixedSeed: number;
 };
 
-export type SettingsStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export type SettingsStorage = JsonStorage;
 
 export const SETTINGS_STORAGE_KEY = 'solid-drawing-settings';
 export const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
@@ -145,41 +151,20 @@ export function normalizeStoredSettings(parsed: Record<string, unknown>): Settin
   };
 }
 
-function browserSettingsStorage(): SettingsStorage | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 export function readStoredSettings(
-  storage: SettingsStorage | null = browserSettingsStorage(),
+  storage: SettingsStorage | null = browserLocalStorage(),
 ): Settings {
-  if (!storage) return freshDefaultSettings();
-  try {
-    const saved = storage.getItem(SETTINGS_STORAGE_KEY);
-    if (!saved) return freshDefaultSettings();
-    return normalizeStoredSettings(JSON.parse(saved) as Record<string, unknown>);
-  } catch {
-    try {
-      storage.removeItem(SETTINGS_STORAGE_KEY);
-    } catch {
-      // Storage may be unavailable in privacy-restricted browsing modes.
-    }
-    return freshDefaultSettings();
-  }
+  return readJsonStorage({
+    storage,
+    key: SETTINGS_STORAGE_KEY,
+    fallback: freshDefaultSettings,
+    parse: (value) => normalizeStoredSettings(value as Record<string, unknown>),
+  });
 }
 
 export function saveStoredSettings(
   settings: Settings,
-  storage: SettingsStorage | null = browserSettingsStorage(),
+  storage: SettingsStorage | null = browserLocalStorage(),
 ) {
-  if (!storage) return false;
-  try {
-    storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeJsonStorage(storage, SETTINGS_STORAGE_KEY, settings);
 }
