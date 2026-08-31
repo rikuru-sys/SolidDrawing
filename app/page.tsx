@@ -32,7 +32,7 @@ import {
   type Settings,
 } from '../src/features/settings/practice-settings';
 import { SettingsScreen } from '../src/features/settings/settings-screen';
-import { disposeSample3D, renderSample3D } from './three-sample';
+import { disposeSample3D, renderSample3D } from '../src/features/sample/three-sample';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 

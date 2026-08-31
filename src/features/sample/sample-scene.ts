@@ -1,76 +1,8 @@
 import * as THREE from 'three';
-import type { LightDirection, ShapePrompt } from '../src/domain/prompt/types';
-
-type SampleStyle = 'shaded' | 'shadow' | 'hidden-lines';
-type ThreeShapePrompt = Omit<ShapePrompt, 'id' | 'generation'>;
-
-const renderers = new WeakMap<HTMLCanvasElement, THREE.WebGLRenderer>();
-
-function rendererFor(canvas: HTMLCanvasElement) {
-  const current = renderers.get(canvas);
-  if (current) return current;
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  renderer.shadowMap.enabled = false;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderers.set(canvas, renderer);
-  return renderer;
-}
-
-function triangularPyramidGeometry(prompt: ThreeShapePrompt) {
-  const width = 1.7 * prompt.widthScale;
-  const height = 1.9 * prompt.heightScale;
-  const depth = 1.55 * prompt.depthScale;
-  const positions = new Float32Array([
-    0, height * 0.58, 0,
-    -width * 0.5, -height * 0.42, depth * 0.36,
-    width * 0.5, -height * 0.42, depth * 0.36,
-    0, -height * 0.42, -depth * 0.64,
-  ]);
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setIndex([
-    0, 2, 1,
-    0, 3, 2,
-    0, 1, 3,
-    1, 2, 3,
-  ]);
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-function shapeGeometry(prompt: ThreeShapePrompt) {
-  if (prompt.shape === '立方体') return new THREE.BoxGeometry(1.55, 1.55, 1.55);
-  if (prompt.shape === '直方体') {
-    return new THREE.BoxGeometry(
-      1.9 * prompt.widthScale,
-      1.32 * prompt.heightScale,
-      1.5 * prompt.depthScale,
-    );
-  }
-  if (prompt.shape === '円柱') {
-    return new THREE.CylinderGeometry(
-      0.72 * prompt.widthScale,
-      0.72 * prompt.widthScale,
-      1.8 * prompt.heightScale,
-      64,
-    );
-  }
-  if (prompt.shape === '楕円柱') {
-    const geometry = new THREE.CylinderGeometry(0.72, 0.72, 1.55 * prompt.heightScale, 64);
-    geometry.scale(1.28 * prompt.widthScale, 1, 0.76 * prompt.depthScale);
-    return geometry;
-  }
-  if (prompt.shape === '三角錐') return triangularPyramidGeometry(prompt);
-  return new THREE.ConeGeometry(
-    0.82 * prompt.widthScale,
-    1.95 * prompt.heightScale,
-    64,
-  );
-}
+import type { LightDirection } from '../../domain/prompt/types';
+import type { SampleStyle } from '../settings/practice-settings';
+import { createShapeGeometry, isRoundedShape } from './sample-geometry';
+import type { ThreeShapePrompt } from './types';
 
 function addSilhouette(scene: THREE.Scene, geometry: THREE.BufferGeometry) {
   const material = new THREE.MeshBasicMaterial({
@@ -177,7 +109,7 @@ function addShadowEnvironment(
   scene.add(groundLine);
 }
 
-function buildScene(
+export function buildSampleScene(
   prompt: ThreeShapePrompt,
   style: SampleStyle,
   background: string,
@@ -185,8 +117,8 @@ function buildScene(
 ) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(background);
-  const geometry = shapeGeometry(prompt);
-  const rounded = prompt.shape === '円柱' || prompt.shape === '楕円柱' || prompt.shape === '円錐';
+  const geometry = createShapeGeometry(prompt);
+  const rounded = isRoundedShape(prompt.shape);
 
   geometry.rotateX(prompt.objectRotationX);
   geometry.rotateY(prompt.objectRotationY);
@@ -237,55 +169,18 @@ function buildScene(
   return scene;
 }
 
-function disposeScene(scene: THREE.Scene) {
+export function disposeSampleScene(scene: THREE.Scene) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   scene.traverse((object) => {
     if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
       geometries.add(object.geometry);
-      const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
+      const objectMaterials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
       objectMaterials.forEach((material) => materials.add(material));
     }
   });
   geometries.forEach((geometry) => geometry.dispose());
   materials.forEach((material) => material.dispose());
-}
-
-export function renderSample3D(
-  canvas: HTMLCanvasElement,
-  prompt: ThreeShapePrompt,
-  style: SampleStyle = 'shaded',
-  background = '#ffffff',
-) {
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const renderer = rendererFor(canvas);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(rect.width, rect.height, false);
-  renderer.setClearColor(background, 1);
-  renderer.shadowMap.enabled = style === 'shadow';
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.shadowMap.needsUpdate = style === 'shadow';
-
-  const camera = new THREE.PerspectiveCamera(32, rect.width / rect.height, 0.1, 100);
-  const distance = 5.4;
-  const horizontalDistance = Math.cos(prompt.cameraElevation) * distance;
-  camera.position.set(
-    Math.sin(prompt.cameraAzimuth) * horizontalDistance,
-    Math.sin(prompt.cameraElevation) * distance,
-    Math.cos(prompt.cameraAzimuth) * horizontalDistance,
-  );
-  camera.lookAt(0, style === 'shadow' ? -0.12 : 0, 0);
-  camera.updateMatrixWorld();
-
-  const scene = buildScene(prompt, style, background, camera);
-  renderer.render(scene, camera);
-  disposeScene(scene);
-}
-
-export function disposeSample3D(canvas: HTMLCanvasElement) {
-  const renderer = renderers.get(canvas);
-  if (!renderer) return;
-  renderer.dispose();
-  renderers.delete(canvas);
 }
