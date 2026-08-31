@@ -341,23 +341,29 @@ it('同じシードから同じ出題を生成する', () => {
 
 ## 14. CIと公開時の確認
 
-現在のGitHub Actionsは、`main`ブランチへのpush時に次を実行します。
+GitHub Actionsには、品質確認とGitHub Pages公開の2つのワークフローがあります。
 
-1. リポジトリを取得する
-2. Node.js 22を準備する
-3. 依存パッケージをインストールする
-4. `npm run build:pages`を実行する
-5. `pages-dist`をGitHub Pagesへ公開する
+### 品質確認
 
-現時点の公開ワークフローでは、テスト、型チェック、Lintを実行していません。そのため、push前にローカルで基本確認を完了させる運用です。
+`ci.yml`は、`main`ブランチへのpush、Pull Request、手動実行を契機に次を実行します。
 
-将来的には、公開処理とは別に品質確認ジョブを用意し、次がすべて成功した場合だけ公開する構成を検討します。
+1. Node.js 22.13.0を準備する
+2. `npm ci`で依存パッケージをインストールする
+3. `npm test`を実行する
+4. `npm run typecheck`を実行する
+5. `npm run lint`を実行する
+6. `npm run build:pages`を実行する
 
-```text
-test ─────┐
-typecheck ├─> build:pages ─> deploy
-lint ─────┘
-```
+### GitHub Pages公開
+
+`pages.yml`は、`main`ブランチへのpushまたは手動実行を契機に次を実行します。
+
+1. Node.js 22.13.0を準備する
+2. `npm ci`で依存パッケージをインストールする
+3. `npm run build:pages`を実行する
+4. `pages-dist`をGitHub Pagesへ公開する
+
+現在、この2つは独立したワークフローです。品質確認が失敗しても、Pages公開ワークフローを自動的に停止する構成にはなっていません。そのため、push前にもローカルで基本確認を完了させます。
 
 ## 15. 現在未導入のテスト
 
@@ -385,7 +391,7 @@ Three.jsで生成した見本やCanvasの線を、画像差分で比較するテ
 
 優先度の高い順に、次を候補とします。
 
-1. GitHub Actionsへテスト、型チェック、Lintを追加する
+1. 品質確認が成功した場合だけ公開するようワークフローを統合する
 2. Playwrightなどを使った主要操作のE2Eテストを追加する
 3. `1280 × 551`を含むレスポンシブ確認を自動化する
 4. CanvasとThree.jsの代表的な画像差分テストを追加する
