@@ -43,6 +43,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
   results: '比較画面',
   favorites: 'お気に入り画面',
 };
+const APP_VERSION = '2026.08.31.1';
 
 const HERO_PROMPT: ShapePrompt = {
   id: 'hero-cube',
@@ -278,10 +279,11 @@ export default function Home() {
     <>
     <a className="skip-link" href="#screen-content">本文へ移動</a>
     <main className="app-shell">
+      {screen !== 'practice' && (
       <header className="app-header">
         <button className="brand" type="button" onClick={() => goTo('home')}>
           <span className="brand-mark" aria-hidden="true">◇</span>
-          <span>立体ドローイング</span>
+          <span className="brand-label"><span>立体ドローイング</span><small>v{APP_VERSION}</small></span>
         </button>
         <nav className="step-nav" aria-label="ページ">
           {([
@@ -307,6 +309,7 @@ export default function Home() {
           })}
         </nav>
       </header>
+      )}
 
       <div ref={screenContentRef} id="screen-content" className="screen-content" role="region" aria-label={SCREEN_LABELS[screen]} tabIndex={-1}>
       {screen === 'home' && (

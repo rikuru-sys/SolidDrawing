@@ -15,6 +15,8 @@ img { max-width: 100%; }
 .app-header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px clamp(18px, 4vw, 54px); background: rgba(255, 254, 251, .97); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 rgba(25, 35, 29, .02); }
 .brand { display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 4px 6px 4px 0; border: 0; background: transparent; font-weight: 800; letter-spacing: -.015em; cursor: pointer; white-space: nowrap; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--green); color: white; font-size: 18px; box-shadow: 0 7px 18px rgba(34, 107, 80, .22); }
+.brand-label { display: flex; align-items: baseline; gap: 7px; }
+.brand-label small { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .step-nav { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
 .step { min-height: 44px; padding: 7px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
 .step:hover:not(:disabled):not(.active) { color: var(--ink); background: var(--surface-strong); }
