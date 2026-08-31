@@ -34,7 +34,7 @@
   .comparison-panes { gap: 8px; }
   .compare-pane { border-radius: 9px; }
   .compare-pane figcaption { padding: 6px 9px; font-size: 13px; }
-  .compare-pane > div, .overlay-stage { height: clamp(170px, calc(100dvh - 360px), 340px); min-height: 0; }
+  .compare-pane > div, .overlay-stage { height: clamp(160px, min(35vw, 38dvh), 450px); min-height: 0; }
   .compare-pane img { max-height: none; }
   .overlay-opacity-control { min-height: 44px; padding: 4px 9px; }
   .evaluation-summary { gap: 10px; padding: 7px 9px; }
@@ -134,7 +134,7 @@
   .comparison-heading { margin-bottom: 6px; }
   .comparison-panes { gap: 6px; }
   .compare-pane figcaption { padding: 4px 8px; }
-  .compare-pane > div, .overlay-stage { height: clamp(150px, calc(100dvh - 340px), 220px); }
+  .compare-pane > div, .overlay-stage { height: clamp(130px, min(35vw, 34dvh), 220px); }
   .comparison-mode-buttons button { min-height: 44px; padding: 5px 10px; }
   .evaluation-summary { gap: 6px; padding: 6px 8px; }
   .evaluation-score { width: 48px; height: 48px; padding-top: 7px; }
