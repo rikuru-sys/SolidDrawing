@@ -43,7 +43,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
   results: '比較画面',
   favorites: 'お気に入り画面',
 };
-const APP_VERSION = '2026.08.31.2';
+const APP_VERSION = '2026.08.31.3';
 
 const HERO_PROMPT: ShapePrompt = {
   id: 'hero-cube',
