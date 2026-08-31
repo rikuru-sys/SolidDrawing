@@ -16,7 +16,7 @@ type Props = {
 export function ComparisonViewer({ attempt, resultNumber, mode, overlayOpacity, onModeChange, onOverlayOpacityChange, children }: Props) {
   return <>
     <div className="comparison-heading">
-      <div className="comparison-title"><h3>{resultNumber}　{attempt.prompt.shape}</h3><span>{attempt.practiceMode === 'sample-only'
+      <div className="comparison-title" aria-live="polite" aria-atomic="true"><h3>{resultNumber}　{attempt.prompt.shape}</h3><span>{attempt.practiceMode === 'sample-only'
         ? '見本のみ表示モードの練習記録'
         : mode === 'overlay' ? '中心を合わせて見本と描画を比較' : '見本と描画を横並びで比較'}</span></div>
       {attempt.practiceMode === 'canvas' && <div className="comparison-mode-buttons" role="group" aria-label="比較方法">

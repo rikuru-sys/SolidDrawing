@@ -56,7 +56,15 @@ describe('PracticeScreen', () => {
     expect(html).toContain('1 / 3');
     expect(html).toContain('残り時間');
     expect(html).toContain('00:30');
+    expect(html).toContain('role="timer"');
+    expect(html).toContain('aria-live="polite" aria-atomic="true"');
+    expect(html).toContain('aria-valuemin="0"');
+    expect(html).toContain('aria-valuetext="1 / 3"');
+    expect(html).toContain('aria-pressed="false">一時停止');
     expect(html).toContain('aria-label="描画キャンバス"');
+    expect(html).toContain('aria-describedby="practice-instruction"');
+    expect(html).toContain('role="group" aria-label="描画ツール"');
+    expect(html).toContain('aria-label="ペンの設定"');
     expect(html).toContain('>ペン</button>');
     expect(html).toContain('>点線</button>');
     expect(html).toContain('>補助線</button>');

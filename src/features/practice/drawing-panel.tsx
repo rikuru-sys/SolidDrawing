@@ -47,7 +47,7 @@ export function DrawingPanel({
   return <section className="work-panel drawing-panel">
     <div className="work-panel-header"><strong>描画スペース</strong><small>ペン・タッチ・マウス対応</small></div>
     <div className="canvas-stage">
-      <canvas ref={canvasRef} className="drawing-canvas" aria-label="描画キャンバス" onPointerEnter={onPointerEnter} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
+      <canvas ref={canvasRef} className="drawing-canvas" aria-label="描画キャンバス" aria-describedby="practice-instruction" onPointerEnter={onPointerEnter} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
       <div ref={brushCursorRef} className={`brush-cursor ${tool}`} style={{ width: cursorSize, height: cursorSize, borderColor: activeTool.cursorUsesPenColor ? settings.penColor : undefined }} aria-hidden="true" />
       {paused && <div className="drawing-pause-shield" aria-hidden="true" />}
     </div>

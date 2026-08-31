@@ -36,6 +36,13 @@ import { useSampleCanvas } from '../src/features/sample/use-sample-canvas';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 
+const SCREEN_LABELS: Record<Screen, string> = {
+  home: 'トップ画面',
+  settings: '設定画面',
+  practice: '練習画面',
+  results: '比較画面',
+  favorites: 'お気に入り画面',
+};
 
 const HERO_PROMPT: ShapePrompt = {
   id: 'hero-cube',
@@ -60,6 +67,8 @@ export default function Home() {
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
 
   const finishRef = useRef<(endSession?: boolean, timedOut?: boolean) => void>(() => undefined);
+  const screenContentRef = useRef<HTMLDivElement>(null);
+  const previousScreenRef = useRef(screen);
 
   const session = usePracticeSession({
     active: screen === 'practice',
@@ -133,6 +142,12 @@ export default function Home() {
   useEffect(() => {
     saveStoredFavorites(favorites);
   }, [favorites]);
+
+  useEffect(() => {
+    if (previousScreenRef.current === screen) return;
+    previousScreenRef.current = screen;
+    screenContentRef.current?.focus();
+  }, [screen]);
 
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (!currentPrompt || !sampleCanvasRef.current || !tryStartFinishing()) return;
@@ -260,6 +275,8 @@ export default function Home() {
   };
 
   return (
+    <>
+    <a className="skip-link" href="#screen-content">本文へ移動</a>
     <main className="app-shell">
       <header className="app-header">
         <button className="brand" type="button" onClick={() => goTo('home')}>
@@ -291,6 +308,7 @@ export default function Home() {
         </nav>
       </header>
 
+      <div ref={screenContentRef} id="screen-content" className="screen-content" role="region" aria-label={SCREEN_LABELS[screen]} tabIndex={-1}>
       {screen === 'home' && (
         <HomeScreen
           canvasRef={heroCanvasRef}
@@ -373,6 +391,8 @@ export default function Home() {
           onSaveAllComparisons={saveAllComparisons}
         />
       )}
+      </div>
     </main>
+    </>
   );
 }

@@ -17,7 +17,7 @@ type Props = {
 };
 
 export function DrawingToolbar({ settings, tool, strokeCount, redoCount, onToolChange, onPenStyleChange, onUndo, onRedo, onClear }: Props) {
-  return <div className="drawing-toolbar" aria-label="描画ツール">
+  return <div className="drawing-toolbar" role="group" aria-label="描画ツール">
     <div className="drawing-tool-group">{DRAWING_TOOLS.map((drawingTool) => <button key={drawingTool.id} className={tool === drawingTool.id ? 'tool-button selected' : 'tool-button'} type="button" aria-pressed={tool === drawingTool.id} onClick={() => onToolChange(drawingTool.id)}>{drawingTool.label}</button>)}</div>
     <DrawingStyleControls settings={settings} onChange={onPenStyleChange} />
     <div className="drawing-tool-group history-tools">
