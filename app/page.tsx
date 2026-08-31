@@ -6,12 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPrompts } from '../src/domain/prompt/prompt-generator';
 import type { ShapePrompt } from '../src/domain/prompt/types';
-import {
-  clampSeed,
-  createSessionSeed,
-} from '../src/domain/random/seeded-random';
 import { useDrawingCanvas } from '../src/features/drawing/use-drawing-canvas';
 import {
   evaluateShape,
@@ -20,12 +15,8 @@ import {
 import { FavoritesScreen } from '../src/features/favorites/favorites-screen';
 import { readStoredFavorites, saveStoredFavorites } from '../src/features/favorites/favorite-storage';
 import type { Favorite } from '../src/features/favorites/types';
-import {
-  countdownSnapshot,
-  elapsedTimerSeconds,
-  practiceDurationSeconds,
-} from '../src/features/practice/practice-timer';
 import { PracticeScreen, type PracticePenStylePatch } from '../src/features/practice/practice-screen';
+import { usePracticeSession } from '../src/features/practice/use-practice-session';
 import {
   downloadAllAttemptComparisons,
   downloadAttemptComparison,
@@ -33,10 +24,8 @@ import {
   downloadAttemptSample,
 } from '../src/features/results/result-export';
 import { ResultsScreen } from '../src/features/results/results-screen';
-import type { Attempt, ComparisonMode } from '../src/features/results/types';
+import type { ComparisonMode } from '../src/features/results/types';
 import {
-  ALL_LIGHT_DIRECTIONS,
-  DEFAULT_SETTINGS,
   readStoredSettings,
   saveStoredSettings,
   type SampleStyle,
@@ -69,31 +58,46 @@ function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background =
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
-  const [sessionSettings, setSessionSettings] = useState<Settings | null>(null);
-  const [prompts, setPrompts] = useState<ShapePrompt[]>([]);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [remaining, setRemaining] = useState(DEFAULT_SETTINGS.time ?? 0);
-  const [elapsed, setElapsed] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [selectedResult, setSelectedResult] = useState(0);
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
   const [overlayOpacity, setOverlayOpacity] = useState(0.72);
-  const [validation, setValidation] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(readStoredFavorites);
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
 
   const heroCanvasRef = useRef<HTMLCanvasElement>(null);
   const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
   const favoriteCanvasRef = useRef<HTMLCanvasElement>(null);
-  const remainingRef = useRef(DEFAULT_SETTINGS.time ?? 0);
-  const elapsedRef = useRef(0);
-  const finishingRef = useRef(false);
   const finishRef = useRef<(endSession?: boolean, timedOut?: boolean) => void>(() => undefined);
 
-  const currentPrompt = prompts[questionIndex];
-  const currentResult = attempts[selectedResult];
-  const practiceSettings = sessionSettings ?? settings;
+  const session = usePracticeSession({
+    active: screen === 'practice',
+    settings,
+    onSettingsChange: setSettings,
+    onTimeout: () => finishRef.current(false, true),
+  });
+  const {
+    sessionSettings,
+    setSessionSettings,
+    practiceSettings,
+    prompts,
+    currentPrompt,
+    questionIndex,
+    remainingSeconds: remaining,
+    elapsedSeconds: elapsed,
+    paused,
+    setPaused,
+    attempts,
+    currentResult,
+    selectedResult,
+    setSelectedResult,
+    validation,
+    clearValidation,
+    startPractice: startSession,
+    retryCurrentPrompt: retrySessionPrompt,
+    startFavoritePractice: startFavoriteSession,
+    tryStartFinishing,
+    finishAttempt,
+    getDurationSeconds,
+  } = session;
   const drawing = useDrawingCanvas({
     active: screen === 'practice' && practiceSettings.practiceMode === 'canvas',
     paused,
@@ -167,8 +171,7 @@ export default function Home() {
   }, [currentPrompt, practiceSettings.sampleStyle, screen]);
 
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
-    if (finishingRef.current || !currentPrompt || !sampleCanvasRef.current) return;
-    finishingRef.current = true;
+    if (!currentPrompt || !sampleCanvasRef.current || !tryStartFinishing()) return;
     const evaluationStrokes = getCurrentStrokes();
     const evaluation = practiceSettings.practiceMode === 'sample-only'
       ? unevaluatedShape()
@@ -185,91 +188,28 @@ export default function Home() {
       ? ''
       : exportDrawingSvg(evaluationStrokes, evaluation.alignmentX, evaluation.alignmentY);
     releaseActivePointer();
-    const seconds = practiceDurationSeconds({
-      timeLimit: practiceSettings.time,
-      remainingSeconds: remainingRef.current,
-      elapsedSeconds: elapsedRef.current,
-      timedOut,
-    });
-    const nextAttempts = [...attempts, {
+    const completed = finishAttempt({
       prompt: currentPrompt,
       sampleImage,
       drawingImage,
       alignedDrawingImage,
       drawingSvg,
       alignedDrawingSvg,
-      seconds,
+      seconds: getDurationSeconds(timedOut),
       evaluation,
       practiceMode: practiceSettings.practiceMode,
-    }];
-    setAttempts(nextAttempts);
+    }, endSession);
 
-    const isLast = questionIndex >= prompts.length - 1;
-    if (isLast || endSession) {
-      setSelectedResult(Math.max(0, nextAttempts.length - 1));
-      setPaused(false);
+    if (completed) {
       setScreen('results');
-      window.setTimeout(() => { finishingRef.current = false; }, 0);
       return;
     }
-
-    setQuestionIndex((index) => index + 1);
-    remainingRef.current = practiceSettings.time ?? 0;
-    elapsedRef.current = 0;
-    setRemaining(remainingRef.current);
-    setElapsed(0);
     resetDrawing();
-    setPaused(false);
-    window.setTimeout(() => { finishingRef.current = false; }, 0);
-  }, [attempts, currentPrompt, exportDrawing, exportDrawingSvg, getCurrentStrokes, practiceSettings.practiceMode, practiceSettings.time, prompts.length, questionIndex, releaseActivePointer, resetDrawing]);
+  }, [currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, tryStartFinishing]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
   }, [finishCurrent]);
-
-  useEffect(() => {
-    if (screen !== 'practice' || paused) return;
-    const startedAt = performance.now();
-    let timer: number | undefined;
-    let finished = false;
-
-    if (practiceSettings.time === null) {
-      const startingElapsed = elapsedRef.current;
-      const tick = () => {
-        const nextElapsed = elapsedTimerSeconds(startingElapsed, startedAt, performance.now());
-        if (nextElapsed !== elapsedRef.current) {
-          elapsedRef.current = nextElapsed;
-          setElapsed(nextElapsed);
-        }
-      };
-      timer = window.setInterval(tick, 100);
-    } else {
-      const deadline = startedAt + Math.max(0, remainingRef.current) * 1000;
-      const tick = () => {
-        const snapshot = countdownSnapshot(deadline, performance.now());
-        if (snapshot.complete) {
-          if (finished) return;
-          finished = true;
-          remainingRef.current = 0;
-          setRemaining(0);
-          if (timer !== undefined) window.clearInterval(timer);
-          window.setTimeout(() => finishRef.current(false, true), 0);
-          return;
-        }
-        const nextRemaining = snapshot.remainingSeconds;
-        if (nextRemaining !== remainingRef.current) {
-          remainingRef.current = nextRemaining;
-          setRemaining(nextRemaining);
-        }
-      };
-      tick();
-      timer = window.setInterval(tick, 100);
-    }
-
-    return () => {
-      if (timer !== undefined) window.clearInterval(timer);
-    };
-  }, [paused, practiceSettings.time, questionIndex, screen]);
 
   const goTo = (target: Screen) => {
     if (target === 'practice' && !prompts.length) return;
@@ -282,63 +222,16 @@ export default function Home() {
     setSettings((current) => ({ ...current, ...patch }));
   };
 
-  const startPractice = (practiceSettings: Settings = settings) => {
-    const count = Math.max(1, Math.min(20, Number(practiceSettings.count) || 1));
-    if (!practiceSettings.shapes.length) {
-      setValidation('少なくとも1つの立体を選んでください。');
-      return;
-    }
-    if (practiceSettings.sampleStyle === 'shadow' && !practiceSettings.lightDirections.length) {
-      setValidation('光源の方向を少なくとも1つ選んでください。');
-      return;
-    }
-    const normalized = {
-      ...practiceSettings,
-      count,
-      fixedSeed: clampSeed(practiceSettings.fixedSeed),
-    };
-    setSettings(normalized);
-    setSessionSettings(normalized);
-    setPrompts(createPrompts({
-      shapes: normalized.shapes,
-      count,
-      lightDirections: normalized.lightDirections.length
-        ? normalized.lightDirections
-        : ALL_LIGHT_DIRECTIONS,
-      difficulty: normalized.difficulty,
-      seed: normalized.seedMode === 'fixed'
-        ? normalized.fixedSeed
-        : createSessionSeed(),
-    }));
-    setQuestionIndex(0);
-    remainingRef.current = normalized.time ?? 0;
-    elapsedRef.current = 0;
-    setRemaining(remainingRef.current);
-    setElapsed(0);
-    setPaused(false);
+  const startPractice = (candidate: Settings = settings) => {
+    if (!startSession(candidate)) return;
     resetDrawing();
-    setAttempts([]);
-    setSelectedResult(0);
-    finishingRef.current = false;
     setScreen('practice');
   };
 
   const retryCurrentPrompt = () => {
     if (!currentResult) return;
-    const retrySettings = sessionSettings ?? settings;
-    setSessionSettings(retrySettings);
-    setPrompts([{
-      ...currentResult.prompt,
-      id: `${currentResult.prompt.id}-retry-${Date.now()}`,
-    }]);
-    setQuestionIndex(0);
-    remainingRef.current = retrySettings.time ?? 0;
-    elapsedRef.current = 0;
-    setRemaining(remainingRef.current);
-    setElapsed(0);
-    setPaused(false);
+    retrySessionPrompt(currentResult);
     resetDrawing();
-    finishingRef.current = false;
     setScreen('practice');
   };
 
@@ -362,19 +255,8 @@ export default function Home() {
   };
 
   const startFavoritePractice = (favorite: Favorite) => {
-    const favoriteSettings = { ...favorite.settings, count: 1 };
-    setSessionSettings(favoriteSettings);
-    setPrompts([{ ...favorite.prompt }]);
-    setQuestionIndex(0);
-    remainingRef.current = favoriteSettings.time ?? 0;
-    elapsedRef.current = 0;
-    setRemaining(remainingRef.current);
-    setElapsed(0);
-    setPaused(false);
+    startFavoriteSession(favorite);
     resetDrawing();
-    setAttempts([]);
-    setSelectedResult(0);
-    finishingRef.current = false;
     setScreen('practice');
   };
 
@@ -473,7 +355,7 @@ export default function Home() {
           settings={settings}
           setSettings={setSettings}
           validation={validation}
-          onValidationClear={() => setValidation('')}
+          onValidationClear={clearValidation}
           onStart={() => startPractice()}
           onBack={() => setScreen('home')}
         />
