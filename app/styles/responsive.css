@@ -79,7 +79,8 @@
 
 @media (max-width: 760px) {
   .app-header { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .step-nav { justify-content: flex-start; }
+  .step-nav { width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .step { flex: 0 0 auto; }
   .hero-section { min-height: 0; grid-template-columns: 1fr; padding: 40px 0 54px; }
   .hero-visual { min-height: 330px; }
   .section-heading, .results-heading { align-items: flex-start; flex-direction: column; }
@@ -111,6 +112,8 @@
   .work-panel-header small { text-align: left; }
   .canvas-stage { min-height: 280px; }
   .practice-footer { align-items: flex-start; flex-direction: column; }
+  .practice-footer .button-row, .settings-footer .button-row { width: 100%; }
+  .practice-footer .button, .settings-footer .button { flex: 1; }
   .result-list { grid-template-columns: 1fr 1fr; }
   .favorite-list { grid-template-columns: 1fr 1fr; }
   .favorite-meta { grid-template-columns: 1fr; }

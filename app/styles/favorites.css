@@ -1,23 +1,24 @@
 .favorite-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 15px; align-items: start; }
-.favorite-list { max-height: 650px; display: grid; gap: 8px; overflow-y: auto; }
-.favorite-item { min-height: 64px; padding: 11px 13px; text-align: left; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); cursor: pointer; }
-.favorite-item.selected { border-color: #c5a64c; background: #fff8df; }
+.favorite-list { max-height: 650px; display: grid; gap: 9px; overflow-y: auto; }
+.favorite-item { min-height: 66px; padding: 12px 14px; text-align: left; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast); }
+.favorite-item:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.favorite-item.selected { border-color: rgba(211, 123, 56, .42); background: #fff6eb; box-shadow: inset 3px 0 0 var(--orange), var(--shadow-sm); }
 .favorite-item strong, .favorite-item span { display: block; }
 .favorite-item span { margin-top: 4px; color: var(--muted); font-size: 13px; }
-.favorite-preview-panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
-.favorite-preview-heading { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.favorite-preview-panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-md); }
+.favorite-preview-heading { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--surface-soft); }
 .favorite-preview-heading p, .favorite-preview-heading h3 { margin: 0; }
 .favorite-preview-heading p, .favorite-preview-heading small { color: var(--muted); }
 .favorite-preview-heading h3 { margin-top: 3px; font-size: 21px; }
 .favorite-canvas-stage { min-height: clamp(330px, 42vw, 500px); position: relative; display: grid; place-items: center; overflow: hidden; background: var(--canvas); }
 .favorite-canvas { width: 100%; height: 100%; min-height: inherit; display: block; }
 .favorite-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 1px; border-top: 1px solid var(--line); background: var(--line); }
-.favorite-meta span { min-width: 0; padding: 12px 14px; background: var(--surface-soft); }
+.favorite-meta span { min-width: 0; padding: 13px 15px; background: var(--surface-soft); }
 .favorite-meta small, .favorite-meta strong { display: block; }
 .favorite-meta small { margin-bottom: 3px; color: var(--muted); }
 .favorite-meta strong { overflow-wrap: anywhere; }
-.favorite-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); }
-.favorite-empty { min-height: 360px; display: grid; place-items: center; place-content: center; gap: 9px; padding: 30px; text-align: center; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.favorite-empty > span { color: #c29d37; font-size: 48px; line-height: 1; }
+.favorite-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; border-top: 1px solid var(--line); }
+.favorite-empty { min-height: 360px; display: grid; place-items: center; place-content: center; gap: 9px; padding: 30px; text-align: center; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
+.favorite-empty > span { color: var(--orange); font-size: 48px; line-height: 1; }
 .favorite-empty h3, .favorite-empty p { margin: 0; }
 .favorite-empty p { margin-bottom: 10px; color: var(--muted); }
