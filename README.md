@@ -56,9 +56,10 @@ Three.jsで立体を描画し、形状、比率、カメラ、物体の回転、
 
 | 分類 | 技術 |
 | --- | --- |
-| UI | React 19 / TypeScript |
+| フレームワーク実行環境 | Vinext |
+| ビルドツール | Vite |
+| UI | React / TypeScript |
 | 3D描画 | Three.js |
-| ビルド | Vinext / Vite |
 | テスト | Vitest |
 | 静的解析 | ESLint / TypeScript |
 | 公開 | GitHub Pages / GitHub Actions |
