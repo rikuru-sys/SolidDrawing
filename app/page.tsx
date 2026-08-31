@@ -28,11 +28,10 @@ import type { ComparisonMode } from '../src/features/results/types';
 import {
   readStoredSettings,
   saveStoredSettings,
-  type SampleStyle,
   type Settings,
 } from '../src/features/settings/practice-settings';
 import { SettingsScreen } from '../src/features/settings/settings-screen';
-import { disposeSample3D, renderSample3D } from '../src/features/sample/sample-renderer';
+import { useSampleCanvas } from '../src/features/sample/use-sample-canvas';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 
@@ -51,10 +50,6 @@ const HERO_PROMPT: ShapePrompt = {
   lightDirection: 'top-left',
 };
 
-function drawSample(canvas: HTMLCanvasElement, prompt: ShapePrompt, background = '#ffffff', style: SampleStyle = 'shaded') {
-  renderSample3D(canvas, prompt, style, background);
-}
-
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
@@ -63,9 +58,6 @@ export default function Home() {
   const [favorites, setFavorites] = useState<Favorite[]>(readStoredFavorites);
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
 
-  const heroCanvasRef = useRef<HTMLCanvasElement>(null);
-  const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
-  const favoriteCanvasRef = useRef<HTMLCanvasElement>(null);
   const finishRef = useRef<(endSession?: boolean, timedOut?: boolean) => void>(() => undefined);
 
   const session = usePracticeSession({
@@ -114,6 +106,21 @@ export default function Home() {
     resetDrawing,
   } = drawing;
   const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
+  const heroCanvasRef = useSampleCanvas({
+    active: screen === 'home',
+    prompt: HERO_PROMPT,
+    background: '#fffef9',
+  });
+  const favoriteCanvasRef = useSampleCanvas({
+    active: screen === 'favorites',
+    prompt: selectedFavorite?.prompt,
+    style: selectedFavorite?.settings.sampleStyle,
+  });
+  const sampleCanvasRef = useSampleCanvas({
+    active: screen === 'practice',
+    prompt: currentPrompt,
+    style: practiceSettings.sampleStyle,
+  });
   const isCurrentFavorite = currentResult
     ? favorites.some(({ prompt }) => prompt.id === currentResult.prompt.id)
     : false;
@@ -125,50 +132,6 @@ export default function Home() {
   useEffect(() => {
     saveStoredFavorites(favorites);
   }, [favorites]);
-
-  useEffect(() => {
-    if (screen !== 'home' || !heroCanvasRef.current) return;
-    const canvas = heroCanvasRef.current;
-    const render = () => drawSample(canvas, HERO_PROMPT, '#fffef9');
-    render();
-    const observer = new ResizeObserver(render);
-    observer.observe(canvas);
-    return () => {
-      observer.disconnect();
-      disposeSample3D(canvas);
-    };
-  }, [screen]);
-
-  useEffect(() => {
-    if (screen !== 'favorites' || !selectedFavorite || !favoriteCanvasRef.current) return;
-    const canvas = favoriteCanvasRef.current;
-    const render = () => drawSample(
-      canvas,
-      selectedFavorite.prompt,
-      '#ffffff',
-      selectedFavorite.settings.sampleStyle,
-    );
-    render();
-    const observer = new ResizeObserver(render);
-    observer.observe(canvas);
-    return () => {
-      observer.disconnect();
-      disposeSample3D(canvas);
-    };
-  }, [screen, selectedFavorite]);
-
-  useEffect(() => {
-    if (screen !== 'practice' || !currentPrompt || !sampleCanvasRef.current) return;
-    const canvas = sampleCanvasRef.current;
-    const render = () => drawSample(canvas, currentPrompt, '#ffffff', practiceSettings.sampleStyle);
-    render();
-    const observer = new ResizeObserver(render);
-    observer.observe(canvas);
-    return () => {
-      observer.disconnect();
-      disposeSample3D(canvas);
-    };
-  }, [currentPrompt, practiceSettings.sampleStyle, screen]);
 
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     if (!currentPrompt || !sampleCanvasRef.current || !tryStartFinishing()) return;
@@ -205,7 +168,7 @@ export default function Home() {
       return;
     }
     resetDrawing();
-  }, [currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, tryStartFinishing]);
+  }, [currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef, tryStartFinishing]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
