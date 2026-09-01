@@ -3,6 +3,7 @@
 import type { PointerEventHandler, RefObject } from 'react';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import type { DrawingToolId } from '../drawing/types';
+import { usesDrawingCanvas } from '../settings/practice-mode';
 import type { Settings } from '../settings/practice-settings';
 import { DrawingPanel } from './drawing-panel';
 import { PracticeFooter } from './practice-footer';
@@ -42,6 +43,7 @@ export type PracticeScreenProps = {
 };
 
 export function PracticeScreen(props: PracticeScreenProps) {
+  const hasDrawingCanvas = usesDrawingCanvas(props.settings.practiceMode);
   return <section className="practice-section">
     <PracticeHeader
       prompt={props.prompt}
@@ -54,9 +56,9 @@ export function PracticeScreen(props: PracticeScreenProps) {
       onTogglePaused={props.onTogglePaused}
       onStop={props.onStop}
     />
-    <div className={props.settings.practiceMode === 'sample-only' ? 'workspace-layout sample-only-layout' : `workspace-layout layout-${props.settings.layout}`}>
+    <div className={hasDrawingCanvas ? `workspace-layout layout-${props.settings.layout}` : 'workspace-layout sample-only-layout'}>
       <SamplePanel prompt={props.prompt} settings={props.settings} remainingSeconds={props.remainingSeconds} elapsedSeconds={props.elapsedSeconds} paused={props.paused} canvasRef={props.sampleCanvasRef} />
-      {props.settings.practiceMode === 'canvas' && <DrawingPanel
+      {hasDrawingCanvas && <DrawingPanel
         settings={props.settings}
         paused={props.paused}
         tool={props.tool}

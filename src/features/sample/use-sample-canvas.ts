@@ -23,9 +23,13 @@ export function useSampleCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!active || !prompt || !canvas) return;
-    const render = () => renderSample3D(canvas, prompt, style, background);
-    render();
-    const observer = new ResizeObserver(render);
+    const activePrompt = prompt;
+    function render(target: HTMLCanvasElement) {
+      renderSample3D(target, activePrompt, style, background);
+    }
+
+    render(canvas);
+    const observer = new ResizeObserver(() => render(canvas));
     observer.observe(canvas);
     return () => {
       observer.disconnect();

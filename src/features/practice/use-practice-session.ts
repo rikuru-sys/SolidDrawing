@@ -162,17 +162,17 @@ export function usePracticeSession({
 
     if (practiceSettings.time === null) {
       const startingElapsed = elapsedRef.current;
-      const tick = () => {
+      function tick() {
         const nextElapsed = elapsedTimerSeconds(startingElapsed, startedAt, performance.now());
         if (nextElapsed !== elapsedRef.current) {
           elapsedRef.current = nextElapsed;
           setElapsedSeconds(nextElapsed);
         }
-      };
+      }
       timer = window.setInterval(tick, 100);
     } else {
       const deadline = startedAt + Math.max(0, remainingRef.current) * 1000;
-      const tick = () => {
+      function tick() {
         const snapshot = countdownSnapshot(deadline, performance.now());
         if (snapshot.complete) {
           if (finished) return;
@@ -187,7 +187,7 @@ export function usePracticeSession({
           remainingRef.current = snapshot.remainingSeconds;
           setRemainingSeconds(snapshot.remainingSeconds);
         }
-      };
+      }
       tick();
       timer = window.setInterval(tick, 100);
     }

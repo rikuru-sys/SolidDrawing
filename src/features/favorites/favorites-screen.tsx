@@ -1,6 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { practiceModeDetails } from '../settings/practice-mode';
 import type { SampleStyle } from '../settings/practice-settings';
 import { LIGHT_DIRECTION_OPTIONS } from '../settings/settings-options';
 import type { Favorite } from './types';
@@ -54,7 +55,7 @@ export function FavoritesScreen({
                 onClick={() => onSelectFavorite(favorite.id)}
               >
                 <strong>★ {favorite.prompt.shape}</strong>
-                <span>{favorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{favorite.settings.practiceMode === 'sample-only' ? '見本のみ' : 'サイト内描画'}・{favorite.settings.time === null ? '時間指定なし' : `${favorite.settings.time}秒`}</span>
+                <span>{favorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{practiceModeDetails(favorite.settings.practiceMode).compactLabel}・{favorite.settings.time === null ? '時間指定なし' : `${favorite.settings.time}秒`}</span>
               </button>
             ))}
           </nav>
@@ -73,7 +74,7 @@ export function FavoritesScreen({
             </div>
             <div className="favorite-meta">
               <span><small>難易度</small><strong>{selectedFavorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}</strong></span>
-              <span><small>練習方法</small><strong>{selectedFavorite.settings.practiceMode === 'sample-only' ? '見本のみ' : 'サイト内で描く'}</strong></span>
+              <span><small>練習方法</small><strong>{practiceModeDetails(selectedFavorite.settings.practiceMode).detailLabel}</strong></span>
               <span><small>見本表示</small><strong>{sampleStyleLabel(selectedFavorite.settings.sampleStyle)}</strong></span>
               <span><small>表示時間</small><strong>{selectedFavorite.settings.sampleVisibility === 'partway' ? '途中で隠す' : '常に表示'}</strong></span>
               <span><small>制限時間</small><strong>{selectedFavorite.settings.time === null ? '指定なし' : `${selectedFavorite.settings.time}秒`}</strong></span>

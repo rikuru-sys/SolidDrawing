@@ -3,7 +3,10 @@ import type { ComparisonMode } from './types';
 export type ExportKind = 'comparison' | 'drawing' | 'sample' | 'all';
 
 export function formatFileTimestamp(date = new Date()) {
-  const pad = (value: number) => String(value).padStart(2, '0');
+  function pad(value: number) {
+    return String(value).padStart(2, '0');
+  }
+
   return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日_${pad(date.getHours())}時${pad(date.getMinutes())}分`;
 }
 

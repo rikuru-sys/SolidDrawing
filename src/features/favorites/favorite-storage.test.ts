@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { freshDefaultSettings, type SettingsStorage } from '../settings/practice-settings';
+import type { JsonStorage } from '../../shared/storage/json-storage';
+import { freshDefaultSettings } from '../settings/practice-settings';
 import {
   FAVORITES_STORAGE_KEY,
   MAX_STORED_FAVORITES,
@@ -9,7 +10,7 @@ import {
 } from './favorite-storage';
 import type { Favorite } from './types';
 
-class MemoryStorage implements SettingsStorage {
+class MemoryStorage implements JsonStorage {
   values = new Map<string, string>();
   removedKeys: string[] = [];
 
@@ -86,7 +87,7 @@ describe('favorite storage', () => {
   });
 
   it('continues in memory when writes fail', () => {
-    const storage: SettingsStorage = {
+    const storage: JsonStorage = {
       getItem: () => null,
       removeItem: () => undefined,
       setItem: () => { throw new Error('storage unavailable'); },

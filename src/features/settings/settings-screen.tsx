@@ -24,17 +24,19 @@ export type SettingsScreenProps = {
 };
 
 export function SettingsScreen({ settings, setSettings, validation, onValidationClear, onStart, onBack }: SettingsScreenProps) {
-  const changeSettings = (patch: Partial<Settings>) => {
+  function changeSettings(patch: Partial<Settings>) {
     setSettings((current) => updateSettings(current, patch));
-  };
-  const toggleShape = (shape: Settings['shapes'][number]) => {
+  }
+
+  function toggleShape(shape: Settings['shapes'][number]) {
     setSettings((current) => toggleShapeSelection(current, shape));
     onValidationClear();
-  };
-  const toggleLightDirection = (direction: Settings['lightDirections'][number]) => {
+  }
+
+  function toggleLightDirection(direction: Settings['lightDirections'][number]) {
     setSettings((current) => toggleLightDirectionSelection(current, direction));
     onValidationClear();
-  };
+  }
 
   return <section className="settings-section">
     <div className="section-heading">

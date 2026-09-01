@@ -30,21 +30,22 @@ export function ResultsScreen(props: ResultsScreenProps) {
   const currentResult = props.attempts[selectedResult];
   if (!currentResult) return null;
 
-  const saveComparison = () => {
+  function saveComparison() {
     void downloadAttemptComparison({
       attempt: currentResult,
       index: selectedResult,
       mode: comparisonMode,
       overlayOpacity,
     });
-  };
-  const saveAllComparisons = (mode: ComparisonMode) => {
+  }
+
+  function saveAllComparisons(mode: ComparisonMode) {
     void downloadAllAttemptComparisons({
       attempts: props.attempts,
       mode,
       overlayOpacity,
     });
-  };
+  }
 
   return <section className="results-section">
     <ResultsHeader attempts={props.attempts} onRetryCurrent={() => props.onRetryCurrent(currentResult)} onRetrySession={props.onRetrySession} onBack={props.onBack} />
@@ -52,7 +53,7 @@ export function ResultsScreen(props: ResultsScreenProps) {
       <ResultNavigation attempts={props.attempts} selectedResult={selectedResult} onSelectResult={setSelectedResult} />
       <section className="comparison-panel">
         <ComparisonViewer attempt={currentResult} resultNumber={selectedResult + 1} mode={comparisonMode} overlayOpacity={overlayOpacity} onModeChange={setComparisonMode} onOverlayOpacityChange={setOverlayOpacity}>
-          {currentResult.practiceMode === 'canvas' && <EvaluationPanel evaluation={currentResult.evaluation} />}
+          <EvaluationPanel evaluation={currentResult.evaluation} />
         </ComparisonViewer>
         <ResultActions
           attempt={currentResult}

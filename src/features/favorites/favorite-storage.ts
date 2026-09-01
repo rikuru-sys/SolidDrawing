@@ -7,8 +7,8 @@ import type {
 import {
   ALL_LIGHT_DIRECTIONS,
   ALL_SHAPES,
-  normalizeStoredSettings,
 } from '../settings/practice-settings';
+import { normalizeStoredSettings } from '../settings/practice-settings-storage';
 import {
   browserLocalStorage,
   readJsonStorage,

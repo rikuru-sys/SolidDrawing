@@ -1,3 +1,4 @@
+import { PRACTICE_MODE_OPTIONS } from '../practice-mode';
 import type { Settings } from '../practice-settings';
 import type { ChangeSettings } from './types';
 
@@ -19,12 +20,9 @@ export function PracticeSetupSection({ settings, changeSettings }: Props) {
     <section className="settings-card wide-card">
       <h3>練習方法</h3>
       <div className="difficulty-options">
-        <button className={settings.practiceMode === 'canvas' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.practiceMode === 'canvas'} onClick={() => changeSettings({ practiceMode: 'canvas' })}>
-          <strong>サイト内で描く</strong><small>見本と描画スペースを表示し、最後に自動評価します</small>
-        </button>
-        <button className={settings.practiceMode === 'sample-only' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.practiceMode === 'sample-only'} onClick={() => changeSettings({ practiceMode: 'sample-only' })}>
-          <strong>見本のみ表示</strong><small>使い慣れたペイントソフトで描くため、見本を大きく表示します</small>
-        </button>
+        {PRACTICE_MODE_OPTIONS.map((option) => <button key={option.value} className={settings.practiceMode === option.value ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.practiceMode === option.value} onClick={() => changeSettings({ practiceMode: option.value })}>
+          <strong>{option.label}</strong><small>{option.description}</small>
+        </button>)}
       </div>
     </section>
   </>;
