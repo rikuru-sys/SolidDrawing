@@ -1,53 +1,70 @@
 'use client';
 
+import { useState } from 'react';
 import { ComparisonViewer } from './comparison-viewer';
 import { EvaluationPanel } from './evaluation-panel';
 import { ResultActions } from './result-actions';
+import {
+  downloadAllAttemptComparisons,
+  downloadAttemptComparison,
+  downloadAttemptDrawing,
+  downloadAttemptSample,
+} from './result-export';
 import { ResultNavigation } from './result-navigation';
 import { ResultsHeader } from './results-header';
 import type { Attempt, ComparisonMode } from './types';
 
 export type ResultsScreenProps = {
   attempts: Attempt[];
-  selectedResult: number;
-  comparisonMode: ComparisonMode;
-  overlayOpacity: number;
-  isCurrentFavorite: boolean;
-  onSelectResult: (index: number) => void;
-  onComparisonModeChange: (mode: ComparisonMode) => void;
-  onOverlayOpacityChange: (opacity: number) => void;
-  onRetryCurrent: () => void;
+  isFavorite: (attempt: Attempt) => boolean;
+  onRetryCurrent: (attempt: Attempt) => void;
   onRetrySession: () => void;
-  onToggleFavorite: () => void;
-  onSaveSample: () => void;
-  onSaveComparison: () => void;
-  onSaveDrawing: () => void;
-  onSaveAllComparisons: (mode: ComparisonMode) => void;
+  onToggleFavorite: (attempt: Attempt) => void;
 };
 
 export function ResultsScreen(props: ResultsScreenProps) {
-  const currentResult = props.attempts[props.selectedResult];
+  const [selectedResult, setSelectedResult] = useState(() => Math.max(0, props.attempts.length - 1));
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
+  const [overlayOpacity, setOverlayOpacity] = useState(0.72);
+  const currentResult = props.attempts[selectedResult];
   if (!currentResult) return null;
+
+  const saveComparison = () => {
+    void downloadAttemptComparison({
+      attempt: currentResult,
+      index: selectedResult,
+      mode: comparisonMode,
+      overlayOpacity,
+    });
+  };
+  const saveAllComparisons = (mode: ComparisonMode) => {
+    void downloadAllAttemptComparisons({
+      attempts: props.attempts,
+      mode,
+      overlayOpacity,
+    });
+  };
+
   return <section className="results-section">
-    <ResultsHeader attempts={props.attempts} onRetryCurrent={props.onRetryCurrent} onRetrySession={props.onRetrySession} />
+    <ResultsHeader attempts={props.attempts} onRetryCurrent={() => props.onRetryCurrent(currentResult)} onRetrySession={props.onRetrySession} />
     <div className="result-layout">
-      <ResultNavigation attempts={props.attempts} selectedResult={props.selectedResult} onSelectResult={props.onSelectResult} />
+      <ResultNavigation attempts={props.attempts} selectedResult={selectedResult} onSelectResult={setSelectedResult} />
       <section className="comparison-panel">
-        <ComparisonViewer attempt={currentResult} resultNumber={props.selectedResult + 1} mode={props.comparisonMode} overlayOpacity={props.overlayOpacity} onModeChange={props.onComparisonModeChange} onOverlayOpacityChange={props.onOverlayOpacityChange}>
+        <ComparisonViewer attempt={currentResult} resultNumber={selectedResult + 1} mode={comparisonMode} overlayOpacity={overlayOpacity} onModeChange={setComparisonMode} onOverlayOpacityChange={setOverlayOpacity}>
           {currentResult.practiceMode === 'canvas' && <EvaluationPanel evaluation={currentResult.evaluation} />}
         </ComparisonViewer>
         <ResultActions
           attempt={currentResult}
-          selectedResult={props.selectedResult}
+          selectedResult={selectedResult}
           resultCount={props.attempts.length}
-          comparisonMode={props.comparisonMode}
-          isCurrentFavorite={props.isCurrentFavorite}
-          onSelectResult={props.onSelectResult}
-          onToggleFavorite={props.onToggleFavorite}
-          onSaveSample={props.onSaveSample}
-          onSaveComparison={props.onSaveComparison}
-          onSaveDrawing={props.onSaveDrawing}
-          onSaveAllComparisons={props.onSaveAllComparisons}
+          comparisonMode={comparisonMode}
+          isCurrentFavorite={props.isFavorite(currentResult)}
+          onSelectResult={setSelectedResult}
+          onToggleFavorite={() => props.onToggleFavorite(currentResult)}
+          onSaveSample={() => downloadAttemptSample(currentResult, selectedResult)}
+          onSaveComparison={saveComparison}
+          onSaveDrawing={() => downloadAttemptDrawing(currentResult, selectedResult)}
+          onSaveAllComparisons={saveAllComparisons}
         />
       </section>
     </div>

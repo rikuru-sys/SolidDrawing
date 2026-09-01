@@ -1,6 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { ComparisonViewer } from './comparison-viewer';
+import { ResultActions } from './result-actions';
 import { ResultsScreen, type ResultsScreenProps } from './results-screen';
 import type { Attempt } from './types';
 
@@ -44,20 +46,10 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
 function renderResults(overrides: Partial<ResultsScreenProps> = {}) {
   const props: ResultsScreenProps = {
     attempts: [attempt()],
-    selectedResult: 0,
-    comparisonMode: 'side-by-side',
-    overlayOpacity: 0.72,
-    isCurrentFavorite: false,
-    onSelectResult: () => undefined,
-    onComparisonModeChange: () => undefined,
-    onOverlayOpacityChange: () => undefined,
+    isFavorite: () => false,
     onRetryCurrent: () => undefined,
     onRetrySession: () => undefined,
     onToggleFavorite: () => undefined,
-    onSaveSample: () => undefined,
-    onSaveComparison: () => undefined,
-    onSaveDrawing: () => undefined,
-    onSaveAllComparisons: () => undefined,
     ...overrides,
   };
   return renderToStaticMarkup(createElement(ResultsScreen, props));
@@ -77,12 +69,32 @@ describe('ResultsScreen', () => {
   });
 
   it('renders the aligned SVG and opacity control in overlay mode', () => {
-    const html = renderResults({ comparisonMode: 'overlay' });
+    const html = renderToStaticMarkup(createElement(ComparisonViewer, {
+      attempt: attempt(),
+      resultNumber: 1,
+      mode: 'overlay',
+      overlayOpacity: 0.72,
+      onModeChange: () => undefined,
+      onOverlayOpacityChange: () => undefined,
+    }));
+    const actionsHtml = renderToStaticMarkup(createElement(ResultActions, {
+      attempt: attempt(),
+      selectedResult: 0,
+      resultCount: 1,
+      comparisonMode: 'overlay',
+      isCurrentFavorite: false,
+      onSelectResult: () => undefined,
+      onToggleFavorite: () => undefined,
+      onSaveSample: () => undefined,
+      onSaveComparison: () => undefined,
+      onSaveDrawing: () => undefined,
+      onSaveAllComparisons: () => undefined,
+    }));
 
     expect(html).toContain('中心を合わせて見本と描画を比較');
     expect(html).toContain('src="aligned.svg"');
     expect(html).toContain('描画の濃さ 72%');
-    expect(html).toContain('重ね合わせ画像を保存');
+    expect(actionsHtml).toContain('重ね合わせ画像を保存');
   });
 
   it('renders sample-only results without drawing evaluation and save controls', () => {

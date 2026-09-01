@@ -19,6 +19,7 @@ import {
   retryPrompt,
   validatePracticeSettings,
 } from './practice-session';
+import type { PracticePenStylePatch } from './practice-screen.types';
 
 type UsePracticeSessionOptions = {
   active: boolean;
@@ -40,7 +41,6 @@ export function usePracticeSession({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [paused, setPaused] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [selectedResult, setSelectedResult] = useState(0);
   const [validation, setValidation] = useState('');
   const remainingRef = useRef(DEFAULT_SETTINGS.time ?? 0);
   const elapsedRef = useRef(0);
@@ -50,7 +50,6 @@ export function usePracticeSession({
 
   const practiceSettings = sessionSettings ?? settings;
   const currentPrompt = prompts[questionIndex];
-  const currentResult = attempts[selectedResult];
 
   useEffect(() => {
     onTimeoutRef.current = onTimeout;
@@ -86,7 +85,6 @@ export function usePracticeSession({
     setQuestionIndex(0);
     resetTimer(prepared.settings);
     replaceAttempts([]);
-    setSelectedResult(0);
     setValidation('');
     finishingRef.current = false;
     return true;
@@ -108,7 +106,6 @@ export function usePracticeSession({
     setQuestionIndex(0);
     resetTimer(favoriteSettings);
     replaceAttempts([]);
-    setSelectedResult(0);
     finishingRef.current = false;
   }, [replaceAttempts, resetTimer]);
 
@@ -123,7 +120,6 @@ export function usePracticeSession({
     replaceAttempts(nextAttempts);
     const complete = questionIndex >= prompts.length - 1 || endSession;
     if (complete) {
-      setSelectedResult(Math.max(0, nextAttempts.length - 1));
       setPaused(false);
     } else {
       setQuestionIndex((index) => index + 1);
@@ -147,6 +143,16 @@ export function usePracticeSession({
   const clearValidation = useCallback(() => {
     setValidation('');
   }, []);
+
+  const togglePaused = useCallback(() => {
+    setPaused((current) => !current);
+  }, []);
+
+  const updatePracticeSettings = useCallback((patch: PracticePenStylePatch) => {
+    const nextSettings = { ...practiceSettings, ...patch };
+    setSessionSettings(nextSettings);
+    onSettingsChange(nextSettings);
+  }, [onSettingsChange, practiceSettings]);
 
   useEffect(() => {
     if (!active || paused) return;
@@ -192,27 +198,34 @@ export function usePracticeSession({
   }, [active, paused, practiceSettings.time, questionIndex]);
 
   return {
-    sessionSettings,
-    setSessionSettings,
-    practiceSettings,
-    prompts,
-    currentPrompt,
-    questionIndex,
-    remainingSeconds,
-    elapsedSeconds,
-    paused,
-    setPaused,
-    attempts,
-    currentResult,
-    selectedResult,
-    setSelectedResult,
-    validation,
-    clearValidation,
-    startPractice,
-    retryCurrentPrompt,
-    startFavoritePractice,
-    tryStartFinishing,
-    finishAttempt,
-    getDurationSeconds,
+    current: {
+      settings: practiceSettings,
+      prompt: currentPrompt,
+      questionIndex,
+      questionCount: prompts.length,
+      hasSession: prompts.length > 0,
+    },
+    timer: {
+      remainingSeconds,
+      elapsedSeconds,
+      paused,
+    },
+    results: {
+      attempts,
+    },
+    validation: {
+      message: validation,
+      clear: clearValidation,
+    },
+    actions: {
+      start: startPractice,
+      retry: retryCurrentPrompt,
+      startFavorite: startFavoritePractice,
+      beginFinishing: tryStartFinishing,
+      finish: finishAttempt,
+      getDurationSeconds,
+      togglePaused,
+      updateSettings: updatePracticeSettings,
+    },
   };
 }

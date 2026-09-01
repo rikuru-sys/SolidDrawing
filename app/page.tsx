@@ -18,14 +18,8 @@ import type { Favorite } from '../src/features/favorites/types';
 import { HomeScreen } from '../src/features/home/home-screen';
 import { PracticeScreen, type PracticePenStylePatch } from '../src/features/practice/practice-screen';
 import { usePracticeSession } from '../src/features/practice/use-practice-session';
-import {
-  downloadAllAttemptComparisons,
-  downloadAttemptComparison,
-  downloadAttemptDrawing,
-  downloadAttemptSample,
-} from '../src/features/results/result-export';
 import { ResultsScreen } from '../src/features/results/results-screen';
-import type { ComparisonMode } from '../src/features/results/types';
+import type { Attempt } from '../src/features/results/types';
 import {
   readStoredSettings,
   saveStoredSettings,
@@ -62,8 +56,6 @@ const HERO_PROMPT: ShapePrompt = {
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<Settings>(readStoredSettings);
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
-  const [overlayOpacity, setOverlayOpacity] = useState(0.72);
   const [favorites, setFavorites] = useState<Favorite[]>(readStoredFavorites);
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
 
@@ -78,29 +70,19 @@ export default function Home() {
     onTimeout: () => finishRef.current(false, true),
   });
   const {
-    sessionSettings,
-    setSessionSettings,
-    practiceSettings,
-    prompts,
-    currentPrompt,
+    settings: practiceSettings,
+    prompt: currentPrompt,
     questionIndex,
+    questionCount,
+    hasSession,
+  } = session.current;
+  const {
     remainingSeconds: remaining,
     elapsedSeconds: elapsed,
     paused,
-    setPaused,
-    attempts,
-    currentResult,
-    selectedResult,
-    setSelectedResult,
-    validation,
-    clearValidation,
-    startPractice: startSession,
-    retryCurrentPrompt: retrySessionPrompt,
-    startFavoritePractice: startFavoriteSession,
-    tryStartFinishing,
-    finishAttempt,
-    getDurationSeconds,
-  } = session;
+  } = session.timer;
+  const { attempts } = session.results;
+  const { message: validation, clear: clearValidation } = session.validation;
   const drawing = useDrawingCanvas({
     active: screen === 'practice' && practiceSettings.practiceMode === 'canvas',
     paused,
@@ -132,9 +114,9 @@ export default function Home() {
     prompt: currentPrompt,
     style: practiceSettings.sampleStyle,
   });
-  const isCurrentFavorite = currentResult
-    ? favorites.some(({ prompt }) => prompt.id === currentResult.prompt.id)
-    : false;
+  const isFavorite = (attempt: Attempt) => (
+    favorites.some(({ prompt }) => prompt.id === attempt.prompt.id)
+  );
 
   useEffect(() => {
     saveStoredSettings(settings);
@@ -151,7 +133,7 @@ export default function Home() {
   }, [screen]);
 
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
-    if (!currentPrompt || !sampleCanvasRef.current || !tryStartFinishing()) return;
+    if (!currentPrompt || !sampleCanvasRef.current || !session.actions.beginFinishing()) return;
     const evaluationStrokes = getCurrentStrokes();
     const evaluation = practiceSettings.practiceMode === 'sample-only'
       ? unevaluatedShape()
@@ -168,14 +150,14 @@ export default function Home() {
       ? ''
       : exportDrawingSvg(evaluationStrokes, evaluation.alignmentX, evaluation.alignmentY);
     releaseActivePointer();
-    const completed = finishAttempt({
+    const completed = session.actions.finish({
       prompt: currentPrompt,
       sampleImage,
       drawingImage,
       alignedDrawingImage,
       drawingSvg,
       alignedDrawingSvg,
-      seconds: getDurationSeconds(timedOut),
+      seconds: session.actions.getDurationSeconds(timedOut),
       evaluation,
       practiceMode: practiceSettings.practiceMode,
     }, endSession);
@@ -185,45 +167,42 @@ export default function Home() {
       return;
     }
     resetDrawing();
-  }, [currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef, tryStartFinishing]);
+  }, [currentPrompt, exportDrawing, exportDrawingSvg, getCurrentStrokes, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef, session.actions]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
   }, [finishCurrent]);
 
   const goTo = (target: Screen) => {
-    if (target === 'practice' && !prompts.length) return;
+    if (target === 'practice' && !hasSession) return;
     if (target === 'results' && !attempts.length) return;
     setScreen(target);
   };
 
   const updatePracticePenStyle = (patch: PracticePenStylePatch) => {
-    setSessionSettings((current) => ({ ...(current ?? settings), ...patch }));
-    setSettings((current) => ({ ...current, ...patch }));
+    session.actions.updateSettings(patch);
   };
 
   const startPractice = (candidate: Settings = settings) => {
-    if (!startSession(candidate)) return;
+    if (!session.actions.start(candidate)) return;
     resetDrawing();
     setScreen('practice');
   };
 
-  const retryCurrentPrompt = () => {
-    if (!currentResult) return;
-    retrySessionPrompt(currentResult);
+  const retryCurrentPrompt = (attempt: Attempt) => {
+    session.actions.retry(attempt);
     resetDrawing();
     setScreen('practice');
   };
 
-  const toggleCurrentFavorite = () => {
-    if (!currentResult) return;
+  const toggleFavorite = (attempt: Attempt) => {
     setFavorites((current) => {
-      const exists = current.some(({ prompt }) => prompt.id === currentResult.prompt.id);
-      if (exists) return current.filter(({ prompt }) => prompt.id !== currentResult.prompt.id);
-      const favoriteSettings = sessionSettings ?? settings;
+      const exists = current.some(({ prompt }) => prompt.id === attempt.prompt.id);
+      if (exists) return current.filter(({ prompt }) => prompt.id !== attempt.prompt.id);
+      const favoriteSettings = practiceSettings;
       return [{
-        id: `favorite-${currentResult.prompt.id}`,
-        prompt: { ...currentResult.prompt },
+        id: `favorite-${attempt.prompt.id}`,
+        prompt: { ...attempt.prompt },
         settings: {
           ...favoriteSettings,
           shapes: [...favoriteSettings.shapes],
@@ -235,7 +214,7 @@ export default function Home() {
   };
 
   const startFavoritePractice = (favorite: Favorite) => {
-    startFavoriteSession(favorite);
+    session.actions.startFavorite(favorite);
     resetDrawing();
     setScreen('practice');
   };
@@ -251,28 +230,6 @@ export default function Home() {
       ? 'ここまでの練習を記録して、結果画面へ移動しますか？'
       : 'ここまでの描画を保存して、比較画面へ移動しますか？';
     if (window.confirm(message)) finishCurrent(true);
-  };
-
-  const saveComparison = () => {
-    if (!currentResult) return;
-    void downloadAttemptComparison({
-      attempt: currentResult,
-      index: selectedResult,
-      mode: comparisonMode,
-      overlayOpacity,
-    });
-  };
-
-  const saveDrawing = () => {
-    if (currentResult) downloadAttemptDrawing(currentResult, selectedResult);
-  };
-
-  const saveSample = () => {
-    if (currentResult) downloadAttemptSample(currentResult, selectedResult);
-  };
-
-  const saveAllComparisons = (mode: ComparisonMode) => {
-    void downloadAllAttemptComparisons({ attempts, mode, overlayOpacity });
   };
 
   return (
@@ -293,7 +250,7 @@ export default function Home() {
             ['results', '4 比較'],
             ['favorites', '★ お気に入り'],
           ] as Array<[Screen, string]>).map(([value, label]) => {
-            const disabled = (value === 'practice' && !prompts.length) || (value === 'results' && !attempts.length);
+            const disabled = (value === 'practice' && !hasSession) || (value === 'results' && !attempts.length);
             return (
               <button
                 key={value}
@@ -335,7 +292,7 @@ export default function Home() {
         <PracticeScreen
           prompt={currentPrompt}
           questionIndex={questionIndex}
-          questionCount={prompts.length}
+          questionCount={questionCount}
           settings={practiceSettings}
           remainingSeconds={remaining}
           elapsedSeconds={elapsed}
@@ -346,7 +303,7 @@ export default function Home() {
           sampleCanvasRef={sampleCanvasRef}
           drawingCanvasRef={drawing.drawingCanvasRef}
           brushCursorRef={drawing.brushCursorRef}
-          onTogglePaused={() => setPaused((value) => !value)}
+          onTogglePaused={session.actions.togglePaused}
           onStop={stopPractice}
           onNext={() => finishCurrent(false)}
           onToolChange={drawing.setTool}
@@ -378,20 +335,10 @@ export default function Home() {
       {screen === 'results' && attempts.length > 0 && (
         <ResultsScreen
           attempts={attempts}
-          selectedResult={selectedResult}
-          comparisonMode={comparisonMode}
-          overlayOpacity={overlayOpacity}
-          isCurrentFavorite={isCurrentFavorite}
-          onSelectResult={setSelectedResult}
-          onComparisonModeChange={setComparisonMode}
-          onOverlayOpacityChange={setOverlayOpacity}
+          isFavorite={isFavorite}
           onRetryCurrent={retryCurrentPrompt}
-          onRetrySession={() => startPractice(sessionSettings ?? settings)}
-          onToggleFavorite={toggleCurrentFavorite}
-          onSaveSample={saveSample}
-          onSaveComparison={saveComparison}
-          onSaveDrawing={saveDrawing}
-          onSaveAllComparisons={saveAllComparisons}
+          onRetrySession={() => startPractice(practiceSettings)}
+          onToggleFavorite={toggleFavorite}
         />
       )}
       </div>
