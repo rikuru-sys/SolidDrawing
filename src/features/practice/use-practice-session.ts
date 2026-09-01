@@ -203,7 +203,6 @@ export function usePracticeSession({
       prompt: currentPrompt,
       questionIndex,
       questionCount: prompts.length,
-      hasSession: prompts.length > 0,
     },
     timer: {
       remainingSeconds,

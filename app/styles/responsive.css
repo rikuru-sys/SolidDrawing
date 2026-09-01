@@ -6,8 +6,8 @@
 }
 
 @media (min-width: 861px) and (orientation: landscape) and (max-height: 1100px) {
-  .app-header { min-height: 61px; padding-top: 8px; padding-bottom: 8px; }
-  .hero-section { min-height: calc(100dvh - 61px); padding: clamp(20px, 3vh, 30px) 0; gap: clamp(28px, 4vw, 56px); }
+  .hero-section { min-height: 100dvh; padding: clamp(20px, 3vh, 30px) 0; gap: clamp(28px, 4vw, 56px); }
+  .home-brand { margin-bottom: 10px; }
   .hero-copy h1 { font-size: clamp(44px, 4.7vw, 62px); }
   .hero-copy .eyebrow { margin-bottom: 8px; }
   .hero-copy .lead { margin-top: 14px; font-size: 16px; line-height: 1.65; }
@@ -82,17 +82,15 @@
 }
 
 @media (min-width: 861px) and (orientation: landscape) and (max-height: 620px) {
-  .app-header { min-height: 53px; padding-top: 4px; padding-bottom: 4px; }
-  .step-nav { padding: 2px; }
-  .step { padding: 5px 10px; }
-
-  .hero-section { min-height: calc(100dvh - 53px); padding: 14px 0; gap: clamp(24px, 3.5vw, 44px); }
+  .hero-section { min-height: 100dvh; padding: 14px 0; gap: clamp(24px, 3.5vw, 44px); }
+  .home-brand { margin-bottom: 6px; }
+  .home-brand-mark { width: 32px; height: 32px; border-radius: 9px; }
   .hero-copy h1 { font-size: clamp(38px, 4.2vw, 54px); line-height: 1.05; }
   .hero-copy .eyebrow { margin-bottom: 6px; padding: 5px 9px; }
   .hero-copy .lead { margin-top: 10px; font-size: 14px; line-height: 1.55; }
   .hero-actions { margin-top: 12px; }
   .feature-list { gap: 3px; margin-top: 11px; font-size: 13px; }
-  .hero-visual { height: calc(100dvh - 81px); min-height: 0; }
+  .hero-visual { height: calc(100dvh - 28px); min-height: 0; }
   .visual-caption { bottom: 9px; padding: 5px 9px; }
 
   .settings-section, .favorites-section { padding-top: 12px; padding-bottom: 16px; }
@@ -165,9 +163,6 @@
 }
 
 @media (max-width: 760px) {
-  .app-header { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .step-nav { width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
-  .step { flex: 0 0 auto; }
   .hero-section { min-height: 0; grid-template-columns: 1fr; padding: 40px 0 54px; }
   .hero-visual { min-height: 330px; }
   .section-heading, .results-heading { align-items: flex-start; flex-direction: column; }
@@ -186,7 +181,6 @@
 }
 
 @media (max-width: 500px) {
-  .step { padding: 7px 8px; font-size: 13px; }
   .hero-section, .settings-section, .practice-section, .results-section, .favorites-section { width: min(100% - 24px, var(--content-width)); }
   .shape-options, .field-grid, .difficulty-options { grid-template-columns: 1fr; }
   .seed-controls { grid-template-columns: 1fr; }
@@ -215,7 +209,7 @@
 }
 
 @media (forced-colors: active) {
-  .step.active, .button.favorite.selected, .choice-button.selected, .layout-choice.selected, .tool-button.selected,
+  .button.favorite.selected, .choice-button.selected, .layout-choice.selected, .tool-button.selected,
   .result-item.selected, .favorite-item.selected, .comparison-mode-buttons button.selected {
     outline: 2px solid CanvasText;
     outline-offset: -3px;

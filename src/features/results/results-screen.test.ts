@@ -50,6 +50,7 @@ function renderResults(overrides: Partial<ResultsScreenProps> = {}) {
     onRetryCurrent: () => undefined,
     onRetrySession: () => undefined,
     onToggleFavorite: () => undefined,
+    onBack: () => undefined,
     ...overrides,
   };
   return renderToStaticMarkup(createElement(ResultsScreen, props));
@@ -65,6 +66,7 @@ describe('ResultsScreen', () => {
     expect(html).toContain('自動形状評価');
     expect(html).toContain('輪郭</dt><dd>80');
     expect(html).toContain('描画だけ保存');
+    expect(html).toContain('トップへ戻る');
     expect(html).toContain('src="drawing.svg"');
   });
 

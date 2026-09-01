@@ -20,6 +20,7 @@ export type ResultsScreenProps = {
   onRetryCurrent: (attempt: Attempt) => void;
   onRetrySession: () => void;
   onToggleFavorite: (attempt: Attempt) => void;
+  onBack: () => void;
 };
 
 export function ResultsScreen(props: ResultsScreenProps) {
@@ -46,7 +47,7 @@ export function ResultsScreen(props: ResultsScreenProps) {
   };
 
   return <section className="results-section">
-    <ResultsHeader attempts={props.attempts} onRetryCurrent={() => props.onRetryCurrent(currentResult)} onRetrySession={props.onRetrySession} />
+    <ResultsHeader attempts={props.attempts} onRetryCurrent={() => props.onRetryCurrent(currentResult)} onRetrySession={props.onRetrySession} onBack={props.onBack} />
     <div className="result-layout">
       <ResultNavigation attempts={props.attempts} selectedResult={selectedResult} onSelectResult={setSelectedResult} />
       <section className="comparison-panel">

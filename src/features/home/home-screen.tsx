@@ -4,19 +4,27 @@ import type { RefObject } from 'react';
 
 type HomeScreenProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  appVersion: string;
   onStart: () => void;
   onOpenSettings: () => void;
+  onOpenFavorites: () => void;
 };
 
-export function HomeScreen({ canvasRef, onStart, onOpenSettings }: HomeScreenProps) {
+export function HomeScreen({ canvasRef, appVersion, onStart, onOpenSettings, onOpenFavorites }: HomeScreenProps) {
   return <section className="hero-section">
     <div className="hero-copy">
+      <div className="home-brand">
+        <span className="home-brand-mark" aria-hidden="true">◇</span>
+        <strong>立体ドローイング</strong>
+        <small>v{appVersion}</small>
+      </div>
       <p className="eyebrow">短時間で、形を見る力を鍛える</p>
       <h1>立体を観察して、<br />手を動かそう。</h1>
       <p className="lead">ランダムな方向から見た3D立体を、決めた時間内に描く練習です。最後に見本と自分の線を並べて振り返れます。</p>
       <div className="button-row hero-actions">
         <button className="button primary" type="button" onClick={onStart}>開始する</button>
         <button className="button secondary" type="button" onClick={onOpenSettings}>設定する</button>
+        <button className="button secondary" type="button" onClick={onOpenFavorites}>☆ お気に入り</button>
       </div>
       <ul className="feature-list">
         <li>6種類の3D立体をその場で生成</li>

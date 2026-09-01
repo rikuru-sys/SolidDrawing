@@ -37,7 +37,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
   results: '比較画面',
   favorites: 'お気に入り画面',
 };
-const APP_VERSION = '2026.08.31.5';
+const APP_VERSION = '2026.09.01.1';
 
 const HERO_PROMPT: ShapePrompt = {
   id: 'hero-cube',
@@ -74,7 +74,6 @@ export default function Home() {
     prompt: currentPrompt,
     questionIndex,
     questionCount,
-    hasSession,
   } = session.current;
   const {
     remainingSeconds: remaining,
@@ -173,12 +172,6 @@ export default function Home() {
     finishRef.current = finishCurrent;
   }, [finishCurrent]);
 
-  const goTo = (target: Screen) => {
-    if (target === 'practice' && !hasSession) return;
-    if (target === 'results' && !attempts.length) return;
-    setScreen(target);
-  };
-
   const updatePracticePenStyle = (patch: PracticePenStylePatch) => {
     session.actions.updateSettings(patch);
   };
@@ -236,44 +229,14 @@ export default function Home() {
     <>
     <a className="skip-link" href="#screen-content">本文へ移動</a>
     <main className="app-shell">
-      {screen !== 'practice' && (
-      <header className="app-header">
-        <button className="brand" type="button" onClick={() => goTo('home')}>
-          <span className="brand-mark" aria-hidden="true">◇</span>
-          <span className="brand-label"><span>立体ドローイング</span><small>v{APP_VERSION}</small></span>
-        </button>
-        <nav className="step-nav" aria-label="ページ">
-          {([
-            ['home', '1 トップ'],
-            ['settings', '2 設定'],
-            ['practice', '3 練習'],
-            ['results', '4 比較'],
-            ['favorites', '★ お気に入り'],
-          ] as Array<[Screen, string]>).map(([value, label]) => {
-            const disabled = (value === 'practice' && !hasSession) || (value === 'results' && !attempts.length);
-            return (
-              <button
-                key={value}
-                className={screen === value ? 'step active' : 'step'}
-                type="button"
-                disabled={disabled}
-                aria-current={screen === value ? 'step' : undefined}
-                onClick={() => goTo(value)}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </nav>
-      </header>
-      )}
-
       <div ref={screenContentRef} id="screen-content" className="screen-content" role="region" aria-label={SCREEN_LABELS[screen]} tabIndex={-1}>
       {screen === 'home' && (
         <HomeScreen
           canvasRef={heroCanvasRef}
+          appVersion={APP_VERSION}
           onStart={() => startPractice()}
           onOpenSettings={() => setScreen('settings')}
+          onOpenFavorites={() => setScreen('favorites')}
         />
       )}
 
@@ -339,6 +302,7 @@ export default function Home() {
           onRetryCurrent={retryCurrentPrompt}
           onRetrySession={() => startPractice(practiceSettings)}
           onToggleFavorite={toggleFavorite}
+          onBack={() => setScreen('home')}
         />
       )}
       </div>
