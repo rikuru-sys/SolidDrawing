@@ -85,6 +85,7 @@ export default function Home() {
     onTimeout: () => finishRef.current(false, true),
   });
 
+  // 練習セッションの現在状態
   const {
     settings: practiceSettings,
     prompt: currentPrompt,
@@ -92,6 +93,8 @@ export default function Home() {
     questionCount,
   } = session.current;
   const hasDrawingCanvas = usesDrawingCanvas(practiceSettings.practiceMode);
+
+  // タイマー・結果・検証状態
   const {
     remainingSeconds: remaining,
     elapsedSeconds: elapsed,
@@ -99,6 +102,8 @@ export default function Home() {
   } = session.timer;
   const { attempts } = session.results;
   const { message: validation, clear: clearValidation } = session.validation;
+
+  // 練習セッションの操作
   const {
     start: startSession,
     retry: retrySessionPrompt,
@@ -110,7 +115,7 @@ export default function Home() {
     updateSettings: updateSessionSettings,
   } = session.actions;
 
-  // 描画キャンバス
+  // 練習画面の描画キャンバス
   const drawing = useDrawingCanvas({
     active: screen === 'practice' && hasDrawingCanvas,
     paused,
@@ -119,6 +124,8 @@ export default function Home() {
     penOpacity: practiceSettings.penOpacity,
     stabilization: practiceSettings.stabilization,
   });
+
+  // 描画キャンバスの操作
   const {
     exportDrawing,
     exportDrawingSvg,
@@ -127,7 +134,7 @@ export default function Home() {
     resetDrawing,
   } = drawing;
 
-  // 画面に表示する計算済みの値
+  // 選択がない場合は、最初のお気に入りを表示する
   const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
 
   // 各画面の3D見本キャンバス
@@ -159,6 +166,7 @@ export default function Home() {
     const sampleCanvas = sampleCanvasRef.current;
     if (!currentPrompt || !sampleCanvas || !beginFinishing()) return;
 
+    // 練習の試行結果をキャプチャする
     const attempt = captureAttempt({
       prompt: currentPrompt,
       sampleCanvas,
@@ -170,10 +178,14 @@ export default function Home() {
     });
 
     releaseActivePointer();
+
+    // 練習を終了する場合は、結果画面へ移動する
     if (finishAttempt(attempt, endSession)) {
       setScreen('results');
       return;
     }
+
+    // 練習を続ける場合は、描画をリセットして次の問題へ進む
     resetDrawing();
   }, [beginFinishing, currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef]);
 

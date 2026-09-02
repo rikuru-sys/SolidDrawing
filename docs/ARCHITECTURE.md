@@ -78,10 +78,16 @@ src/
 `app/page.tsx`は、アプリ全体の調整役です。各画面の詳細な表示や計算は機能別モジュールへ委譲し、主に次を担当します。
 
 - 現在の画面の管理
-- 設定、練習結果、お気に入りの状態管理
+- 端末へ保存する設定とお気に入りの状態管理
 - 練習開始・終了時の機能間連携
-- 3D見本、描画、評価、画像出力の接続
+- 3D見本、描画、試行結果生成の接続
 - 画面遷移後のフォーカス制御
+
+練習中の出題、タイマー、試行結果、検証メッセージ、開始・終了操作は`usePracticeSession`が管理します。フックの返り値は`current`、`timer`、`results`、`validation`、`actions`へ分け、呼び出し側で状態と操作の境界を把握しやすくしています。
+
+結果画面でだけ使う選択中の結果、比較表示モード、重ね合わせの不透明度、画像保存処理は`ResultsScreen`が管理します。`app/page.tsx`には、複数画面や複数機能の連携に必要な状態だけを残しています。
+
+コード内では、ローカルな状態や操作のまとまりを短い区切りコメントで示します。JSDocは、外部から利用する関数や、引数・戻り値だけでは意図を判断しにくい処理を中心に使用します。
 
 専用のルーティングライブラリは使用せず、`home`、`settings`、`practice`、`results`、`favorites`の画面状態をReactのstateで切り替えています。
 
@@ -152,7 +158,7 @@ sequenceDiagram
     participant G as Prompt Generator
     participant T as Three.js Sample
     participant D as Drawing Canvas
-    participant E as Evaluator
+    participant C as Attempt Capture
     participant R as Results
 
     U->>P: 練習開始
@@ -163,12 +169,14 @@ sequenceDiagram
     P->>T: 3D見本を描画
     U->>D: ペン入力
     U->>P: 保存して次へ / 時間切れ
-    P->>E: 見本CanvasとStroke[]を渡す
-    E-->>P: ShapeEvaluation
-    P->>D: PNGとSVGを生成
+    P->>C: 見本Canvas、Stroke[]、練習モードを渡す
+    C->>C: 評価とPNG・SVGを生成
+    C-->>P: Attempt
     P->>S: Attemptを追加
     S-->>R: 全問完了時に結果画面へ
 ```
+
+`features/results/attempt-capture.ts`は、見本画像の取得、自動評価、通常表示と中心合わせ表示のPNG・SVG生成をまとめて`Attempt`へ変換します。見本のみ表示モードでは描画画像を生成せず、未評価の結果を設定します。
 
 ### 二重終了の防止
 
@@ -272,6 +280,8 @@ flowchart LR
 - 現在の練習結果
 - 比較表示の状態
 
+比較表示の状態は`ResultsScreen`、練習セッションの状態は`usePracticeSession`のように、利用する範囲が最も狭い機能で管理します。
+
 ### LocalStorageへ保存するもの
 
 - 練習設定
@@ -279,11 +289,20 @@ flowchart LR
 
 保存データを読み込むときは、型や値の範囲を正規化します。古いデータや不正な値があっても、可能な限り既定値へ戻してアプリを継続できるようにしています。
 
+保存処理は次の3層へ分けています。
+
+1. `shared/storage`がJSONの読み書きと、保存済み状態をReactへ接続する`useStoredState`を提供する
+2. `features/settings`と`features/favorites`が保存キー、正規化、件数制限など機能固有の規則を持つ
+3. `app/page.tsx`が読み書き関数を`useStoredState`へ渡して利用する
+
+この分離により、今後別の端末内保存機能を追加するときも、LocalStorageの例外処理やReactとの同期処理を再利用できます。
+
 ## 12. レスポンシブ設計
 
 画面の向きと幅だけでなく、表示領域の高さもレイアウト条件に使用します。特に練習画面では、横長の液晶ペンタブレットで操作ボタンが画面外へ出ないよう、次を調整しています。
 
-- 練習中は共通ヘッダーを非表示にする
+- 練習画面にはヘッダーを設けず、見本と描画操作を優先する
+- 共通ヘッダーを常設せず、トップ・設定・結果・お気に入りの各画面に必要な導線だけを配置する
 - 見本と描画スペースの高さを揃える
 - 画面高さに応じてCanvasと比較画像を伸縮する
 - 低い画面ではツールバーを複数行に配置する
@@ -321,6 +340,8 @@ UIの見た目だけでなく、変更時に壊れやすい計算と状態遷移
 - 設定の正規化と保存
 - タイマーと経過時間
 - 練習セッションの開始・終了
+- 練習モードごとの表示情報と描画キャンバスの要否
+- 試行結果の評価とPNG・SVG生成
 - 描画履歴とツール登録
 - SVG生成
 - 形状評価

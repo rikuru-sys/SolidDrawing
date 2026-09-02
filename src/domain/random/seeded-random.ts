@@ -5,6 +5,12 @@ const UINT32_RANGE = 0x1_0000_0000;
 export const MAX_SEED = UINT32_RANGE - 1;
 let fallbackSeedCounter = 0;
 
+/**
+ * 正の整数のシード値を正規化します。
+ * @param seed シード値
+ * @returns 正規化されたシード値
+ * @throws {RangeError} シード値が有限の数値でない場合にスローされます。
+ */
 export function normalizeSeed(seed: number) {
   if (!Number.isFinite(seed)) {
     throw new RangeError('Seed must be a finite number.');
@@ -12,15 +18,24 @@ export function normalizeSeed(seed: number) {
   return Math.trunc(seed) >>> 0;
 }
 
+/**
+ * シード値を32ビット符号なし整数の範囲内に制限します。
+ * @param seed シード値
+ * @returns 制限されたシード値
+ * @throws {RangeError} シード値が有限の数値でない場合にスローされます。
+ * @remarks
+ * この関数は、シード値を0からMAX_SEED（2^32 - 1）までの範囲に制限します。
+ * シード値が範囲外の場合、最も近い有効な値に丸められます。
+ */
 export function clampSeed(seed: number) {
   if (!Number.isFinite(seed)) return 0;
   return Math.max(0, Math.min(MAX_SEED, Math.trunc(seed)));
 }
 
 /**
- * Creates a deterministic 32-bit pseudo-random source.
- * The algorithm is intentionally kept local so prompt generation does not
- * depend on Math.random() or browser-specific random implementations.
+ * シード値を元に、決定論的な乱数を生成する関数を作成します。
+ * @param seed 乱数のシード値
+ * @returns 乱数を生成する関数
  */
 export function createSeededRandom(seed: number): RandomSource {
   let state = normalizeSeed(seed);
@@ -34,7 +49,10 @@ export function createSeededRandom(seed: number): RandomSource {
   };
 }
 
-/** Creates a new seed for normal practice sessions. */
+/**
+ * シード値を生成する関数
+ * @returns 乱数のシード値
+ */
 export function createSessionSeed() {
   const cryptoApi = globalThis.crypto;
   if (cryptoApi?.getRandomValues) {
@@ -43,8 +61,7 @@ export function createSessionSeed() {
     return value[0];
   }
 
-  // This fallback is only for environments without Web Crypto. Prompt
-  // generation itself remains deterministic after the seed is created.
+  // フォールバックとして、現在の時間とパフォーマンスの高精度タイマーを使用してシード値を生成
   fallbackSeedCounter = (fallbackSeedCounter + 1) >>> 0;
   const time = Date.now() >>> 0;
   const highResolutionTime = typeof performance === 'undefined'
