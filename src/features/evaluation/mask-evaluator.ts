@@ -1,13 +1,22 @@
+import { createShapeEvaluation } from './evaluation-result';
+import { maskBounds } from './mask-geometry';
 import {
-  dilateMask,
-  lineAngleMatch,
-  maskBounds,
-  maskMatch,
-  strictMetricScore,
-  translateMask,
-} from './mask-geometry';
+  alignDrawingMask,
+  calculateShapeMetricScores,
+  countMaskPixels,
+} from './mask-metrics';
 import type { ShapeEvaluation } from './types';
 
+/** 評価できる描画とみなすために必要な最小ピクセル数。 */
+const MINIMUM_DRAWING_PIXELS = 12;
+/** 輪郭のずれと対応線の探索で許容するピクセル数。 */
+const MATCH_TOLERANCE = 5;
+
+/**
+ * 描画量が足りず、自動評価できない場合の結果を作成する。
+ *
+ * @returns 全項目を0点とし、描き足しを促すメッセージを含む評価結果
+ */
 function emptyDrawingEvaluation(): ShapeEvaluation {
   return {
     score: 0,
@@ -22,62 +31,51 @@ function emptyDrawingEvaluation(): ShapeEvaluation {
 }
 
 /**
- * Scores two binary shape masks. Canvas and future SVG adapters can share
- * this position-independent, scale-preserving comparison boundary.
+ * 見本と描画の二値マスクを比較し、位置に依存しない形状評価を作成する。
+ *
+ * @param sampleMask - 0を背景、1を見本の評価対象として持つ二値マスク
+ * @param drawingMask - 0を背景、1を描画線として持つ二値マスク
+ * @param size - 正方形マスクの一辺のピクセル数
+ * @returns 総合点、4項目の点数、中心合わせの移動量、助言を含む評価結果
+ *
+ * @remarks
+ * 処理は「外接矩形の取得 → 描画量の確認 → 中心合わせ → 4項目の採点
+ * → 総合結果の作成」の順に進む。中心合わせでは拡大・縮小を行わないため、
+ * 描いた位置は採点から除外しつつ、大きさの違いは評価に残る。
  */
 export function evaluateShapeMasks(
   sampleMask: Uint8Array,
   drawingMask: Uint8Array,
   size: number,
 ): ShapeEvaluation {
+  // 1. 見本と描画を囲む長方形から、大きさと中心位置を取得する。
   const sampleBounds = maskBounds(sampleMask, size);
   const drawingBounds = maskBounds(drawingMask, size);
-  const drawnPixelCount = drawingMask.reduce((total, value) => total + value, 0);
-  if (!sampleBounds || !drawingBounds || drawnPixelCount < 12) return emptyDrawingEvaluation();
+  const hasEnoughDrawing = countMaskPixels(drawingMask) >= MINIMUM_DRAWING_PIXELS;
 
-  // Match only the centers. Deliberately keep the drawing at its original scale so size remains scorable.
-  const alignmentX = (sampleBounds.centerX - drawingBounds.centerX) / size;
-  const alignmentY = (sampleBounds.centerY - drawingBounds.centerY) / size;
-  const centeredDrawingMask = translateMask(
+  // 2. 比較対象が存在しない、または描画量が少なすぎる場合は採点しない。
+  if (!sampleBounds || !drawingBounds || !hasEnoughDrawing) {
+    return emptyDrawingEvaluation();
+  }
+
+  // 3. 描画の大きさは維持したまま、見本と描画の中心だけを合わせる。
+  const alignment = alignDrawingMask(
     drawingMask,
+    sampleBounds,
+    drawingBounds,
     size,
-    Math.round(alignmentX * size),
-    Math.round(alignmentY * size),
   );
-  const tolerance = 5;
-  const precision = maskMatch(centeredDrawingMask, dilateMask(sampleMask, size, tolerance));
-  const recall = maskMatch(sampleMask, dilateMask(centeredDrawingMask, size, tolerance));
-  const outlineRatio = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
-  const angleRatio = lineAngleMatch(sampleMask, centeredDrawingMask, size, tolerance) ?? outlineRatio;
-  const widthRatio = Math.min(sampleBounds.width, drawingBounds.width)
-    / Math.max(sampleBounds.width, drawingBounds.width);
-  const heightRatio = Math.min(sampleBounds.height, drawingBounds.height)
-    / Math.max(sampleBounds.height, drawingBounds.height);
-  const sampleAspect = sampleBounds.width / sampleBounds.height;
-  const drawingAspect = drawingBounds.width / drawingBounds.height;
-  const aspectRatio = Math.min(sampleAspect, drawingAspect) / Math.max(sampleAspect, drawingAspect);
-  const sizeRatio = (widthRatio + heightRatio) / 2;
-  const outline = strictMetricScore(outlineRatio);
-  const angle = strictMetricScore(angleRatio);
-  const sizeScore = strictMetricScore(sizeRatio);
-  const proportion = strictMetricScore(aspectRatio);
-  const score = Math.round(outline * 0.45 + angle * 0.25 + sizeScore * 0.2 + proportion * 0.1);
 
-  let feedback = '輪郭・線の傾き・大きさ・比率がよく合っています。重ね合わせでも細部を確認しましょう。';
-  if (outline < 45) feedback = '見本の角や曲線を追い、輪郭線の方向をそろえると近づきます。';
-  else if (angle < 60) feedback = '水平線・垂直線・斜線の傾きを、見本の辺と見比べてみましょう。';
-  else if (sizeScore < 70) feedback = '形を拡大・縮小せず見比べ、見本と同じ大きさを意識してみましょう。';
-  else if (proportion < 70) feedback = '全体の縦横比を見比べてみましょう。';
-  else if (score < 80) feedback = '形はおおむね合っています。重ね合わせでずれた辺を確認しましょう。';
+  // 4. 中心合わせ後の輪郭・傾きと、元の大きさ・比率を採点する。
+  const scores = calculateShapeMetricScores(
+    sampleMask,
+    alignment.centeredMask,
+    sampleBounds,
+    drawingBounds,
+    size,
+    MATCH_TOLERANCE,
+  );
 
-  return {
-    score,
-    outline,
-    angle,
-    size: sizeScore,
-    proportion,
-    alignmentX,
-    alignmentY,
-    feedback,
-  };
+  // 5. 項目別得点を総合点とフィードバックへまとめる。
+  return createShapeEvaluation(scores, alignment);
 }

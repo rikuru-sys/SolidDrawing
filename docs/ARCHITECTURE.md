@@ -293,6 +293,8 @@ PNG出力では描画Canvasを白背景の出力用Canvasへ転写します。SV
 
 評価処理は`features/evaluation`に分離しています。
 
+`mask-evaluator.ts`は評価手順を読み取れる調整役とし、中心合わせと項目別採点は`mask-metrics.ts`、総合点とフィードバック生成は`evaluation-result.ts`へ分けています。
+
 1. 3D見本Canvasを解析用の小さな画像へ変換する
 2. 輝度差から見本の輪郭マスクを生成する
 3. 評価対象のストロークから描画マスクを生成する
