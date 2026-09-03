@@ -34,6 +34,7 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
       angle: 84,
       size: 86,
       proportion: 78,
+      shadow: null,
       alignmentX: 0,
       alignmentY: 0,
       feedback: '形がよく合っています。',
@@ -97,6 +98,22 @@ describe('ResultsScreen', () => {
     expect(html).toContain('src="aligned.svg"');
     expect(html).toContain('描画の濃さ 72%');
     expect(actionsHtml).toContain('重ね合わせ画像を保存');
+  });
+
+  it('影評価がある結果では影の点数と配点を表示する', () => {
+    const html = renderResults({
+      attempts: [attempt({
+        evaluation: {
+          ...attempt().evaluation,
+          score: 76,
+          shadow: 70,
+        },
+      })],
+    });
+
+    expect(html).toContain('自動形状・影評価');
+    expect(html).toContain('影</dt><dd>70');
+    expect(html).toContain('影20%');
   });
 
   it('renders sample-only results without drawing evaluation and save controls', () => {

@@ -4,12 +4,14 @@ import { useEffect, useRef } from 'react';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import type { SampleStyle } from '../settings/practice-settings';
 import { disposeSample3D, renderSample3D } from './sample-renderer';
+import type { SampleRenderLayer } from './types';
 
 type UseSampleCanvasOptions = {
   active: boolean;
   prompt?: ShapePrompt;
   background?: string;
   style?: SampleStyle;
+  renderLayer?: SampleRenderLayer;
 };
 
 export function useSampleCanvas({
@@ -17,6 +19,7 @@ export function useSampleCanvas({
   prompt,
   background = '#ffffff',
   style = 'shaded',
+  renderLayer = 'complete',
 }: UseSampleCanvasOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -25,7 +28,9 @@ export function useSampleCanvas({
     if (!active || !prompt || !canvas) return;
     const activePrompt = prompt;
     function render(target: HTMLCanvasElement) {
-      renderSample3D(target, activePrompt, style, background);
+      renderSample3D(target, activePrompt, style, background, {
+        renderLayer,
+      });
     }
 
     render(canvas);
@@ -35,7 +40,7 @@ export function useSampleCanvas({
       observer.disconnect();
       disposeSample3D(canvas);
     };
-  }, [active, background, prompt, style]);
+  }, [active, background, prompt, renderLayer, style]);
 
   return canvasRef;
 }

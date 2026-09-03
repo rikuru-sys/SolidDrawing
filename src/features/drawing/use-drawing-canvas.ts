@@ -36,6 +36,8 @@ type UseDrawingCanvasOptions = {
   penOpacity: number;
   /** 手振れ補正の強さ */
   stabilization: Stabilization;
+  /** 投影影を評価する練習として影ペンを使用できるか */
+  shadowPenEnabled: boolean;
 };
 
 /**
@@ -49,14 +51,22 @@ export function useDrawingCanvas({
   penColor,
   penOpacity,
   stabilization,
+  shadowPenEnabled,
 }: UseDrawingCanvasOptions) {
-  const [tool, setTool] = useState<DrawingToolId>('pen');
+  const [selectedTool, setSelectedTool] = useState<DrawingToolId>('pen');
+  const tool = !shadowPenEnabled && selectedTool === 'shadow'
+    ? 'pen'
+    : selectedTool;
   const [history, dispatch] = useReducer(
     drawingHistoryReducer,
     EMPTY_DRAWING_HISTORY,
   );
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Stroke[]>([]);
+
+  const setTool = useCallback((nextTool: DrawingToolId) => {
+    setSelectedTool(nextTool === 'shadow' && !shadowPenEnabled ? 'pen' : nextTool);
+  }, [shadowPenEnabled]);
 
   const {
     brushCursorRef,

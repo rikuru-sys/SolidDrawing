@@ -1,6 +1,6 @@
 export type Stabilization = 'off' | 'low' | 'medium';
-export type DrawingToolId = 'pen' | 'dashed' | 'guide' | 'eraser';
-export type EvaluationRole = 'draw' | 'erase' | 'ignore';
+export type DrawingToolId = 'pen' | 'dashed' | 'guide' | 'shadow' | 'eraser';
+export type EvaluationRole = 'draw' | 'shadow' | 'erase' | 'ignore';
 
 /**
  * 描画領域内の座標を表すポイント
@@ -57,7 +57,7 @@ export type CreateStrokeOptions = {
  * 描画ツールの定義を表すオブジェクト
  * @property id - 描画ツールの一意な識別子
  * @property label - ツールの表示名
- * @property evaluationRole - ツールの評価役割 ('draw', 'erase', 'ignore')
+ * @property evaluationRole - ツールの評価役割 ('draw', 'shadow', 'erase', 'ignore')
  * @property continuesDashPattern - 点線パターンを継続するかどうか
  * @property cursorUsesPenColor - カーソルがペンの色を使用するかどうか
  * @property createStroke - ストロークを作成する関数

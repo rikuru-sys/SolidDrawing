@@ -21,7 +21,10 @@ export function allResultsCanvasSize(attemptCount: number) {
 }
 
 function formatEvaluationDetails(evaluation: ShapeEvaluation) {
-  return `輪郭 ${evaluation.outline}点　傾き ${evaluation.angle}点　大きさ ${evaluation.size}点　比率 ${evaluation.proportion}点`;
+  const shapeDetails = `輪郭 ${evaluation.outline}点　傾き ${evaluation.angle}点　大きさ ${evaluation.size}点　比率 ${evaluation.proportion}点`;
+  return evaluation.shadow === null
+    ? shapeDetails
+    : `${shapeDetails}　影 ${evaluation.shadow}点`;
 }
 
 function drawImageContained(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number) {

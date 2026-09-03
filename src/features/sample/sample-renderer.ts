@@ -1,5 +1,6 @@
 import type { SampleStyle } from '../settings/practice-settings';
 import type { ThreeShapePrompt } from './types';
+import type { RenderSampleOptions } from './three-sample';
 
 type ThreeSampleModule = typeof import('./three-sample');
 
@@ -22,11 +23,12 @@ export function renderSample3D(
   prompt: ThreeShapePrompt,
   style: SampleStyle = 'shaded',
   background = '#ffffff',
+  options: RenderSampleOptions = {},
 ) {
   const version = nextRenderVersion(canvas);
   void loadThreeSample().then((module) => {
     if (renderVersions.get(canvas) !== version) return;
-    module.renderSample3D(canvas, prompt, style, background);
+    module.renderSample3D(canvas, prompt, style, background, options);
   }).catch((error: unknown) => {
     console.error('3D見本の読み込みに失敗しました。', error);
   });

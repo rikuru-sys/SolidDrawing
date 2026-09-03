@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 import type { SampleStyle } from '../settings/practice-settings';
 import { buildSampleScene, disposeSampleScene } from './sample-scene';
-import type { ThreeShapePrompt } from './types';
+import type { SampleRenderLayer, ThreeShapePrompt } from './types';
+
+export type RenderSampleOptions = {
+  /** 完成見本・形状だけ・投影影だけのどれを描画するか。 */
+  renderLayer?: SampleRenderLayer;
+};
 
 const renderers = new WeakMap<HTMLCanvasElement, THREE.WebGLRenderer>();
 
@@ -24,16 +29,19 @@ export function renderSample3D(
   prompt: ThreeShapePrompt,
   style: SampleStyle = 'shaded',
   background = '#ffffff',
+  options: RenderSampleOptions = {},
 ) {
+  const renderLayer = options.renderLayer ?? 'complete';
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const renderer = rendererFor(canvas);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(rect.width, rect.height, false);
   renderer.setClearColor(background, 1);
-  renderer.shadowMap.enabled = style === 'shadow';
+  const rendersShadow = style === 'shadow' && renderLayer !== 'shape';
+  renderer.shadowMap.enabled = rendersShadow;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.shadowMap.needsUpdate = style === 'shadow';
+  renderer.shadowMap.needsUpdate = rendersShadow;
 
   const camera = new THREE.PerspectiveCamera(32, rect.width / rect.height, 0.1, 100);
   const distance = 5.4;
@@ -46,7 +54,9 @@ export function renderSample3D(
   camera.lookAt(0, style === 'shadow' ? -0.12 : 0, 0);
   camera.updateMatrixWorld();
 
-  const scene = buildSampleScene(prompt, style, background, camera);
+  const scene = buildSampleScene(prompt, style, background, camera, {
+    renderLayer,
+  });
   renderer.render(scene, camera);
   disposeSampleScene(scene);
 }

@@ -7,12 +7,14 @@ import { dashedPenTool } from './dashed-pen';
 import { eraserTool } from './eraser';
 import { guidePenTool } from './guide-pen';
 import { penTool } from './pen';
+import { shadowPenTool } from './shadow-pen';
 
 // 描画ツールの定義を配列として保持する
 export const DRAWING_TOOLS: readonly DrawingToolDefinition[] = [
   penTool,
   dashedPenTool,
   guidePenTool,
+  shadowPenTool,
   eraserTool,
 ];
 

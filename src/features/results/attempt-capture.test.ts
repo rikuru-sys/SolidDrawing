@@ -36,6 +36,7 @@ const EVALUATION: ShapeEvaluation = {
   angle: 80,
   size: 80,
   proportion: 80,
+  shadow: null,
   alignmentX: 0.1,
   alignmentY: -0.2,
   feedback: '評価済み',
@@ -107,7 +108,7 @@ describe('attempt capture', () => {
     expect(attempt.seconds).toBe(30);
     expect(attempt.practiceMode).toBe('sample-only');
     expect(attempt.drawingImage).toBe('');
-    expect(attempt.evaluation.feedback).toContain('自動形状評価を行いません');
+    expect(attempt.evaluation.feedback).toContain('自動評価を行いません');
     expect(toDataURL).toHaveBeenCalledWith('image/png');
   });
 });

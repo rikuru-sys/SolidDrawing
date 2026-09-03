@@ -93,6 +93,7 @@ export default function Home() {
     questionCount,
   } = session.current;
   const hasDrawingCanvas = usesDrawingCanvas(practiceSettings.practiceMode);
+  const evaluatesShadow = hasDrawingCanvas && practiceSettings.sampleStyle === 'shadow';
 
   // タイマー・結果・検証状態
   const {
@@ -123,6 +124,7 @@ export default function Home() {
     penColor: practiceSettings.penColor,
     penOpacity: practiceSettings.penOpacity,
     stabilization: practiceSettings.stabilization,
+    shadowPenEnabled: evaluatesShadow,
   });
 
   // 描画キャンバスの操作
@@ -153,6 +155,18 @@ export default function Home() {
     prompt: currentPrompt,
     style: practiceSettings.sampleStyle,
   });
+  const shapeEvaluationCanvasRef = useSampleCanvas({
+    active: screen === 'practice' && evaluatesShadow,
+    prompt: currentPrompt,
+    style: practiceSettings.sampleStyle,
+    renderLayer: 'shape',
+  });
+  const shadowEvaluationCanvasRef = useSampleCanvas({
+    active: screen === 'practice' && evaluatesShadow,
+    prompt: currentPrompt,
+    style: practiceSettings.sampleStyle,
+    renderLayer: 'shadow',
+  });
 
   // 状態の変化に伴う副作用
   useEffect(() => {
@@ -164,12 +178,26 @@ export default function Home() {
   // タイマーからも呼ばれるため、参照を安定させる終了処理
   const finishCurrent = useCallback((endSession = false, timedOut = false) => {
     const sampleCanvas = sampleCanvasRef.current;
-    if (!currentPrompt || !sampleCanvas || !beginFinishing()) return;
+    const evaluationSampleCanvas = evaluatesShadow
+      ? shapeEvaluationCanvasRef.current
+      : sampleCanvas;
+    const shadowEvaluationSampleCanvas = evaluatesShadow
+      ? shadowEvaluationCanvasRef.current
+      : undefined;
+    if (
+      !currentPrompt
+      || !sampleCanvas
+      || !evaluationSampleCanvas
+      || (evaluatesShadow && !shadowEvaluationSampleCanvas)
+      || !beginFinishing()
+    ) return;
 
     // 練習の試行結果をキャプチャする
     const attempt = captureAttempt({
       prompt: currentPrompt,
       sampleCanvas,
+      evaluationSampleCanvas,
+      shadowEvaluationSampleCanvas: shadowEvaluationSampleCanvas ?? undefined,
       practiceMode: practiceSettings.practiceMode,
       seconds: getDurationSeconds(timedOut),
       getCurrentStrokes,
@@ -187,7 +215,7 @@ export default function Home() {
 
     // 練習を続ける場合は、描画をリセットして次の問題へ進む
     resetDrawing();
-  }, [beginFinishing, currentPrompt, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef]);
+  }, [beginFinishing, currentPrompt, evaluatesShadow, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef, shadowEvaluationCanvasRef, shapeEvaluationCanvasRef]);
 
   useEffect(() => {
     finishRef.current = finishCurrent;
@@ -300,34 +328,40 @@ export default function Home() {
       )}
 
       {screen === 'practice' && currentPrompt && (
-        <PracticeScreen
-          prompt={currentPrompt}
-          questionIndex={questionIndex}
-          questionCount={questionCount}
-          settings={practiceSettings}
-          remainingSeconds={remaining}
-          elapsedSeconds={elapsed}
-          paused={paused}
-          tool={drawing.tool}
-          strokeCount={drawing.strokes.length}
-          redoCount={drawing.redoStrokes.length}
-          sampleCanvasRef={sampleCanvasRef}
-          drawingCanvasRef={drawing.drawingCanvasRef}
-          brushCursorRef={drawing.brushCursorRef}
-          onTogglePaused={togglePaused}
-          onStop={stopPractice}
-          onNext={() => finishCurrent(false)}
-          onToolChange={drawing.setTool}
-          onPenStyleChange={updatePracticePenStyle}
-          onUndo={drawing.undo}
-          onRedo={drawing.redo}
-          onClear={drawing.clear}
-          onPointerEnter={drawing.updateBrushCursor}
-          onPointerDown={drawing.beginStroke}
-          onPointerMove={drawing.continueStroke}
-          onPointerEnd={drawing.endStroke}
-          onPointerLeave={drawing.hideBrushCursor}
-        />
+        <>
+          {evaluatesShadow && <>
+            <canvas ref={shapeEvaluationCanvasRef} className="evaluation-sample-canvas" width={180} height={180} aria-hidden="true" />
+            <canvas ref={shadowEvaluationCanvasRef} className="evaluation-sample-canvas" width={180} height={180} aria-hidden="true" />
+          </>}
+          <PracticeScreen
+            prompt={currentPrompt}
+            questionIndex={questionIndex}
+            questionCount={questionCount}
+            settings={practiceSettings}
+            remainingSeconds={remaining}
+            elapsedSeconds={elapsed}
+            paused={paused}
+            tool={drawing.tool}
+            strokeCount={drawing.strokes.length}
+            redoCount={drawing.redoStrokes.length}
+            sampleCanvasRef={sampleCanvasRef}
+            drawingCanvasRef={drawing.drawingCanvasRef}
+            brushCursorRef={drawing.brushCursorRef}
+            onTogglePaused={togglePaused}
+            onStop={stopPractice}
+            onNext={() => finishCurrent(false)}
+            onToolChange={drawing.setTool}
+            onPenStyleChange={updatePracticePenStyle}
+            onUndo={drawing.undo}
+            onRedo={drawing.redo}
+            onClear={drawing.clear}
+            onPointerEnter={drawing.updateBrushCursor}
+            onPointerDown={drawing.beginStroke}
+            onPointerMove={drawing.continueStroke}
+            onPointerEnd={drawing.endStroke}
+            onPointerLeave={drawing.hideBrushCursor}
+          />
+        </>
       )}
 
       {screen === 'favorites' && (

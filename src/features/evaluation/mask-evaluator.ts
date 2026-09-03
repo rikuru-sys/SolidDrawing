@@ -24,6 +24,7 @@ function emptyDrawingEvaluation(): ShapeEvaluation {
     angle: 0,
     size: 0,
     proportion: 0,
+    shadow: null,
     alignmentX: 0,
     alignmentY: 0,
     feedback: '評価できる主線が少ないため、ペンで輪郭をもう少し描いてみましょう。',

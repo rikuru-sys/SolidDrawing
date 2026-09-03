@@ -50,7 +50,7 @@ function renderPractice(overrides: Partial<PracticeScreenProps> = {}) {
 }
 
 describe('PracticeScreen', () => {
-  it('renders progress, countdown, drawing canvas, and all drawing tools', () => {
+  it('通常の見本では影ペンを除く描画ツールを表示する', () => {
     const html = renderPractice();
 
     expect(html).toContain('1 / 3');
@@ -69,6 +69,7 @@ describe('PracticeScreen', () => {
     expect(html).toContain('>点線</button>');
     expect(html).toContain('>補助線</button>');
     expect(html).toContain('>消しゴム</button>');
+    expect(html).not.toContain('>影</button>');
     expect(html).not.toContain('保存して次へ');
   });
 
@@ -112,6 +113,7 @@ describe('PracticeScreen', () => {
     };
     const html = renderPractice({
       settings,
+      tool: 'shadow',
       prompt: {
         id: 'prompt-shadow',
         shape: '円柱',
@@ -129,5 +131,8 @@ describe('PracticeScreen', () => {
 
     expect(html).toContain('光源 右下');
     expect(html).toContain('↖');
+    expect(html).toContain('>影</button>');
+    expect(html).toContain('影色・濃さは固定');
+    expect(html).not.toContain('aria-label="練習中のペン色"');
   });
 });

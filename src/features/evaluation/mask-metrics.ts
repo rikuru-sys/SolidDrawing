@@ -79,27 +79,27 @@ export function alignDrawingMask(
 }
 
 /**
- * 見本と描画の輪郭が、許容距離の範囲内で一致している割合を求める。
+ * 2つのマスクが、許容距離の範囲内で一致している割合を求める。
  *
  * @param sampleMask - 見本の二値マスク
  * @param drawingMask - 中心合わせ後の描画の二値マスク
  * @param size - 正方形マスクの一辺のピクセル数
- * @param tolerance - 線のずれを許容する距離（ピクセル単位）
- * @returns 描き足しと描き漏らしの両方を考慮した輪郭一致率
+ * @param tolerance - マスクのずれを許容する距離（ピクセル単位）
+ * @returns 描き足しと描き漏らしの両方を考慮した一致率
  */
-function calculateOutlineRatio(
+export function calculateMaskOverlapRatio(
   sampleMask: Uint8Array,
   drawingMask: Uint8Array,
   size: number,
   tolerance: number,
 ) {
-  // 描画線のうち、見本線の近くにある割合。不要な描き足しが多いほど下がる。
+  // 描画側のうち、見本側の近くにある割合。不要な描き足しが多いほど下がる。
   const precision = maskMatch(
     drawingMask,
     dilateMask(sampleMask, size, tolerance),
   );
 
-  // 見本線のうち、描画線で再現できている割合。描き漏らしが多いほど下がる。
+  // 見本側のうち、描画側で再現できている割合。描き漏らしが多いほど下がる。
   const recall = maskMatch(
     sampleMask,
     dilateMask(drawingMask, size, tolerance),
@@ -212,7 +212,7 @@ export function calculateShapeMetricScores(
   size: number,
   tolerance: number,
 ): ShapeMetricScores {
-  const outlineRatio = calculateOutlineRatio(
+  const outlineRatio = calculateMaskOverlapRatio(
     sampleMask,
     centeredDrawingMask,
     size,

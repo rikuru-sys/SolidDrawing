@@ -46,6 +46,7 @@
 .evaluation-copy p { margin: 4px 0 2px; font-size: 14px; line-height: 1.55; }
 .evaluation-copy small { color: var(--muted); }
 .evaluation-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0; }
+.evaluation-metrics.with-shadow { grid-template-columns: repeat(3, 1fr); }
 .evaluation-metrics div { min-width: 52px; padding: 8px; text-align: center; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .evaluation-metrics dt { color: var(--muted); font-size: 11px; }
 .evaluation-metrics dd { margin: 2px 0 0; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }

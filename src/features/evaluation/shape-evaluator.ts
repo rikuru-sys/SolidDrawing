@@ -1,6 +1,11 @@
-import { applyEvaluationStrokeStyle } from '../drawing/stroke-rendering';
+import {
+  applyEvaluationStrokeStyle,
+  type EvaluationStrokeTarget,
+} from '../drawing/stroke-rendering';
 import type { Stroke } from '../drawing/types';
+import { addShadowEvaluation } from './evaluation-result';
 import { evaluateShapeMasks } from './mask-evaluator';
+import { evaluateShadowMasks } from './shadow-evaluator';
 import type { ShapeEvaluation } from './types';
 
 /** 見本と描画を比較するために統一する正方形画像の一辺。 */
@@ -18,9 +23,10 @@ export function unevaluatedShape(): ShapeEvaluation {
     angle: 0,
     size: 0,
     proportion: 0,
+    shadow: null,
     alignmentX: 0,
     alignmentY: 0,
-    feedback: '見本のみ表示モードでは、自動形状評価を行いません。',
+    feedback: '見本のみ表示モードでは、自動評価を行いません。',
   };
 }
 
@@ -36,6 +42,7 @@ function unavailableEvaluation(): ShapeEvaluation {
     angle: 0,
     size: 0,
     proportion: 0,
+    shadow: null,
     alignmentX: 0,
     alignmentY: 0,
     feedback: '評価を作成できませんでした。',
@@ -47,13 +54,18 @@ function unavailableEvaluation(): ShapeEvaluation {
  *
  * @param context - 見本を解析するための2D描画コンテキスト
  * @param sampleCanvas - 3D見本が描画されているCanvas
+ * @param removeLongHorizontalLines - 意図しない地面線を除去するか
  * @returns 0を背景、1を見本の暗部または輪郭として持つ二値マスク
  *
  * @remarks
  * RGBから輝度を求め、暗い部分と周囲との輝度差が大きい部分を評価対象にする。
- * 影付き表示で使う長い水平の地面線は、立体自体の評価に含めない。
+ * 意図しない長い水平線が残った場合は、立体自体の評価に含めない。
  */
-function createSampleMask(context: CanvasRenderingContext2D, sampleCanvas: HTMLCanvasElement) {
+function createSampleMask(
+  context: CanvasRenderingContext2D,
+  sampleCanvas: HTMLCanvasElement,
+  removeLongHorizontalLines = true,
+) {
   const size = ANALYSIS_SIZE;
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, size, size);
@@ -85,7 +97,9 @@ function createSampleMask(context: CanvasRenderingContext2D, sampleCanvas: HTMLC
     }
   }
 
-  // 横幅の55%を超える水平線を地面線とみなし、上下1行を含めて除外する。
+  if (!removeLongHorizontalLines) return sampleMask;
+
+  // 横幅の55%を超える水平線を不要な線とみなし、上下1行を含めて除外する。
   for (let y = 1; y < size - 1; y += 1) {
     let rowPixels = 0;
     for (let x = 0; x < size; x += 1) rowPixels += sampleMask[y * size + x];
@@ -102,18 +116,23 @@ function createSampleMask(context: CanvasRenderingContext2D, sampleCanvas: HTMLC
  *
  * @param context - 描画線を解析するための2D描画コンテキスト
  * @param strokes - ユーザーが描いたストロークの一覧
+ * @param target - 形状用と影用のどちらのストロークを再描画するか
  * @returns 0を背景、1を評価対象の描画線として持つ二値マスク
  *
  * @remarks
  * 評価対象外のストロークは`applyEvaluationStrokeStyle`で除外する。
  * 座標は0〜1で保存されているため、解析用サイズを掛けてピクセル座標へ戻す。
  */
-function createDrawingMask(context: CanvasRenderingContext2D, strokes: Stroke[]) {
+function createDrawingMask(
+  context: CanvasRenderingContext2D,
+  strokes: Stroke[],
+  target: EvaluationStrokeTarget,
+) {
   const size = ANALYSIS_SIZE;
   strokes.forEach((stroke) => {
     if (!stroke.points.length) return;
     context.save();
-    if (!applyEvaluationStrokeStyle(context, stroke)) {
+    if (!applyEvaluationStrokeStyle(context, stroke, target)) {
       context.restore();
       return;
     }
@@ -145,13 +164,18 @@ function createDrawingMask(context: CanvasRenderingContext2D, strokes: Stroke[])
  *
  * @param sampleCanvas - 3D見本が描画されているCanvas
  * @param strokes - ユーザーが描いたストロークの一覧
+ * @param shadowSampleCanvas - 投影影だけが描画されている評価用Canvas
  * @returns 総合点、項目別得点、中心合わせ情報、助言を含む評価結果
  *
  * @remarks
  * この関数はCanvasとストロークを評価処理へ渡す入口である。
- * 実際の比較と採点は`evaluateShapeMasks`が担当する。
+ * 形状の比較は`evaluateShapeMasks`、影の比較は`evaluateShadowMasks`が担当する。
  */
-export function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]): ShapeEvaluation {
+export function evaluateShape(
+  sampleCanvas: HTMLCanvasElement,
+  strokes: Stroke[],
+  shadowSampleCanvas?: HTMLCanvasElement,
+): ShapeEvaluation {
   const sampleAnalysis = document.createElement('canvas');
   sampleAnalysis.width = ANALYSIS_SIZE;
   sampleAnalysis.height = ANALYSIS_SIZE;
@@ -165,6 +189,38 @@ export function evaluateShape(sampleCanvas: HTMLCanvasElement, strokes: Stroke[]
   if (!sampleContext || !drawingContext) return unavailableEvaluation();
 
   const sampleMask = createSampleMask(sampleContext, sampleCanvas);
-  const drawingMask = createDrawingMask(drawingContext, strokes);
-  return evaluateShapeMasks(sampleMask, drawingMask, ANALYSIS_SIZE);
+  const drawingMask = createDrawingMask(drawingContext, strokes, 'shape');
+  const shapeEvaluation = evaluateShapeMasks(sampleMask, drawingMask, ANALYSIS_SIZE);
+  if (!shadowSampleCanvas) return shapeEvaluation;
+
+  const shadowSampleAnalysis = document.createElement('canvas');
+  shadowSampleAnalysis.width = ANALYSIS_SIZE;
+  shadowSampleAnalysis.height = ANALYSIS_SIZE;
+  const shadowSampleContext = shadowSampleAnalysis.getContext('2d', {
+    willReadFrequently: true,
+  });
+
+  const shadowDrawingAnalysis = document.createElement('canvas');
+  shadowDrawingAnalysis.width = ANALYSIS_SIZE;
+  shadowDrawingAnalysis.height = ANALYSIS_SIZE;
+  const shadowDrawingContext = shadowDrawingAnalysis.getContext('2d', {
+    willReadFrequently: true,
+  });
+
+  if (!shadowSampleContext || !shadowDrawingContext) return unavailableEvaluation();
+
+  const shadowSampleMask = createSampleMask(
+    shadowSampleContext,
+    shadowSampleCanvas,
+    false,
+  );
+  const shadowDrawingMask = createDrawingMask(shadowDrawingContext, strokes, 'shadow');
+  const shadowScore = evaluateShadowMasks(
+    shadowSampleMask,
+    shadowDrawingMask,
+    ANALYSIS_SIZE,
+    shapeEvaluation,
+  );
+
+  return addShadowEvaluation(shapeEvaluation, shadowScore);
 }

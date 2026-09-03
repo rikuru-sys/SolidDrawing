@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { LightDirection } from '../../domain/prompt/types';
 import type { SampleStyle } from '../settings/practice-settings';
 import { createShapeGeometry, isRoundedShape } from './sample-geometry';
-import type { ThreeShapePrompt } from './types';
+import type { SampleRenderLayer, ThreeShapePrompt } from './types';
 
 function addSilhouette(scene: THREE.Scene, geometry: THREE.BufferGeometry) {
   const material = new THREE.MeshBasicMaterial({
@@ -55,6 +55,7 @@ function addShadowEnvironment(
   mesh: THREE.Mesh,
   camera: THREE.PerspectiveCamera,
   direction: LightDirection,
+  options: { includeGroundLine: boolean; shadowOpacity: number },
 ) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -90,12 +91,18 @@ function addShadowEnvironment(
   light.target = lightTarget;
   scene.add(light);
 
-  const planeMaterial = new THREE.ShadowMaterial({ color: 0x3f4039, opacity: 0.3 });
+  const planeMaterial = new THREE.ShadowMaterial({
+    color: 0x3f4039,
+    opacity: options.shadowOpacity,
+  });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), planeMaterial);
+  plane.name = 'cast-shadow-plane';
   plane.rotation.x = -Math.PI / 2;
   plane.position.y = -1.01;
   plane.receiveShadow = true;
   scene.add(plane);
+
+  if (!options.includeGroundLine) return;
 
   const groundGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-3.2, -0.995, 0.25),
@@ -105,16 +112,32 @@ function addShadowEnvironment(
     groundGeometry,
     new THREE.LineBasicMaterial({ color: 0x777970 }),
   );
+  groundLine.name = 'ground-line';
   groundLine.renderOrder = 4;
   scene.add(groundLine);
 }
+
+/** 影を落とさない通常の陰影用ライトを追加する。 */
+function addShadedEnvironment(scene: THREE.Scene) {
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b6ad, 1.7));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.25);
+  keyLight.position.set(-3.5, 5, 4.2);
+  scene.add(keyLight);
+}
+
+export type BuildSampleSceneOptions = {
+  /** 完成見本・形状だけ・投影影だけのどれを描画するか。 */
+  renderLayer?: SampleRenderLayer;
+};
 
 export function buildSampleScene(
   prompt: ThreeShapePrompt,
   style: SampleStyle,
   background: string,
   camera: THREE.PerspectiveCamera,
+  options: BuildSampleSceneOptions = {},
 ) {
+  const renderLayer = options.renderLayer ?? 'complete';
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(background);
   const geometry = createShapeGeometry(prompt);
@@ -131,25 +154,33 @@ export function buildSampleScene(
   }
 
   if (style === 'shaded' || style === 'shadow') {
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xe5e2d8,
-      roughness: 0.9,
-      metalness: 0,
-      flatShading: !rounded,
-      side: THREE.DoubleSide,
-    });
+    const shadowOnly = style === 'shadow' && renderLayer === 'shadow';
+    const material = shadowOnly
+      ? new THREE.MeshBasicMaterial({
+        colorWrite: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+      : new THREE.MeshStandardMaterial({
+        color: 0xe5e2d8,
+        roughness: 0.9,
+        metalness: 0,
+        flatShading: !rounded,
+        side: THREE.DoubleSide,
+      });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = 'sample-shape';
     mesh.renderOrder = 1;
     scene.add(mesh);
-    if (style === 'shadow') {
-      addShadowEnvironment(scene, mesh, camera, prompt.lightDirection);
+    if (style === 'shadow' && renderLayer !== 'shape') {
+      addShadowEnvironment(scene, mesh, camera, prompt.lightDirection, {
+        includeGroundLine: renderLayer === 'complete',
+        shadowOpacity: renderLayer === 'shadow' ? 0.75 : 0.3,
+      });
     } else {
-      scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b6ad, 1.7));
-      const keyLight = new THREE.DirectionalLight(0xffffff, 2.25);
-      keyLight.position.set(-3.5, 5, 4.2);
-      scene.add(keyLight);
+      addShadedEnvironment(scene);
     }
-    if (rounded) addSilhouette(scene, geometry);
+    if (!shadowOnly && rounded) addSilhouette(scene, geometry);
   } else {
     const depthMaterial = new THREE.MeshBasicMaterial({
       colorWrite: false,
@@ -165,7 +196,7 @@ export function buildSampleScene(
     if (rounded) addSilhouette(scene, geometry);
   }
 
-  addEdgeLines(scene, geometry, style);
+  if (renderLayer !== 'shadow') addEdgeLines(scene, geometry, style);
   return scene;
 }
 

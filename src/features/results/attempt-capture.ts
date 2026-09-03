@@ -27,7 +27,12 @@ type CaptureDrawingAssetsOptions = {
 
 type CaptureAttemptOptions = {
   prompt: ShapePrompt;
+  /** 結果画像として保存する、画面に表示されている見本Canvas。 */
   sampleCanvas: HTMLCanvasElement;
+  /** 形状評価に使用する見本Canvas。影表示では立体だけを含む。 */
+  evaluationSampleCanvas?: HTMLCanvasElement;
+  /** 影評価に使用する、投影影だけを含む見本Canvas。 */
+  shadowEvaluationSampleCanvas?: HTMLCanvasElement;
   practiceMode: PracticeMode;
   seconds: number;
   getCurrentStrokes: () => Stroke[];
@@ -68,6 +73,8 @@ export function captureDrawingAssets({
 export function captureAttempt({
   prompt,
   sampleCanvas,
+  evaluationSampleCanvas = sampleCanvas,
+  shadowEvaluationSampleCanvas,
   practiceMode,
   seconds,
   getCurrentStrokes,
@@ -76,7 +83,7 @@ export function captureAttempt({
 }: CaptureAttemptOptions): Attempt {
   const strokes = getCurrentStrokes();
   const evaluation = usesDrawingCanvas(practiceMode)
-    ? evaluateShape(sampleCanvas, strokes)
+    ? evaluateShape(evaluationSampleCanvas, strokes, shadowEvaluationSampleCanvas)
     : unevaluatedShape();
 
   return {
