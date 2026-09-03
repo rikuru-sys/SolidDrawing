@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://rikuru-sys.github.io/SolidDrawing/'),
   title: '立体ドローイング',
   description: 'ランダムな立体を観察して描く、短時間ドローイング練習サイト',
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+  },
   alternates: { canonical: 'https://rikuru-sys.github.io/SolidDrawing/' },
   openGraph: {
     title: '立体ドローイング',
