@@ -215,7 +215,40 @@ sequenceDiagram
 
 ### 入力とストローク
 
-`useDrawingCanvas`がPointer Eventsを受け取り、マウス、タッチ、ペン入力を同じ経路で処理します。描画結果だけでなくストロークの配列を保持するため、次の機能を実現できます。
+`useDrawingCanvas`は描画履歴と各処理を接続する調整役です。Pointer Eventsの処理やCanvasへの描画などは、責務ごとに次のモジュールへ分けています。
+
+| モジュール | 責務 |
+| --- | --- |
+| `use-drawing-canvas.ts` | 描画履歴、Canvasのライフサイクル、各処理を接続し、画面へ共通APIを提供する |
+| `use-drawing-pointer.ts` | マウス、タッチ、ペン入力からストロークを組み立て、Pointer Captureを管理する |
+| `drawing-canvas-renderer.ts` | 座標の正規化、線分の追加描画、Canvas全体の再描画を行う |
+| `use-brush-cursor.ts` | ペンと消しゴムのカーソル位置・表示状態を管理する |
+| `drawing-export.ts` | CanvasとストロークからPNG・SVGのデータURLを生成する |
+| `drawing-history.ts` | ストロークの追加、元に戻す、やり直す、全消去の状態遷移を管理する |
+
+```mermaid
+flowchart LR
+    UI[練習画面] --> Coordinator[useDrawingCanvas]
+    Coordinator --> Pointer[useDrawingPointer]
+    Pointer --> Stabilization[手振れ補正]
+    Pointer --> Renderer[Canvas Renderer]
+    Renderer --> Canvas[描画Canvas]
+    Coordinator <--> History[描画履歴]
+    Coordinator --> Cursor[Brush Cursor]
+    Coordinator --> Exporter[Drawing Export]
+    Exporter --> PNG[PNG]
+    Exporter --> SVG[SVG Renderer]
+```
+
+Pointer入力は次の順序で処理します。
+
+1. `pointerdown`で使用中のツールからストロークを作成し、Pointer Captureを開始する
+2. `pointermove`で画面座標を0〜1の相対座標へ変換し、手振れ補正後の点をストロークへ追加する
+3. 追加された線分だけをCanvasへ描画し、点線では累積線長から破線位置を継続する
+4. `pointerup`または入力終了時にPointer Captureを解除し、ストロークを履歴へ追加する
+5. 履歴変更やCanvasのサイズ変更時は、相対座標の点列からCanvas全体を再描画する
+
+描画結果だけでなくストロークの配列を保持するため、次の機能を実現できます。
 
 - 元に戻す・やり直す
 - Canvasの再描画
@@ -241,6 +274,10 @@ flowchart LR
 ### 手振れ補正
 
 入力座標をそのまま描画する処理と、手振れ補正の計算を分離しています。設定された補正強度に応じて点列を平滑化し、確定した座標をストロークとして保存します。
+
+### 画像出力
+
+PNG出力では描画Canvasを白背景の出力用Canvasへ転写します。SVG出力では保存済みのストロークと現在のCanvas表示サイズを`svg-renderer.ts`へ渡します。どちらも中心合わせ用のオフセットを受け取れるため、通常表示と重ね合わせ表示で同じ出力処理を利用できます。
 
 ## 9. Canvas・PNG・SVGの使い分け
 

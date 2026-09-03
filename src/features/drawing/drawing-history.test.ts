@@ -16,7 +16,7 @@ function stroke(tool: Stroke['tool']): Stroke {
   };
 }
 
-describe('drawingHistoryReducer', () => {
+describe('描画履歴の操作', () => {
   it('追加するとやり直し履歴を破棄する', () => {
     const oldStroke = stroke('pen');
     const newStroke = stroke('dashed');

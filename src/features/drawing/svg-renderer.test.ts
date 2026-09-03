@@ -3,6 +3,12 @@ import { createDrawingStroke } from './tools/tool-registry';
 import type { Stroke } from './types';
 import { drawingToSvg, drawingToSvgDataUrl } from './svg-renderer';
 
+/**
+ * ヘルパー関数: 指定された描画ツールとポイントでストロークを作成する
+ * @param tool - 使用する描画ツールのID ('pen', 'dashed', 'guide', 'eraser')
+ * @param points - ストロークを構成するポイントの配列
+ * @returns 作成されたストロークオブジェクト
+ */
 function stroke(tool: 'pen' | 'dashed' | 'guide' | 'eraser', points: Stroke['points']) {
   const drawingStroke = createDrawingStroke(tool, {
     point: points[0],
@@ -15,8 +21,8 @@ function stroke(tool: 'pen' | 'dashed' | 'guide' | 'eraser', points: Stroke['poi
   return drawingStroke;
 }
 
-describe('drawingToSvg', () => {
-  it('converts pen, dotted and guide strokes to vector paths', () => {
+describe('SVGを生成する', () => {
+  it('ペン、点線、補助線のストロークが正しくベクターパスに変換されることを確認する', () => {
     const svg = drawingToSvg([
       stroke('pen', [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.6 }]),
       stroke('dashed', [{ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.7 }]),
@@ -30,7 +36,7 @@ describe('drawingToSvg', () => {
     expect(svg).toContain('opacity="0.32"');
   });
 
-  it('uses masks so erasers only affect strokes drawn before them', () => {
+  it('消しゴムが先に描いたストロークだけに影響するマスクを生成する', () => {
     const svg = drawingToSvg([
       stroke('pen', [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.9 }]),
       stroke('eraser', [{ x: 0.4, y: 0.4 }, { x: 0.6, y: 0.6 }]),
@@ -43,7 +49,7 @@ describe('drawingToSvg', () => {
     expect(svg.match(/<g mask=/g)).toHaveLength(1);
   });
 
-  it('applies normalized alignment offsets to the vector drawing', () => {
+  it('正規化されたアライメントオフセットがベクタードローイングに適用されることを確認する', () => {
     const svg = drawingToSvg([
       stroke('pen', [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.6 }]),
     ], { width: 400, height: 300, offsetX: 0.1, offsetY: -0.05 });
@@ -51,7 +57,7 @@ describe('drawingToSvg', () => {
     expect(svg).toContain('transform="translate(40 -15)"');
   });
 
-  it('creates an SVG data URL that can be used as an image source', () => {
+  it('SVGデータURLが画像ソースとして使用できる形式で生成されることを確認する', () => {
     const url = drawingToSvgDataUrl([
       stroke('pen', [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.6 }]),
     ], { width: 400, height: 300 });

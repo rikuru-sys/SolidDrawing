@@ -1,5 +1,15 @@
 import type { Point, Stabilization } from './types';
 
+/**
+ * 手振れ補正のためにストロークのポイントを安定化させる
+ * @param previous - 前のポイント
+ * @param next - 次のポイント
+ * @param stabilization - 安定化の強さ ('off', 'low', 'medium')
+ * @param width - 描画領域の幅
+ * @param height - 描画領域の高さ
+ * @param finishing - 描画が終了する直前かどうかのフラグ
+ * @returns 安定化されたポイント
+ */
 export function stabilizeStrokePoint(
   previous: Point,
   next: Point,

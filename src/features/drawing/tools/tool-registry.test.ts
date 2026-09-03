@@ -9,15 +9,15 @@ const STROKE_OPTIONS = {
   stabilization: 'medium' as const,
 };
 
-describe('drawing tool registry', () => {
-  it('registers every drawing tool with a unique id', () => {
+describe('描画ツールの登録', () => {
+  it('描画ツールのIDが一意であることを確認する', () => {
     const ids = DRAWING_TOOLS.map((tool) => tool.id);
 
     expect(ids).toEqual(['pen', 'dashed', 'guide', 'eraser']);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('creates strokes through each registered tool', () => {
+  it('各登録されたツールを通じてストロークを作成する', () => {
     DRAWING_TOOLS.forEach((tool) => {
       const stroke = createDrawingStroke(tool.id, STROKE_OPTIONS);
 
@@ -29,7 +29,7 @@ describe('drawing tool registry', () => {
     });
   });
 
-  it('keeps dotted, guide and eraser behavior in their own definitions', () => {
+  it('点線、ガイド、消しゴムの動作をそれぞれの定義に従って保持する', () => {
     const dashed = getDrawingTool('dashed');
     const guide = getDrawingTool('guide');
     const eraser = getDrawingTool('eraser');
