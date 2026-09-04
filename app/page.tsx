@@ -6,32 +6,28 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ShapePrompt } from '../src/domain/prompt/types';
 import { useDrawingCanvas } from '../src/features/drawing/use-drawing-canvas';
 import { FavoritesScreen } from '../src/features/favorites/favorites-screen';
-import { readStoredFavorites, saveStoredFavorites } from '../src/features/favorites/favorite-storage';
 import type { Favorite } from '../src/features/favorites/types';
+import { useFavorites } from '../src/features/favorites/use-favorites';
 import { HomeScreen } from '../src/features/home/home-screen';
-import { PracticeScreen, type PracticePenStylePatch } from '../src/features/practice/practice-screen';
+import { PracticeScreen } from '../src/features/practice/practice-screen';
+import { useAttemptFinisher } from '../src/features/practice/use-attempt-finisher';
+import { usePracticeSampleCanvases } from '../src/features/practice/use-practice-sample-canvases';
 import { usePracticeSession } from '../src/features/practice/use-practice-session';
-import { captureAttempt } from '../src/features/results/attempt-capture';
 import { ResultsScreen } from '../src/features/results/results-screen';
 import type { Attempt } from '../src/features/results/types';
 import { usesDrawingCanvas } from '../src/features/settings/practice-mode';
+import type { Settings } from '../src/features/settings/practice-settings';
 import {
   readStoredSettings,
   saveStoredSettings,
 } from '../src/features/settings/practice-settings-storage';
-import type { Settings } from '../src/features/settings/practice-settings';
 import { SettingsScreen } from '../src/features/settings/settings-screen';
-import { useSampleCanvas } from '../src/features/sample/use-sample-canvas';
 import { useStoredState } from '../src/shared/storage/use-stored-state';
 
 type Screen = 'home' | 'settings' | 'practice' | 'results' | 'favorites';
 
-/**
- * 画面のラベル。スクリーンリーダー用に使用する。
- */
 const SCREEN_LABELS: Record<Screen, string> = {
   home: 'トップ画面',
   settings: '設定画面',
@@ -40,52 +36,28 @@ const SCREEN_LABELS: Record<Screen, string> = {
   favorites: 'お気に入り画面',
 };
 
-/**
- * アプリのバージョン番号。ユーザーに表示するために使用する。
- */
 const APP_VERSION = '2026.09.01.1';
 
-/**
- * 見本の立方体のプロンプト。
- */
-const HERO_PROMPT: ShapePrompt = {
-  id: 'hero-cube',
-  shape: '立方体',
-  widthScale: 1,
-  heightScale: 1,
-  depthScale: 1,
-  cameraAzimuth: -0.7,
-  cameraElevation: 0.48,
-  objectRotationX: 0,
-  objectRotationY: 0,
-  objectRotationZ: 0,
-  lightDirection: 'top-left',
-};
-
-/**
- * アプリのメイン画面コンポーネント。
- */
+/** アプリ全体の状態を保持し、機能別の画面とフックを接続する。 */
 export default function Home() {
-  // 画面と端末に保存するデータの状態
   const [screen, setScreen] = useState<Screen>('home');
-  const [settings, setSettings] = useStoredState(readStoredSettings, saveStoredSettings);
-  const [favorites, setFavorites] = useStoredState(readStoredFavorites, saveStoredFavorites);
-  const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
-
-  // DOM要素と最新の終了処理を保持する参照
-  const finishRef = useRef<(endSession?: boolean, timedOut?: boolean) => void>(() => undefined);
+  const [settings, setSettings] = useStoredState(
+    readStoredSettings,
+    saveStoredSettings,
+  );
+  const finishRef = useRef<(
+    endSession?: boolean,
+    timedOut?: boolean,
+  ) => void>(() => undefined);
   const screenContentRef = useRef<HTMLDivElement>(null);
   const previousScreenRef = useRef(screen);
 
-  // 練習セッション
   const session = usePracticeSession({
     active: screen === 'practice',
     settings,
     onSettingsChange: setSettings,
     onTimeout: () => finishRef.current(false, true),
   });
-
-  // 練習セッションの現在状態
   const {
     settings: practiceSettings,
     prompt: currentPrompt,
@@ -93,207 +65,79 @@ export default function Home() {
     questionCount,
   } = session.current;
   const hasDrawingCanvas = usesDrawingCanvas(practiceSettings.practiceMode);
-  const evaluatesShadow = hasDrawingCanvas && practiceSettings.sampleStyle === 'shadow';
+  const evaluatesShadow = hasDrawingCanvas
+    && practiceSettings.sampleStyle === 'shadow';
 
-  // タイマー・結果・検証状態
-  const {
-    remainingSeconds: remaining,
-    elapsedSeconds: elapsed,
-    paused,
-  } = session.timer;
-  const { attempts } = session.results;
-  const { message: validation, clear: clearValidation } = session.validation;
-
-  // 練習セッションの操作
-  const {
-    start: startSession,
-    retry: retrySessionPrompt,
-    startFavorite: startFavoriteSession,
-    beginFinishing,
-    finish: finishAttempt,
-    getDurationSeconds,
-    togglePaused,
-    updateSettings: updateSessionSettings,
-  } = session.actions;
-
-  // 練習画面の描画キャンバス
   const drawing = useDrawingCanvas({
     active: screen === 'practice' && hasDrawingCanvas,
-    paused,
+    paused: session.timer.paused,
     penWidth: practiceSettings.penWidth,
     penColor: practiceSettings.penColor,
     penOpacity: practiceSettings.penOpacity,
     stabilization: practiceSettings.stabilization,
     shadowPenEnabled: evaluatesShadow,
   });
-
-  // 描画キャンバスの操作
   const {
-    exportDrawing,
-    exportDrawingSvg,
-    getCurrentStrokes,
-    releaseActivePointer,
-    resetDrawing,
-  } = drawing;
-
-  // 選択がない場合は、最初のお気に入りを表示する
-  const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId) ?? favorites[0];
-
-  // 各画面の3D見本キャンバス
-  const heroCanvasRef = useSampleCanvas({
-    active: screen === 'home',
-    prompt: HERO_PROMPT,
-    background: '#fffef9',
-  });
-  const favoriteCanvasRef = useSampleCanvas({
-    active: screen === 'favorites',
-    prompt: selectedFavorite?.prompt,
-    style: selectedFavorite?.settings.sampleStyle,
-  });
-  const sampleCanvasRef = useSampleCanvas({
+    sampleCanvasRef,
+    shapeEvaluationCanvasRef,
+    shadowEvaluationCanvasRef,
+  } = usePracticeSampleCanvases({
     active: screen === 'practice',
     prompt: currentPrompt,
     style: practiceSettings.sampleStyle,
+    evaluatesShadow,
   });
-  const shapeEvaluationCanvasRef = useSampleCanvas({
-    active: screen === 'practice' && evaluatesShadow,
+  const favorites = useFavorites(practiceSettings);
+
+  const showResults = useCallback(() => {
+    setScreen('results');
+  }, []);
+  const finishCurrent = useAttemptFinisher({
     prompt: currentPrompt,
-    style: practiceSettings.sampleStyle,
-    renderLayer: 'shape',
-  });
-  const shadowEvaluationCanvasRef = useSampleCanvas({
-    active: screen === 'practice' && evaluatesShadow,
-    prompt: currentPrompt,
-    style: practiceSettings.sampleStyle,
-    renderLayer: 'shadow',
+    practiceMode: practiceSettings.practiceMode,
+    evaluatesShadow,
+    sampleCanvasRef,
+    shapeEvaluationCanvasRef,
+    shadowEvaluationCanvasRef,
+    beginFinishing: session.actions.beginFinishing,
+    finishAttempt: session.actions.finish,
+    getDurationSeconds: session.actions.getDurationSeconds,
+    getCurrentStrokes: drawing.getCurrentStrokes,
+    exportDrawing: drawing.exportDrawing,
+    exportDrawingSvg: drawing.exportDrawingSvg,
+    releaseActivePointer: drawing.releaseActivePointer,
+    resetDrawing: drawing.resetDrawing,
+    onComplete: showResults,
   });
 
-  // 状態の変化に伴う副作用
+  useEffect(() => {
+    finishRef.current = finishCurrent;
+  }, [finishCurrent]);
+
   useEffect(() => {
     if (previousScreenRef.current === screen) return;
     previousScreenRef.current = screen;
     screenContentRef.current?.focus();
   }, [screen]);
 
-  // タイマーからも呼ばれるため、参照を安定させる終了処理
-  const finishCurrent = useCallback((endSession = false, timedOut = false) => {
-    const sampleCanvas = sampleCanvasRef.current;
-    const evaluationSampleCanvas = evaluatesShadow
-      ? shapeEvaluationCanvasRef.current
-      : sampleCanvas;
-    const shadowEvaluationSampleCanvas = evaluatesShadow
-      ? shadowEvaluationCanvasRef.current
-      : undefined;
-    if (
-      !currentPrompt
-      || !sampleCanvas
-      || !evaluationSampleCanvas
-      || (evaluatesShadow && !shadowEvaluationSampleCanvas)
-      || !beginFinishing()
-    ) return;
-
-    // 練習の試行結果をキャプチャする
-    const attempt = captureAttempt({
-      prompt: currentPrompt,
-      sampleCanvas,
-      evaluationSampleCanvas,
-      shadowEvaluationSampleCanvas: shadowEvaluationSampleCanvas ?? undefined,
-      practiceMode: practiceSettings.practiceMode,
-      seconds: getDurationSeconds(timedOut),
-      getCurrentStrokes,
-      exportDrawing,
-      exportDrawingSvg,
-    });
-
-    releaseActivePointer();
-
-    // 練習を終了する場合は、結果画面へ移動する
-    if (finishAttempt(attempt, endSession)) {
-      setScreen('results');
-      return;
-    }
-
-    // 練習を続ける場合は、描画をリセットして次の問題へ進む
-    resetDrawing();
-  }, [beginFinishing, currentPrompt, evaluatesShadow, exportDrawing, exportDrawingSvg, finishAttempt, getCurrentStrokes, getDurationSeconds, practiceSettings.practiceMode, releaseActivePointer, resetDrawing, sampleCanvasRef, shadowEvaluationCanvasRef, shapeEvaluationCanvasRef]);
-
-  useEffect(() => {
-    finishRef.current = finishCurrent;
-  }, [finishCurrent]);
-
-  // ユーザー操作から呼ばれる通常の関数
-  function isFavorite(attempt: Attempt) {
-    return favorites.some(({ prompt }) => prompt.id === attempt.prompt.id);
-  }
-
-  function updatePracticePenStyle(patch: PracticePenStylePatch) {
-    updateSessionSettings(patch);
-  }
-
-  /**
-   * 練習を開始する。描画キャンバスがある場合は、描画をリセットして練習画面へ移動する。
-   * @param candidate - 練習を開始する設定。指定しない場合は、現在の設定を使用する。
-   */
   function startPractice(candidate: Settings = settings) {
-    if (!startSession(candidate)) return;
-    resetDrawing();
+    if (!session.actions.start(candidate)) return;
+    drawing.resetDrawing();
     setScreen('practice');
   }
 
-  /**
-   * 現在のプロンプトを再試行する。描画キャンバスがある場合は、描画をリセットして練習画面へ戻る。
-   * @param attempt - 再試行する記号の試行結果。
-   */
   function retryCurrentPrompt(attempt: Attempt) {
-    retrySessionPrompt(attempt);
-    resetDrawing();
+    session.actions.retry(attempt);
+    drawing.resetDrawing();
     setScreen('practice');
   }
 
-  /**
-   * 選択中のお気に入りを切り替える。すでにお気に入りに登録されている場合は削除する。
-   * @param attempt - お気に入りに追加する記号。すでにお気に入りに登録されている場合は削除する。
-   */
-  function toggleFavorite(attempt: Attempt) {
-    setFavorites((current) => {
-      const exists = current.some(({ prompt }) => prompt.id === attempt.prompt.id);
-      if (exists) return current.filter(({ prompt }) => prompt.id !== attempt.prompt.id);
-      const favoriteSettings = practiceSettings;
-      return [{
-        id: `favorite-${attempt.prompt.id}`,
-        prompt: { ...attempt.prompt },
-        settings: {
-          ...favoriteSettings,
-          shapes: [...favoriteSettings.shapes],
-          lightDirections: [...favoriteSettings.lightDirections],
-        },
-        createdAt: Date.now(),
-      }, ...current];
-    });
-  }
-
-  /**
-   * 練習画面を開始する。お気に入りから開始する場合は、選択中のお気に入りの設定を使用する。
-   * @param favorite - 開始するお気に入り。指定しない場合は、現在の設定を使用する。
-   */
   function startFavoritePractice(favorite: Favorite) {
-    startFavoriteSession(favorite);
-    resetDrawing();
+    session.actions.startFavorite(favorite);
+    drawing.resetDrawing();
     setScreen('practice');
   }
 
-  /**
-   *  選択中のお気に入りを削除する。
-   */
-  function deleteSelectedFavorite() {
-    if (!selectedFavorite) return;
-    setFavorites((current) => current.filter(({ id }) => id !== selectedFavorite.id));
-    setSelectedFavoriteId(null);
-  }
-
-  /**
-   * 練習を中断する。描画キャンバスがある場合は、描画を保存して比較画面へ移動するか確認する。
-   */
   function stopPractice() {
     const message = hasDrawingCanvas
       ? 'ここまでの描画を保存して、比較画面へ移動しますか？'
@@ -303,92 +147,115 @@ export default function Home() {
 
   return (
     <>
-    <a className="skip-link" href="#screen-content">本文へ移動</a>
-    <main className="app-shell">
-      <div ref={screenContentRef} id="screen-content" className="screen-content" role="region" aria-label={SCREEN_LABELS[screen]} tabIndex={-1}>
-      {screen === 'home' && (
-        <HomeScreen
-          canvasRef={heroCanvasRef}
-          appVersion={APP_VERSION}
-          onStart={() => startPractice()}
-          onOpenSettings={() => setScreen('settings')}
-          onOpenFavorites={() => setScreen('favorites')}
-        />
-      )}
+      <a className="skip-link" href="#screen-content">本文へ移動</a>
+      <main className="app-shell">
+        <div
+          ref={screenContentRef}
+          id="screen-content"
+          className="screen-content"
+          role="region"
+          aria-label={SCREEN_LABELS[screen]}
+          tabIndex={-1}
+        >
+          {screen === 'home' && (
+            <HomeScreen
+              appVersion={APP_VERSION}
+              onStart={() => startPractice()}
+              onOpenSettings={() => setScreen('settings')}
+              onOpenFavorites={() => setScreen('favorites')}
+            />
+          )}
 
-      {screen === 'settings' && (
-        <SettingsScreen
-          settings={settings}
-          setSettings={setSettings}
-          validation={validation}
-          onValidationClear={clearValidation}
-          onStart={() => startPractice()}
-          onBack={() => setScreen('home')}
-        />
-      )}
+          {screen === 'settings' && (
+            <SettingsScreen
+              settings={settings}
+              setSettings={setSettings}
+              validation={session.validation.message}
+              onValidationClear={session.validation.clear}
+              onStart={() => startPractice()}
+              onBack={() => setScreen('home')}
+            />
+          )}
 
-      {screen === 'practice' && currentPrompt && (
-        <>
-          {evaluatesShadow && <>
-            <canvas ref={shapeEvaluationCanvasRef} className="evaluation-sample-canvas" width={180} height={180} aria-hidden="true" />
-            <canvas ref={shadowEvaluationCanvasRef} className="evaluation-sample-canvas" width={180} height={180} aria-hidden="true" />
-          </>}
-          <PracticeScreen
-            prompt={currentPrompt}
-            questionIndex={questionIndex}
-            questionCount={questionCount}
-            settings={practiceSettings}
-            remainingSeconds={remaining}
-            elapsedSeconds={elapsed}
-            paused={paused}
-            tool={drawing.tool}
-            strokeCount={drawing.strokes.length}
-            redoCount={drawing.redoStrokes.length}
-            sampleCanvasRef={sampleCanvasRef}
-            drawingCanvasRef={drawing.drawingCanvasRef}
-            brushCursorRef={drawing.brushCursorRef}
-            onTogglePaused={togglePaused}
-            onStop={stopPractice}
-            onNext={() => finishCurrent(false)}
-            onToolChange={drawing.setTool}
-            onPenStyleChange={updatePracticePenStyle}
-            onUndo={drawing.undo}
-            onRedo={drawing.redo}
-            onClear={drawing.clear}
-            onPointerEnter={drawing.updateBrushCursor}
-            onPointerDown={drawing.beginStroke}
-            onPointerMove={drawing.continueStroke}
-            onPointerEnd={drawing.endStroke}
-            onPointerLeave={drawing.hideBrushCursor}
-          />
-        </>
-      )}
+          {screen === 'practice' && currentPrompt && (
+            <>
+              {evaluatesShadow && (
+                <>
+                  <canvas
+                    ref={shapeEvaluationCanvasRef}
+                    className="evaluation-sample-canvas"
+                    width={180}
+                    height={180}
+                    aria-hidden="true"
+                  />
+                  <canvas
+                    ref={shadowEvaluationCanvasRef}
+                    className="evaluation-sample-canvas"
+                    width={180}
+                    height={180}
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+              <PracticeScreen
+                current={{
+                  prompt: currentPrompt,
+                  questionIndex,
+                  questionCount,
+                  settings: practiceSettings,
+                }}
+                timer={session.timer}
+                drawing={{
+                  tool: drawing.tool,
+                  strokeCount: drawing.strokes.length,
+                  redoCount: drawing.redoStrokes.length,
+                  canvasRef: drawing.drawingCanvasRef,
+                  brushCursorRef: drawing.brushCursorRef,
+                  onToolChange: drawing.setTool,
+                  onPenStyleChange: session.actions.updateSettings,
+                  onUndo: drawing.undo,
+                  onRedo: drawing.redo,
+                  onClear: drawing.clear,
+                  onPointerEnter: drawing.updateBrushCursor,
+                  onPointerDown: drawing.beginStroke,
+                  onPointerMove: drawing.continueStroke,
+                  onPointerEnd: drawing.endStroke,
+                  onPointerLeave: drawing.hideBrushCursor,
+                }}
+                actions={{
+                  onTogglePaused: session.actions.togglePaused,
+                  onStop: stopPractice,
+                  onNext: () => finishCurrent(false),
+                }}
+                sampleCanvasRef={sampleCanvasRef}
+              />
+            </>
+          )}
 
-      {screen === 'favorites' && (
-        <FavoritesScreen
-          favorites={favorites}
-          selectedFavorite={selectedFavorite ?? null}
-          canvasRef={favoriteCanvasRef}
-          onSelectFavorite={setSelectedFavoriteId}
-          onPracticeFavorite={startFavoritePractice}
-          onDeleteFavorite={deleteSelectedFavorite}
-          onStartPractice={() => startPractice()}
-          onBack={() => setScreen('home')}
-        />
-      )}
+          {screen === 'favorites' && (
+            <FavoritesScreen
+              favorites={favorites.favorites}
+              selectedFavorite={favorites.selectedFavorite}
+              onSelectFavorite={favorites.selectFavorite}
+              onPracticeFavorite={startFavoritePractice}
+              onDeleteFavorite={favorites.deleteSelectedFavorite}
+              onStartPractice={() => startPractice()}
+              onBack={() => setScreen('home')}
+            />
+          )}
 
-      {screen === 'results' && attempts.length > 0 && (
-        <ResultsScreen
-          attempts={attempts}
-          isFavorite={isFavorite}
-          onRetryCurrent={retryCurrentPrompt}
-          onRetrySession={() => startPractice(practiceSettings)}
-          onToggleFavorite={toggleFavorite}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      </div>
-    </main>
+          {screen === 'results' && session.results.attempts.length > 0 && (
+            <ResultsScreen
+              attempts={session.results.attempts}
+              isFavorite={favorites.isFavorite}
+              onRetryCurrent={retryCurrentPrompt}
+              onRetrySession={() => startPractice(practiceSettings)}
+              onToggleFavorite={favorites.toggleFavorite}
+              onBack={() => setScreen('home')}
+            />
+          )}
+        </div>
+      </main>
     </>
   );
 }

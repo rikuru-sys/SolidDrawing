@@ -1,16 +1,36 @@
 'use client';
 
-import type { RefObject } from 'react';
+import type { ShapePrompt } from '../../domain/prompt/types';
+import { useSampleCanvas } from '../sample/use-sample-canvas';
+
+const HERO_PROMPT: ShapePrompt = {
+  id: 'hero-cube',
+  shape: '立方体',
+  widthScale: 1,
+  heightScale: 1,
+  depthScale: 1,
+  cameraAzimuth: -0.7,
+  cameraElevation: 0.48,
+  objectRotationX: 0,
+  objectRotationY: 0,
+  objectRotationZ: 0,
+  lightDirection: 'top-left',
+};
 
 type HomeScreenProps = {
-  canvasRef: RefObject<HTMLCanvasElement | null>;
   appVersion: string;
   onStart: () => void;
   onOpenSettings: () => void;
   onOpenFavorites: () => void;
 };
 
-export function HomeScreen({ canvasRef, appVersion, onStart, onOpenSettings, onOpenFavorites }: HomeScreenProps) {
+export function HomeScreen({ appVersion, onStart, onOpenSettings, onOpenFavorites }: HomeScreenProps) {
+  const canvasRef = useSampleCanvas({
+    active: true,
+    prompt: HERO_PROMPT,
+    background: '#fffef9',
+  });
+
   return <section className="hero-section">
     <div className="hero-copy">
       <div className="home-brand">

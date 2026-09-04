@@ -1,4 +1,4 @@
-import { createElement, createRef } from 'react';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { freshDefaultSettings } from '../settings/practice-settings';
@@ -32,7 +32,6 @@ function renderFavorites(overrides: Partial<FavoritesScreenProps> = {}) {
   const props: FavoritesScreenProps = {
     favorites: [selected],
     selectedFavorite: selected,
-    canvasRef: createRef<HTMLCanvasElement>(),
     onSelectFavorite: () => undefined,
     onPracticeFavorite: () => undefined,
     onDeleteFavorite: () => undefined,

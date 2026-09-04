@@ -2,24 +2,23 @@
 
 import {
   useCallback,
-  useEffect,
+  useReducer,
   useRef,
-  useState,
 } from 'react';
 import type { Favorite } from '../favorites/types';
 import type { Attempt } from '../results/types';
-import { DEFAULT_SETTINGS, type Settings } from '../settings/practice-settings';
-import {
-  countdownSnapshot,
-  elapsedTimerSeconds,
-  practiceDurationSeconds,
-} from './practice-timer';
+import type { Settings } from '../settings/practice-settings';
 import {
   preparePracticeSession,
   retryPrompt,
   validatePracticeSettings,
 } from './practice-session';
+import {
+  createInitialPracticeSessionState,
+  practiceSessionReducer,
+} from './practice-session-state';
 import type { PracticePenStylePatch } from './practice-screen.types';
+import { usePracticeTimer } from './use-practice-timer';
 
 type UsePracticeSessionOptions = {
   active: boolean;
@@ -28,86 +27,75 @@ type UsePracticeSessionOptions = {
   onTimeout: () => void;
 };
 
+/** 出題、試行結果、設定とタイマーを接続し、練習セッションの操作を提供する。 */
 export function usePracticeSession({
   active,
   settings,
   onSettingsChange,
   onTimeout,
 }: UsePracticeSessionOptions) {
-  const [sessionSettings, setSessionSettings] = useState<Settings | null>(null);
-  const [prompts, setPrompts] = useState<ReturnType<typeof preparePracticeSession>['prompts']>([]);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(DEFAULT_SETTINGS.time ?? 0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [validation, setValidation] = useState('');
-  const remainingRef = useRef(DEFAULT_SETTINGS.time ?? 0);
-  const elapsedRef = useRef(0);
-  const attemptsRef = useRef<Attempt[]>([]);
+  const [state, dispatch] = useReducer(
+    practiceSessionReducer,
+    undefined,
+    createInitialPracticeSessionState,
+  );
   const finishingRef = useRef(false);
-  const onTimeoutRef = useRef(onTimeout);
-
-  const practiceSettings = sessionSettings ?? settings;
-  const currentPrompt = prompts[questionIndex];
-
-  useEffect(() => {
-    onTimeoutRef.current = onTimeout;
-  }, [onTimeout]);
-
-  useEffect(() => {
-    attemptsRef.current = attempts;
-  }, [attempts]);
-
-  const resetTimer = useCallback((nextSettings: Settings) => {
-    remainingRef.current = nextSettings.time ?? 0;
-    elapsedRef.current = 0;
-    setRemainingSeconds(remainingRef.current);
-    setElapsedSeconds(0);
-    setPaused(false);
-  }, []);
-
-  const replaceAttempts = useCallback((nextAttempts: Attempt[]) => {
-    attemptsRef.current = nextAttempts;
-    setAttempts(nextAttempts);
-  }, []);
+  const practiceSettings = state.sessionSettings ?? settings;
+  const currentPrompt = state.prompts[state.questionIndex];
+  const {
+    remainingSeconds,
+    elapsedSeconds,
+    paused,
+    reset: resetTimer,
+    resume: resumeTimer,
+    togglePaused,
+    getDurationSeconds,
+  } = usePracticeTimer({
+    active,
+    timeLimit: practiceSettings.time,
+    onTimeout,
+  });
 
   const startPractice = useCallback((candidate: Settings = settings) => {
     const error = validatePracticeSettings(candidate);
     if (error) {
-      setValidation(error);
+      dispatch({ type: 'validation-failed', message: error });
       return false;
     }
+
     const prepared = preparePracticeSession(candidate);
     onSettingsChange(prepared.settings);
-    setSessionSettings(prepared.settings);
-    setPrompts(prepared.prompts);
-    setQuestionIndex(0);
-    resetTimer(prepared.settings);
-    replaceAttempts([]);
-    setValidation('');
+    dispatch({
+      type: 'started',
+      settings: prepared.settings,
+      prompts: prepared.prompts,
+    });
+    resetTimer(prepared.settings.time);
     finishingRef.current = false;
     return true;
-  }, [onSettingsChange, replaceAttempts, resetTimer, settings]);
+  }, [onSettingsChange, resetTimer, settings]);
 
   const retryCurrentPrompt = useCallback((attempt: Attempt, now = Date.now()) => {
-    const retrySettings = sessionSettings ?? settings;
-    setSessionSettings(retrySettings);
-    setPrompts([retryPrompt(attempt.prompt, now)]);
-    setQuestionIndex(0);
-    resetTimer(retrySettings);
+    const retrySettings = state.sessionSettings ?? settings;
+    dispatch({
+      type: 'retried',
+      settings: retrySettings,
+      prompt: retryPrompt(attempt.prompt, now),
+    });
+    resetTimer(retrySettings.time);
     finishingRef.current = false;
-  }, [resetTimer, sessionSettings, settings]);
+  }, [resetTimer, settings, state.sessionSettings]);
 
   const startFavoritePractice = useCallback((favorite: Favorite) => {
     const favoriteSettings = { ...favorite.settings, count: 1 };
-    setSessionSettings(favoriteSettings);
-    setPrompts([{ ...favorite.prompt }]);
-    setQuestionIndex(0);
-    resetTimer(favoriteSettings);
-    replaceAttempts([]);
+    dispatch({
+      type: 'favorite-started',
+      settings: favoriteSettings,
+      prompt: { ...favorite.prompt },
+    });
+    resetTimer(favoriteSettings.time);
     finishingRef.current = false;
-  }, [replaceAttempts, resetTimer]);
+  }, [resetTimer]);
 
   const tryStartFinishing = useCallback(() => {
     if (finishingRef.current) return false;
@@ -116,93 +104,43 @@ export function usePracticeSession({
   }, []);
 
   const finishAttempt = useCallback((attempt: Attempt, endSession = false) => {
-    const nextAttempts = [...attemptsRef.current, attempt];
-    replaceAttempts(nextAttempts);
-    const complete = questionIndex >= prompts.length - 1 || endSession;
+    const complete = state.questionIndex >= state.prompts.length - 1 || endSession;
+    dispatch({ type: 'attempt-finished', attempt, complete });
+
     if (complete) {
-      setPaused(false);
+      resumeTimer();
     } else {
-      setQuestionIndex((index) => index + 1);
-      resetTimer(practiceSettings);
+      resetTimer(practiceSettings.time);
     }
+
     window.setTimeout(() => {
       finishingRef.current = false;
     }, 0);
     return complete;
-  }, [practiceSettings, prompts.length, questionIndex, replaceAttempts, resetTimer]);
-
-  const getDurationSeconds = useCallback((timedOut: boolean) => (
-    practiceDurationSeconds({
-      timeLimit: practiceSettings.time,
-      remainingSeconds: remainingRef.current,
-      elapsedSeconds: elapsedRef.current,
-      timedOut,
-    })
-  ), [practiceSettings.time]);
+  }, [
+    practiceSettings.time,
+    resetTimer,
+    resumeTimer,
+    state.prompts.length,
+    state.questionIndex,
+  ]);
 
   const clearValidation = useCallback(() => {
-    setValidation('');
-  }, []);
-
-  const togglePaused = useCallback(() => {
-    setPaused((current) => !current);
+    dispatch({ type: 'validation-cleared' });
   }, []);
 
   const updatePracticeSettings = useCallback((patch: PracticePenStylePatch) => {
     const nextSettings = { ...practiceSettings, ...patch };
-    setSessionSettings(nextSettings);
+    dispatch({ type: 'settings-updated', settings: nextSettings });
     onSettingsChange(nextSettings);
   }, [onSettingsChange, practiceSettings]);
-
-  useEffect(() => {
-    if (!active || paused) return;
-    const startedAt = performance.now();
-    let timer: number | undefined;
-    let finished = false;
-
-    if (practiceSettings.time === null) {
-      const startingElapsed = elapsedRef.current;
-      function tick() {
-        const nextElapsed = elapsedTimerSeconds(startingElapsed, startedAt, performance.now());
-        if (nextElapsed !== elapsedRef.current) {
-          elapsedRef.current = nextElapsed;
-          setElapsedSeconds(nextElapsed);
-        }
-      }
-      timer = window.setInterval(tick, 100);
-    } else {
-      const deadline = startedAt + Math.max(0, remainingRef.current) * 1000;
-      function tick() {
-        const snapshot = countdownSnapshot(deadline, performance.now());
-        if (snapshot.complete) {
-          if (finished) return;
-          finished = true;
-          remainingRef.current = 0;
-          setRemainingSeconds(0);
-          if (timer !== undefined) window.clearInterval(timer);
-          window.setTimeout(() => onTimeoutRef.current(), 0);
-          return;
-        }
-        if (snapshot.remainingSeconds !== remainingRef.current) {
-          remainingRef.current = snapshot.remainingSeconds;
-          setRemainingSeconds(snapshot.remainingSeconds);
-        }
-      }
-      tick();
-      timer = window.setInterval(tick, 100);
-    }
-
-    return () => {
-      if (timer !== undefined) window.clearInterval(timer);
-    };
-  }, [active, paused, practiceSettings.time, questionIndex]);
 
   return {
     current: {
       settings: practiceSettings,
       prompt: currentPrompt,
-      questionIndex,
-      questionCount: prompts.length,
+      questionIndex: state.questionIndex,
+      questionCount: state.prompts.length,
     },
     timer: {
       remainingSeconds,
@@ -210,10 +148,10 @@ export function usePracticeSession({
       paused,
     },
     results: {
-      attempts,
+      attempts: state.attempts,
     },
     validation: {
-      message: validation,
+      message: state.validation,
       clear: clearValidation,
     },
     actions: {

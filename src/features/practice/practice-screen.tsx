@@ -1,83 +1,67 @@
 'use client';
 
-import type { PointerEventHandler, RefObject } from 'react';
-import type { ShapePrompt } from '../../domain/prompt/types';
-import type { DrawingToolId } from '../drawing/types';
 import { usesDrawingCanvas } from '../settings/practice-mode';
-import type { Settings } from '../settings/practice-settings';
 import { DrawingPanel } from './drawing-panel';
 import { PracticeFooter } from './practice-footer';
 import { PracticeHeader } from './practice-header';
-import type { PracticePenStylePatch } from './practice-screen.types';
+import type { PracticeScreenProps } from './practice-screen.types';
 import { SamplePanel } from './sample-panel';
 
-export type { PracticePenStylePatch } from './practice-screen.types';
+export type {
+  PracticePenStylePatch,
+  PracticeScreenProps,
+} from './practice-screen.types';
 
-export type PracticeScreenProps = {
-  prompt: ShapePrompt;
-  questionIndex: number;
-  questionCount: number;
-  settings: Settings;
-  remainingSeconds: number;
-  elapsedSeconds: number;
-  paused: boolean;
-  tool: DrawingToolId;
-  strokeCount: number;
-  redoCount: number;
-  sampleCanvasRef: RefObject<HTMLCanvasElement | null>;
-  drawingCanvasRef: RefObject<HTMLCanvasElement | null>;
-  brushCursorRef: RefObject<HTMLDivElement | null>;
-  onTogglePaused: () => void;
-  onStop: () => void;
-  onNext: () => void;
-  onToolChange: (tool: DrawingToolId) => void;
-  onPenStyleChange: (patch: PracticePenStylePatch) => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onClear: () => void;
-  onPointerEnter: PointerEventHandler<HTMLCanvasElement>;
-  onPointerDown: PointerEventHandler<HTMLCanvasElement>;
-  onPointerMove: PointerEventHandler<HTMLCanvasElement>;
-  onPointerEnd: PointerEventHandler<HTMLCanvasElement>;
-  onPointerLeave: () => void;
-};
+export function PracticeScreen({
+  current,
+  timer,
+  drawing,
+  actions,
+  sampleCanvasRef,
+}: PracticeScreenProps) {
+  const hasDrawingCanvas = usesDrawingCanvas(current.settings.practiceMode);
 
-export function PracticeScreen(props: PracticeScreenProps) {
-  const hasDrawingCanvas = usesDrawingCanvas(props.settings.practiceMode);
   return <section className="practice-section">
     <PracticeHeader
-      prompt={props.prompt}
-      questionIndex={props.questionIndex}
-      questionCount={props.questionCount}
-      time={props.settings.time}
-      remainingSeconds={props.remainingSeconds}
-      elapsedSeconds={props.elapsedSeconds}
-      paused={props.paused}
-      onTogglePaused={props.onTogglePaused}
-      onStop={props.onStop}
+      prompt={current.prompt}
+      questionIndex={current.questionIndex}
+      questionCount={current.questionCount}
+      time={current.settings.time}
+      remainingSeconds={timer.remainingSeconds}
+      elapsedSeconds={timer.elapsedSeconds}
+      paused={timer.paused}
+      onTogglePaused={actions.onTogglePaused}
+      onStop={actions.onStop}
     />
-    <div className={hasDrawingCanvas ? `workspace-layout layout-${props.settings.layout}` : 'workspace-layout sample-only-layout'}>
-      <SamplePanel prompt={props.prompt} settings={props.settings} remainingSeconds={props.remainingSeconds} elapsedSeconds={props.elapsedSeconds} paused={props.paused} canvasRef={props.sampleCanvasRef} />
+    <div className={hasDrawingCanvas ? `workspace-layout layout-${current.settings.layout}` : 'workspace-layout sample-only-layout'}>
+      <SamplePanel
+        prompt={current.prompt}
+        settings={current.settings}
+        remainingSeconds={timer.remainingSeconds}
+        elapsedSeconds={timer.elapsedSeconds}
+        paused={timer.paused}
+        canvasRef={sampleCanvasRef}
+      />
       {hasDrawingCanvas && <DrawingPanel
-        settings={props.settings}
-        paused={props.paused}
-        tool={props.tool}
-        strokeCount={props.strokeCount}
-        redoCount={props.redoCount}
-        canvasRef={props.drawingCanvasRef}
-        brushCursorRef={props.brushCursorRef}
-        onToolChange={props.onToolChange}
-        onPenStyleChange={props.onPenStyleChange}
-        onUndo={props.onUndo}
-        onRedo={props.onRedo}
-        onClear={props.onClear}
-        onPointerEnter={props.onPointerEnter}
-        onPointerDown={props.onPointerDown}
-        onPointerMove={props.onPointerMove}
-        onPointerEnd={props.onPointerEnd}
-        onPointerLeave={props.onPointerLeave}
+        settings={current.settings}
+        paused={timer.paused}
+        tool={drawing.tool}
+        strokeCount={drawing.strokeCount}
+        redoCount={drawing.redoCount}
+        canvasRef={drawing.canvasRef}
+        brushCursorRef={drawing.brushCursorRef}
+        onToolChange={drawing.onToolChange}
+        onPenStyleChange={drawing.onPenStyleChange}
+        onUndo={drawing.onUndo}
+        onRedo={drawing.onRedo}
+        onClear={drawing.onClear}
+        onPointerEnter={drawing.onPointerEnter}
+        onPointerDown={drawing.onPointerDown}
+        onPointerMove={drawing.onPointerMove}
+        onPointerEnd={drawing.onPointerEnd}
+        onPointerLeave={drawing.onPointerLeave}
       />}
     </div>
-    <PracticeFooter settings={props.settings} onNext={props.onNext} />
+    <PracticeFooter settings={current.settings} onNext={actions.onNext} />
   </section>;
 }

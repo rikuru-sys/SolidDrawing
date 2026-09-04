@@ -1,4 +1,4 @@
-import { createElement, createRef } from 'react';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { HomeScreen } from './home-screen';
@@ -6,7 +6,6 @@ import { HomeScreen } from './home-screen';
 describe('HomeScreen', () => {
   it('練習の概要と開始操作を表示する', () => {
     const html = renderToStaticMarkup(createElement(HomeScreen, {
-      canvasRef: createRef<HTMLCanvasElement>(),
       appVersion: '2026.09.01.1',
       onStart: () => undefined,
       onOpenSettings: () => undefined,

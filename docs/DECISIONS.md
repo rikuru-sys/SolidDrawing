@@ -245,7 +245,13 @@ CanvasとSVGの表示差が問題になった場合は、共通の描画命令�
 ### 対応
 
 - `app/page.tsx`は、画面遷移と機能間の接続を担当する
-- `usePracticeSession`は、出題、タイマー、試行結果、検証、セッション操作を管理する
+- `usePracticeSession`は、出題、試行結果、検証、セッション操作を接続する
+- `practiceSessionReducer`は開始・再挑戦・回答完了の状態遷移、`usePracticeTimer`は時間計測と一時停止を管理する
+- `useFavorites`はお気に入りの保存・選択・追加・削除を管理する
+- `usePracticeSampleCanvases`は練習用の表示・形状評価・影評価Canvasを準備する
+- `useAttemptFinisher`はCanvasと描画から試行結果を生成し、次問または結果画面へ進める
+- `PracticeScreen`は現在状態、タイマー、描画、画面操作の単位でPropsを受け取る
+- `FavoritesScreen`は一覧、プレビュー、空状態の表示部品を組み合わせる
 - `ResultsScreen`は、その画面だけで使う選択結果、比較モード、不透明度、画像保存処理を管理する
 - `attempt-capture.ts`は、見本と描画から評価・画像・SVGを含む`Attempt`を生成する
 - `useDrawingCanvas`は描画機能の調整役とし、Pointer入力、Canvas描画、カーソル、PNG・SVG出力を専用モジュールへ分離する
@@ -253,7 +259,7 @@ CanvasとSVGの表示差が問題になった場合は、共通の描画命令�
 
 ### 見直す条件
 
-画面や機能がさらに増えた場合は、画面遷移、セッション状態、画像出力などの調整処理を追加のフックやサービスへ分離します。
+画面や機能がさらに増えた場合は、現在の画面を表すstateや画面遷移規則を専用のReducerまたはルーターへ分離するか検討します。
 
 詳細は[ARCHITECTURE.md](./ARCHITECTURE.md)を参照してください。
 

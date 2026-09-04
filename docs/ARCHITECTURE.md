@@ -78,12 +78,14 @@ src/
 `app/page.tsx`は、アプリ全体の調整役です。各画面の詳細な表示や計算は機能別モジュールへ委譲し、主に次を担当します。
 
 - 現在の画面の管理
-- 端末へ保存する設定とお気に入りの状態管理
+- 端末へ保存する設定の状態管理
 - 練習開始・終了時の機能間連携
 - 3D見本、描画、試行結果生成の接続
 - 画面遷移後のフォーカス制御
 
-練習中の出題、タイマー、試行結果、検証メッセージ、開始・終了操作は`usePracticeSession`が管理します。フックの返り値は`current`、`timer`、`results`、`validation`、`actions`へ分け、呼び出し側で状態と操作の境界を把握しやすくしています。
+練習中の出題、試行結果、検証メッセージ、開始・終了操作は`usePracticeSession`が管理します。セッションの状態遷移は`practiceSessionReducer`、時間の計測は`usePracticeTimer`へ分けています。フックの返り値は`current`、`timer`、`results`、`validation`、`actions`へ分け、呼び出し側で状態と操作の境界を把握しやすくしています。
+
+お気に入りの保存、選択、追加、削除は`useFavorites`、練習用の表示・形状評価・影評価Canvasは`usePracticeSampleCanvases`が管理します。現在のCanvasと描画ストロークから試行結果を生成して次問または結果画面へ進める処理は`useAttemptFinisher`へ分離しています。
 
 結果画面でだけ使う選択中の結果、比較表示モード、重ね合わせの不透明度、画像保存処理は`ResultsScreen`が管理します。`app/page.tsx`には、複数画面や複数機能の連携に必要な状態だけを残しています。
 
@@ -245,7 +247,7 @@ sequenceDiagram
 | `shape` | 立体だけ | 輪郭・傾き・大きさ・比率の評価 |
 | `shadow` | 投影影だけ | 影の方向・位置・広がりの評価 |
 
-`useSampleCanvas`がReactと描画処理の境界になり、`ResizeObserver`でCanvasのサイズ変更を監視します。トップ、練習、お気に入りの各画面は、同じ見本描画処理を共有します。影モードの練習画面では、表示用Canvasとは別に画面外へ形状評価用と影評価用のCanvasを用意します。3つのCanvasは同じ立体・カメラ・光源条件を共有します。
+`useSampleCanvas`がReactと描画処理の境界になり、`ResizeObserver`でCanvasのサイズ変更を監視します。トップとお気に入りは各画面内でこのフックを利用し、練習画面の3種類のCanvasは`usePracticeSampleCanvases`がまとめて準備します。影モードの練習画面では、表示用Canvasとは別に画面外へ形状評価用と影評価用のCanvasを用意します。3つのCanvasは同じ立体・カメラ・光源条件を共有します。
 
 ## 8. 描画システム
 
@@ -365,7 +367,7 @@ PNG出力では描画Canvasを白背景の出力用Canvasへ転写します。SV
 - 現在の練習結果
 - 比較表示の状態
 
-比較表示の状態は`ResultsScreen`、練習セッションの状態は`usePracticeSession`のように、利用する範囲が最も狭い機能で管理します。
+比較表示の状態は`ResultsScreen`、お気に入りは`useFavorites`、練習セッションは`usePracticeSession`、タイマーは`usePracticeTimer`のように、利用する範囲が最も狭い機能で管理します。練習セッションの複数の状態はReducerで更新し、開始・再挑戦・回答完了の変更を明示しています。
 
 ### LocalStorageへ保存するもの
 
@@ -378,7 +380,7 @@ PNG出力では描画Canvasを白背景の出力用Canvasへ転写します。SV
 
 1. `shared/storage`がJSONの読み書きと、保存済み状態をReactへ接続する`useStoredState`を提供する
 2. `features/settings`と`features/favorites`が保存キー、正規化、件数制限など機能固有の規則を持つ
-3. `app/page.tsx`が読み書き関数を`useStoredState`へ渡して利用する
+3. `app/page.tsx`が設定を、`useFavorites`がお気に入りを`useStoredState`へ接続する
 
 この分離により、今後別の端末内保存機能を追加するときも、LocalStorageの例外処理やReactとの同期処理を再利用できます。
 
@@ -424,6 +426,7 @@ UIの見た目だけでなく、変更時に壊れやすい計算と状態遷移
 - シード付き乱数と出題の再現性
 - 設定の正規化と保存
 - タイマーと経過時間
+- 練習開始・次問・完了時のReducerによる状態遷移
 - 練習セッションの開始・終了
 - 練習モードごとの表示情報と描画キャンバスの要否
 - 試行結果の評価とPNG・SVG生成
