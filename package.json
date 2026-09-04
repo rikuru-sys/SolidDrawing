@@ -12,6 +12,10 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern pages-dist",
     "test": "vitest run --config vitest.config.ts",
+    "test:e2e": "npm run build:pages && playwright test",
+    "test:e2e:ui": "npm run build:pages && playwright test --ui",
+    "test:e2e:headed": "npm run build:pages && playwright test --headed",
+    "dev:pages": "vite --config vite.pages.config.ts --host 127.0.0.1 --port 4173 --strictPort",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
@@ -24,6 +28,7 @@
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
     "@openai/sites-vite-plugin": "^0.1.0 || ^0.2.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
