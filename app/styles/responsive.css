@@ -51,7 +51,7 @@
   .practice-section { padding-top: 14px; padding-bottom: 20px; }
   .practice-header { margin-bottom: 10px; }
   .workspace-layout.layout-left .canvas-stage,
-  .workspace-layout.layout-right .canvas-stage { height: clamp(170px, calc(100dvh - 330px), 420px); min-height: 0; }
+  .workspace-layout.layout-right .canvas-stage { height: max(170px, calc(100dvh - 393px)); min-height: 0; }
   .workspace-layout.sample-only-layout .canvas-stage { height: clamp(300px, calc(100dvh - 205px), 660px); min-height: 0; }
   .workspace-layout.layout-left .sample-canvas,
   .workspace-layout.layout-left .drawing-canvas,
@@ -69,7 +69,7 @@
   .practice-header { gap: 10px; margin-bottom: 8px; padding: 8px 11px; }
   .workspace-layout { gap: 8px; }
   .workspace-layout.layout-left .canvas-stage,
-  .workspace-layout.layout-right .canvas-stage { height: clamp(210px, calc(100dvh - 350px), 390px); }
+  .workspace-layout.layout-right .canvas-stage { height: max(210px, calc(100dvh - 300px)); }
   .workspace-layout.layout-top .canvas-stage,
   .workspace-layout.layout-bottom .canvas-stage { height: clamp(130px, calc(50dvh - 190px), 170px); min-height: 0; }
   .workspace-layout.sample-only-layout .canvas-stage { height: clamp(360px, calc(100dvh - 190px), 550px); }
@@ -108,7 +108,7 @@
   .work-panel { border-radius: var(--radius-md); }
   .work-panel-header { min-height: 38px; padding: 5px 10px; }
   .workspace-layout.layout-left .canvas-stage,
-  .workspace-layout.layout-right .canvas-stage { height: clamp(150px, calc(100dvh - 380px), 210px); }
+  .workspace-layout.layout-right .canvas-stage { height: max(150px, calc(100dvh - 287px)); }
   .workspace-layout.layout-top .canvas-stage,
   .workspace-layout.layout-bottom .canvas-stage { height: clamp(140px, calc(50dvh - 170px), 180px); min-height: 0; }
   .workspace-layout.sample-only-layout .canvas-stage { height: clamp(280px, calc(100dvh - 175px), 440px); }

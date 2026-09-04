@@ -12,17 +12,13 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL,
-    viewport: { width: 1280, height: 551 },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
   projects: [
     {
       name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 551 },
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
   webServer: {

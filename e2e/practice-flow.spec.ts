@@ -3,6 +3,14 @@ import type { Settings } from '../src/features/settings/practice-settings';
 
 const SETTINGS_STORAGE_KEY = 'solid-drawing-settings';
 
+const responsiveViewports = [
+  { name: 'デスクトップ', width: 1440, height: 900 },
+  { name: '広い横長画面', width: 1920, height: 826 },
+  { name: '中程度の横長画面', width: 1280, height: 700 },
+  { name: '横長画面', width: 1280, height: 551 },
+  { name: '縦長画面', width: 390, height: 844 },
+] as const;
+
 const testSettings: Settings = {
   shapes: ['立方体'],
   time: null,
@@ -91,19 +99,37 @@ test('結果をお気に入りへ追加して確認できる', async ({ page }) 
   await expect(page.getByRole('button', { name: 'この見本でもう一度' })).toBeVisible();
 });
 
-test('1280×551で主要操作と描画領域が画面幅に収まる', async ({ page }) => {
-  await openWithSettings(page);
+for (const viewport of responsiveViewports) {
+  test(`${viewport.name}で主要操作と描画領域が画面幅に収まる`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await openWithSettings(page);
 
-  const startButton = page.getByRole('button', { name: '開始する' });
-  await expect(startButton).toBeInViewport();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+    const startButton = page.getByRole('button', { name: '開始する' });
+    await startButton.scrollIntoViewIfNeeded();
+    await expect(startButton).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(viewport.width);
 
-  await startPractice(page);
-  await expect(page.getByRole('button', { name: '保存して次へ' })).toBeInViewport();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+    await startPractice(page);
+    const nextButton = page.getByRole('button', { name: '保存して次へ' });
 
-  const sampleBox = await page.getByLabel('立方体の見本').boundingBox();
-  const drawingBox = await page.getByLabel('描画キャンバス').boundingBox();
-  expect(sampleBox?.width).toBeCloseTo(drawingBox?.width ?? 0, 0);
-  expect(sampleBox?.height).toBeCloseTo(drawingBox?.height ?? 0, 0);
-});
+    if (viewport.width > viewport.height) {
+      const footerBox = await page.locator('.practice-footer').boundingBox();
+      expect(footerBox).not.toBeNull();
+      const bottomGap = footerBox
+        ? viewport.height - footerBox.y - footerBox.height
+        : viewport.height;
+      expect(bottomGap).toBeLessThanOrEqual(24);
+    }
+
+    await nextButton.scrollIntoViewIfNeeded();
+    await expect(nextButton).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(viewport.width);
+
+    const sampleBox = await page.getByLabel('立方体の見本').boundingBox();
+    const drawingBox = await page.getByLabel('描画キャンバス').boundingBox();
+    expect(sampleBox?.width).toBeCloseTo(drawingBox?.width ?? 0, 0);
+    expect(sampleBox?.height).toBeCloseTo(drawingBox?.height ?? 0, 0);
+  });
+}
