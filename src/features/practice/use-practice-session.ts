@@ -86,11 +86,11 @@ export function usePracticeSession({
   }, [resetTimer, settings, state.sessionSettings]);
 
   const startFavoritePractice = useCallback((favorite: Favorite) => {
-    const favoriteSettings = { ...favorite.settings, count: 1 };
+    const favoriteSettings = { ...favorite.savedPractice.settings, count: 1 };
     dispatch({
       type: 'favorite-started',
       settings: favoriteSettings,
-      prompt: { ...favorite.prompt },
+      prompt: { ...favorite.sample.prompt },
     });
     resetTimer(favoriteSettings.time);
     finishingRef.current = false;

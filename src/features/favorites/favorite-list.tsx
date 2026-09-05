@@ -21,8 +21,8 @@ export function FavoriteList({
         aria-pressed={selectedFavoriteId === favorite.id}
         onClick={() => onSelectFavorite(favorite.id)}
       >
-        <strong>★ {favorite.prompt.shape}</strong>
-        <span>{favorite.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{practiceModeDetails(favorite.settings.practiceMode).compactLabel}・{favorite.settings.time === null ? '時間指定なし' : `${favorite.settings.time}秒`}</span>
+        <strong>★ {favorite.sample.prompt.shape}</strong>
+        <span>{favorite.savedPractice.settings.difficulty === 'hard' ? '難しい' : '簡単'}・{practiceModeDetails(favorite.savedPractice.settings.practiceMode).compactLabel}・{favorite.savedPractice.settings.time === null ? '時間指定なし' : `${favorite.savedPractice.settings.time}秒`}</span>
       </button>
     ))}
   </nav>;

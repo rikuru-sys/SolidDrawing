@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { freshDefaultSettings } from '../settings/practice-settings';
 import { FavoritesScreen, type FavoritesScreenProps } from './favorites-screen';
 import { createPromptIdentity } from './prompt-identity';
-import type { Favorite } from './types';
+import { FAVORITE_SNAPSHOT_VERSION, type Favorite } from './types';
 
 function favorite(overrides: Partial<Favorite> = {}): Favorite {
-  const prompt: Favorite['prompt'] = {
+  const prompt: Favorite['sample']['prompt'] = {
     id: 'prompt-1',
     shape: '立方体',
     widthScale: 1,
@@ -22,9 +22,10 @@ function favorite(overrides: Partial<Favorite> = {}): Favorite {
   };
   return {
     id: 'favorite-1',
-    promptKey: createPromptIdentity(prompt),
-    prompt,
-    settings: freshDefaultSettings(),
+    snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
+    sample: { promptKey: createPromptIdentity(prompt), prompt },
+    savedPractice: { settings: freshDefaultSettings() },
+    createdWithAppVersion: '2026.09.05.1',
     createdAt: new Date('2026-08-30T00:00:00+09:00').getTime(),
     ...overrides,
   };
@@ -58,7 +59,10 @@ describe('FavoritesScreen', () => {
     const selected = favorite();
     const second = favorite({
       id: 'favorite-2',
-      prompt: { ...selected.prompt, id: 'prompt-2', shape: '円柱' },
+      sample: {
+        promptKey: 'second',
+        prompt: { ...selected.sample.prompt, id: 'prompt-2', shape: '円柱' },
+      },
     });
     const html = renderFavorites({ favorites: [selected, second], selectedFavorite: selected });
 
@@ -73,18 +77,23 @@ describe('FavoritesScreen', () => {
   it('renders sample-only, hidden-partway, shadow, and light settings', () => {
     const selected = favorite();
     const shadowFavorite = favorite({
-      prompt: {
-        ...selected.prompt,
-        shape: '三角錐',
-        lightDirection: 'bottom-right',
+      sample: {
+        promptKey: 'shadow',
+        prompt: {
+          ...selected.sample.prompt,
+          shape: '三角錐',
+          lightDirection: 'bottom-right',
+        },
       },
-      settings: {
-        ...freshDefaultSettings(),
-        difficulty: 'hard',
-        practiceMode: 'sample-only',
-        sampleStyle: 'shadow',
-        sampleVisibility: 'partway',
-        time: null,
+      savedPractice: {
+        settings: {
+          ...freshDefaultSettings(),
+          difficulty: 'hard',
+          practiceMode: 'sample-only',
+          sampleStyle: 'shadow',
+          sampleVisibility: 'partway',
+          time: null,
+        },
       },
     });
     const html = renderFavorites({

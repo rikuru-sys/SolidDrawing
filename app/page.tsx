@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { APP_VERSION } from '../src/config/app-version';
 import { useDrawingCanvas } from '../src/features/drawing/use-drawing-canvas';
 import { FavoritesScreen } from '../src/features/favorites/favorites-screen';
 import type { Favorite } from '../src/features/favorites/types';
@@ -35,8 +36,6 @@ const SCREEN_LABELS: Record<Screen, string> = {
   results: '比較画面',
   favorites: 'お気に入り画面',
 };
-
-const APP_VERSION = '2026.09.05.1';
 
 /** アプリ全体の状態を保持し、機能別の画面とフックを接続する。 */
 export default function Home() {

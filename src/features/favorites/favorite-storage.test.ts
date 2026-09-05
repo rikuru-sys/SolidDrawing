@@ -10,7 +10,7 @@ import {
   saveStoredFavorites,
 } from './favorite-storage';
 import { createPromptIdentity } from './prompt-identity';
-import type { Favorite } from './types';
+import { FAVORITE_SNAPSHOT_VERSION, type Favorite } from './types';
 
 class MemoryStorage implements JsonStorage {
   values = new Map<string, string>();
@@ -22,7 +22,7 @@ class MemoryStorage implements JsonStorage {
 }
 
 function favorite(index = 0): Favorite {
-  const prompt: Favorite['prompt'] = {
+  const prompt: Favorite['sample']['prompt'] = {
     id: `prompt-${index}`,
     shape: '立方体',
     widthScale: 1,
@@ -38,15 +38,19 @@ function favorite(index = 0): Favorite {
   };
   return {
     id: `favorite-${index}`,
-    promptKey: createPromptIdentity(prompt),
-    prompt,
-    settings: freshDefaultSettings(),
+    snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
+    sample: {
+      promptKey: createPromptIdentity(prompt),
+      prompt,
+    },
+    savedPractice: { settings: freshDefaultSettings() },
+    createdWithAppVersion: '2026.09.05.1',
     createdAt: 1_788_019_200_000 + index,
   };
 }
 
 describe('favorite storage', () => {
-  it('saves and restores favorites with prompts and settings', () => {
+  it('見本と保存時設定を分け、形式バージョン付きで保存・復元する', () => {
     const storage = new MemoryStorage();
     const favorites = [favorite(0), favorite(1)];
 
@@ -56,27 +60,37 @@ describe('favorite storage', () => {
       schemaVersion: FAVORITES_SCHEMA_VERSION,
       items: favorites,
     });
+    expect(favorites[0]).toMatchObject({
+      snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
+      sample: { prompt: favorites[0].sample.prompt },
+      savedPractice: { settings: freshDefaultSettings() },
+    });
   });
 
   it('rejects unsupported shapes and incomplete prompt numbers', () => {
-    expect(parseStoredPrompt({ ...favorite().prompt, shape: '球' })).toBeNull();
-    expect(parseStoredPrompt({ ...favorite().prompt, cameraAzimuth: Number.NaN })).toBeNull();
+    expect(parseStoredPrompt({ ...favorite().sample.prompt, shape: '球' })).toBeNull();
+    expect(parseStoredPrompt({ ...favorite().sample.prompt, cameraAzimuth: Number.NaN })).toBeNull();
   });
 
-  it('normalizes older settings and creates a fallback id', () => {
+  it('旧形式を新しいスナップショット形式へ移行する', () => {
     const storage = new MemoryStorage();
-    storage.values.set(FAVORITES_STORAGE_KEY, JSON.stringify([{
-      prompt: favorite().prompt,
-      settings: { time: 45, count: 4 },
-      createdAt: 100,
-    }]));
+    storage.values.set(FAVORITES_STORAGE_KEY, JSON.stringify({
+      schemaVersion: 1,
+      items: [{
+        prompt: favorite().sample.prompt,
+        settings: { time: 45, count: 4 },
+        createdAt: 100,
+      }],
+    }));
 
     const [restored] = readStoredFavorites(storage);
     expect(restored.id).toBe('favorite-prompt-0');
-    expect(restored.promptKey).toBe(createPromptIdentity(favorite().prompt));
-    expect(restored.settings.time).toBe(45);
-    expect(restored.settings.count).toBe(4);
-    expect(restored.settings.shapes.length).toBeGreaterThan(0);
+    expect(restored.snapshotVersion).toBe(FAVORITE_SNAPSHOT_VERSION);
+    expect(restored.createdWithAppVersion).toBe('unknown');
+    expect(restored.sample.promptKey).toBe(createPromptIdentity(favorite().sample.prompt));
+    expect(restored.savedPractice.settings.time).toBe(45);
+    expect(restored.savedPractice.settings.count).toBe(4);
+    expect(restored.savedPractice.settings.shapes.length).toBeGreaterThan(0);
   });
 
   it('removes malformed data and falls back to an empty list', () => {
@@ -85,6 +99,16 @@ describe('favorite storage', () => {
 
     expect(readStoredFavorites(storage)).toEqual([]);
     expect(storage.removedKeys).toEqual([FAVORITES_STORAGE_KEY]);
+  });
+
+  it('未対応のスナップショット形式は読み込まない', () => {
+    const storage = new MemoryStorage();
+    storage.values.set(FAVORITES_STORAGE_KEY, JSON.stringify({
+      schemaVersion: FAVORITES_SCHEMA_VERSION,
+      items: [{ ...favorite(), snapshotVersion: 999 }],
+    }));
+
+    expect(readStoredFavorites(storage)).toEqual([]);
   });
 
   it('limits stored and restored favorites to the supported maximum', () => {

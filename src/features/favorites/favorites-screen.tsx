@@ -27,8 +27,8 @@ export function FavoritesScreen({
 }: FavoritesScreenProps) {
   const canvasRef = useSampleCanvas({
     active: selectedFavorite !== null,
-    prompt: selectedFavorite?.prompt,
-    style: selectedFavorite?.settings.sampleStyle,
+    prompt: selectedFavorite?.sample.prompt,
+    style: selectedFavorite?.savedPractice.settings.sampleStyle,
   });
 
   return (

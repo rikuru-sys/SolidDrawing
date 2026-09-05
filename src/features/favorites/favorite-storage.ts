@@ -15,17 +15,29 @@ import {
   writeJsonStorage,
   type JsonStorage,
 } from '../../shared/storage/json-storage';
-import type { Favorite } from './types';
+import {
+  FAVORITE_SNAPSHOT_VERSION,
+  type Favorite,
+} from './types';
 import { createPromptIdentity } from './prompt-identity';
 
 export const FAVORITES_STORAGE_KEY = 'solid-drawing-favorites';
 export const MAX_STORED_FAVORITES = 100;
-export const FAVORITES_SCHEMA_VERSION = 1 as const;
+export const FAVORITES_SCHEMA_VERSION = 2 as const;
 
 type StoredFavorites = {
   schemaVersion: typeof FAVORITES_SCHEMA_VERSION;
   items: Favorite[];
 };
+
+function storedFavoriteItems(parsed: unknown) {
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== 'object') return [];
+  const record = parsed as Record<string, unknown>;
+  const supportedVersion = record.schemaVersion === 1
+    || record.schemaVersion === FAVORITES_SCHEMA_VERSION;
+  return supportedVersion && Array.isArray(record.items) ? record.items : [];
+}
 
 export function parseStoredPrompt(value: unknown): ShapePrompt | null {
   if (!value || typeof value !== 'object') return null;
@@ -87,25 +99,35 @@ export function readStoredFavorites(
     key: FAVORITES_STORAGE_KEY,
     fallback: () => [],
     parse: (parsed) => {
-      const storedItems = Array.isArray(parsed)
-        ? parsed
-        : parsed
-          && typeof parsed === 'object'
-          && (parsed as Record<string, unknown>).schemaVersion === FAVORITES_SCHEMA_VERSION
-          && Array.isArray((parsed as Record<string, unknown>).items)
-          ? (parsed as Record<string, unknown>).items as unknown[]
-          : [];
+      const storedItems = storedFavoriteItems(parsed);
 
       return storedItems.flatMap((value): Favorite[] => {
         if (!value || typeof value !== 'object') return [];
         const item = value as Record<string, unknown>;
-        const prompt = parseStoredPrompt(item.prompt);
-        if (!prompt || !item.settings || typeof item.settings !== 'object') return [];
+        if (item.snapshotVersion !== undefined
+          && item.snapshotVersion !== FAVORITE_SNAPSHOT_VERSION) return [];
+        const storedSample = item.sample && typeof item.sample === 'object'
+          ? item.sample as Record<string, unknown>
+          : item;
+        const storedPractice = item.savedPractice && typeof item.savedPractice === 'object'
+          ? item.savedPractice as Record<string, unknown>
+          : item;
+        const prompt = parseStoredPrompt(storedSample.prompt);
+        const storedSettings = storedPractice.settings;
+        if (!prompt || !storedSettings || typeof storedSettings !== 'object') return [];
         return [{
           id: typeof item.id === 'string' ? item.id : `favorite-${prompt.id}`,
-          promptKey: createPromptIdentity(prompt),
-          prompt,
-          settings: normalizeStoredSettings(item.settings as Record<string, unknown>),
+          snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
+          sample: {
+            promptKey: createPromptIdentity(prompt),
+            prompt,
+          },
+          savedPractice: {
+            settings: normalizeStoredSettings(storedSettings as Record<string, unknown>),
+          },
+          createdWithAppVersion: typeof item.createdWithAppVersion === 'string'
+            ? item.createdWithAppVersion
+            : 'unknown',
           createdAt: typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)
             ? item.createdAt
             : Date.now(),
