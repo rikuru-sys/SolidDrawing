@@ -24,6 +24,5 @@ export function SampleSettingsSection({ settings, changeSettings, onToggleLightD
       </label>)}</div>
       <p className="setting-note">選んだ方向の中から、問題ごとに光源をランダム設定します。</p>
     </fieldset>}
-    <p className="setting-note">問題ごとに3Dカメラの方向と比率をランダム生成</p>
   </section>;
 }
