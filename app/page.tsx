@@ -36,7 +36,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
   favorites: 'お気に入り画面',
 };
 
-const APP_VERSION = '2026.09.01.1';
+const APP_VERSION = '2026.09.05.1';
 
 /** アプリ全体の状態を保持し、機能別の画面とフックを接続する。 */
 export default function Home() {
