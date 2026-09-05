@@ -3,6 +3,20 @@ import type { Attempt, ComparisonMode } from './types';
 
 export type ContainedImageRect = { x: number; y: number; width: number; height: number };
 
+export type ResultAverages = {
+  seconds: number;
+  score: number;
+  outline: number;
+  angle: number;
+  size: number;
+  proportion: number;
+  shadow: number | null;
+};
+
+type ResultSummaryAttempt = Pick<Attempt, 'seconds'> & {
+  evaluation: Pick<ShapeEvaluation, 'score' | 'outline' | 'angle' | 'size' | 'proportion' | 'shadow'>;
+};
+
 export function containedImageRect(sourceWidth: number, sourceHeight: number, x: number, y: number, width: number, height: number): ContainedImageRect {
   const scale = Math.min(width / sourceWidth, height / sourceHeight);
   const drawWidth = sourceWidth * scale;
@@ -11,13 +25,32 @@ export function containedImageRect(sourceWidth: number, sourceHeight: number, x:
 }
 
 export function allResultsCanvasSize(attemptCount: number) {
-  const columnCount = 2;
   const width = 1600;
   const rowGap = 20;
-  const headerHeight = 120;
+  const headerHeight = 150;
   const cardHeight = 430;
-  const rowCount = Math.ceil(Math.max(0, attemptCount) / columnCount);
-  return { width, height: headerHeight + rowCount * cardHeight + Math.max(0, rowCount - 1) * rowGap + 30, columnCount, rowCount };
+  const rowCount = Math.max(0, attemptCount);
+  return { width, height: headerHeight + rowCount * cardHeight + Math.max(0, rowCount - 1) * rowGap + 30, rowCount };
+}
+
+function average(values: number[]) {
+  if (!values.length) return 0;
+  return Math.round((values.reduce((total, value) => total + value, 0) / values.length) * 10) / 10;
+}
+
+export function calculateResultAverages(attempts: readonly ResultSummaryAttempt[]): ResultAverages {
+  const shadowScores = attempts.flatMap(({ evaluation }) => (
+    evaluation.shadow === null ? [] : [evaluation.shadow]
+  ));
+  return {
+    seconds: average(attempts.map(({ seconds }) => seconds)),
+    score: average(attempts.map(({ evaluation }) => evaluation.score)),
+    outline: average(attempts.map(({ evaluation }) => evaluation.outline)),
+    angle: average(attempts.map(({ evaluation }) => evaluation.angle)),
+    size: average(attempts.map(({ evaluation }) => evaluation.size)),
+    proportion: average(attempts.map(({ evaluation }) => evaluation.proportion)),
+    shadow: shadowScores.length ? average(shadowScores) : null,
+  };
 }
 
 function formatEvaluationDetails(evaluation: ShapeEvaluation) {
@@ -81,17 +114,17 @@ export async function composeAttemptComparison(options: { attempt: Attempt; inde
   return output;
 }
 
-export async function composeAllAttemptComparisons(options: { attempts: Attempt[]; mode: ComparisonMode; overlayOpacity: number }) {
-  const { attempts, mode, overlayOpacity } = options;
+export async function composeAllAttemptResults(attempts: Attempt[]) {
   if (!attempts.length) return null;
   const output = document.createElement('canvas');
   const outerPadding = 40;
-  const columnGap = 20;
   const rowGap = 20;
-  const headerHeight = 120;
+  const headerHeight = 150;
   const cardHeight = 430;
-  const { width, height, columnCount } = allResultsCanvasSize(attempts.length);
-  const cardWidth = (width - outerPadding * 2 - columnGap) / columnCount;
+  const { width, height } = allResultsCanvasSize(attempts.length);
+  const cardWidth = width - outerPadding * 2;
+  const averages = calculateResultAverages(attempts);
+  const totalSeconds = attempts.reduce((total, attempt) => total + attempt.seconds, 0);
   output.width = width;
   output.height = height;
   const context = output.getContext('2d');
@@ -103,19 +136,19 @@ export async function composeAllAttemptComparisons(options: { attempts: Attempt[
   context.fillText('立体ドローイング　練習結果', outerPadding, 55);
   context.fillStyle = '#686b60';
   context.font = '18px sans-serif';
-  context.fillText(`${attempts.length}回分・${mode === 'overlay' ? '中心合わせ重ね合わせ' : '見本と描画の横並び'}・2列表示`, outerPadding, 91);
+  context.fillText(`${attempts.length}回分　合計描画時間 ${totalSeconds}秒　平均描画時間 ${averages.seconds}秒　総合点平均 ${averages.score}点`, outerPadding, 91);
+  const shadowAverage = averages.shadow === null ? '' : `　影 ${averages.shadow}点`;
+  context.fillText(`項目平均　輪郭 ${averages.outline}点　傾き ${averages.angle}点　大きさ ${averages.size}点　比率 ${averages.proportion}点${shadowAverage}`, outerPadding, 122);
 
   for (const [index, attempt] of attempts.entries()) {
-    const column = index % columnCount;
-    const row = Math.floor(index / columnCount);
-    const left = outerPadding + column * (cardWidth + columnGap);
-    const top = headerHeight + row * (cardHeight + rowGap);
+    const left = outerPadding;
+    const top = headerHeight + index * (cardHeight + rowGap);
     const cardPadding = 18;
     const paneGap = 14;
     const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
     const imageTop = top + 104;
     const imageHeight = 292;
-    const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg)]);
+    const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(attempt.drawingSvg)]);
     context.fillStyle = '#fffef9';
     context.fillRect(left, top, cardWidth, cardHeight);
     context.strokeStyle = '#d9d6cc';
@@ -132,26 +165,13 @@ export async function composeAllAttemptComparisons(options: { attempts: Attempt[
     context.font = '15px sans-serif';
     context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
     context.font = '16px sans-serif';
-    if (mode === 'overlay') {
-      const imageWidth = cardWidth - cardPadding * 2;
-      context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 88);
-      context.fillStyle = '#ffffff';
-      context.fillRect(left + cardPadding, imageTop, imageWidth, imageHeight);
-      drawImageContained(context, sample, left + cardPadding, imageTop, imageWidth, imageHeight);
-      context.save();
-      context.globalAlpha = overlayOpacity;
-      context.globalCompositeOperation = 'multiply';
-      drawImageContained(context, drawing, left + cardPadding, imageTop, imageWidth, imageHeight);
-      context.restore();
-    } else {
-      context.fillText('見本', left + cardPadding, top + 88);
-      context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
-      context.fillStyle = '#ffffff';
-      context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
-      context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
-      drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-    }
+    context.fillText('見本', left + cardPadding, top + 88);
+    context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
+    context.fillStyle = '#ffffff';
+    context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
+    context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+    drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
+    drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
   }
   return output;
 }

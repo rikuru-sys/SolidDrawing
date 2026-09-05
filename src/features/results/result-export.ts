@@ -3,7 +3,7 @@ import {
   resultFileName,
 } from './result-download';
 import {
-  composeAllAttemptComparisons,
+  composeAllAttemptResults,
   composeAttemptComparison,
 } from './result-image-composer';
 import type { Attempt, ComparisonMode } from './types';
@@ -11,6 +11,7 @@ import type { Attempt, ComparisonMode } from './types';
 export { formatFileTimestamp, resultFileName } from './result-download';
 export {
   allResultsCanvasSize,
+  calculateResultAverages,
   containedImageRect,
   type ContainedImageRect,
 } from './result-image-composer';
@@ -49,17 +50,14 @@ export async function downloadAttemptComparison(options: {
   }));
 }
 
-export async function downloadAllAttemptComparisons(options: {
+export async function downloadAllAttemptResults(options: {
   attempts: Attempt[];
-  mode: ComparisonMode;
-  overlayOpacity: number;
   date?: Date;
 }) {
-  const { date = new Date(), ...composition } = options;
-  const output = await composeAllAttemptComparisons(composition);
+  const { attempts, date = new Date() } = options;
+  const output = await composeAllAttemptResults(attempts);
   if (!output) return;
   downloadDataUrl(output.toDataURL('image/png'), resultFileName('all', {
-    mode: options.mode,
     date,
   }));
 }

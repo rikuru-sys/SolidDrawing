@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allResultsCanvasSize,
+  calculateResultAverages,
   containedImageRect,
   formatFileTimestamp,
   resultFileName,
@@ -37,12 +38,29 @@ describe('result export helpers', () => {
     })).toContain('立体ドローイング_重ね合わせ_1_円柱_');
     expect(resultFileName('drawing', { index: 0, shape: '立方体', date: DATE })).toContain('_描画_1_立方体_');
     expect(resultFileName('sample', { index: 0, shape: '立方体', date: DATE })).toContain('_見本_1_立方体_');
-    expect(resultFileName('all', { mode: 'overlay', date: DATE })).toContain('_全結果_重ね合わせ_');
+    expect(resultFileName('all', { date: DATE })).toBe('立体ドローイング_全結果_2026年08月30日_09時45分.png');
   });
 
-  it('uses two columns and grows the canvas by result rows', () => {
-    expect(allResultsCanvasSize(1)).toEqual({ width: 1600, height: 580, columnCount: 2, rowCount: 1 });
-    expect(allResultsCanvasSize(2)).toEqual({ width: 1600, height: 580, columnCount: 2, rowCount: 1 });
-    expect(allResultsCanvasSize(3)).toEqual({ width: 1600, height: 1030, columnCount: 2, rowCount: 2 });
+  it('uses one row per result and grows the canvas by result count', () => {
+    expect(allResultsCanvasSize(1)).toEqual({ width: 1600, height: 610, rowCount: 1 });
+    expect(allResultsCanvasSize(2)).toEqual({ width: 1600, height: 1060, rowCount: 2 });
+    expect(allResultsCanvasSize(3)).toEqual({ width: 1600, height: 1510, rowCount: 3 });
+  });
+
+  it('calculates drawing-time and evaluation averages', () => {
+    const attempts = [
+      { seconds: 20, evaluation: { score: 60, outline: 50, angle: 40, size: 70, proportion: 80, shadow: null } },
+      { seconds: 30, evaluation: { score: 80, outline: 70, angle: 60, size: 90, proportion: 100, shadow: 50 } },
+    ];
+
+    expect(calculateResultAverages(attempts)).toEqual({
+      seconds: 25,
+      score: 70,
+      outline: 60,
+      angle: 50,
+      size: 80,
+      proportion: 90,
+      shadow: 50,
+    });
   });
 });

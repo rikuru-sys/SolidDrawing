@@ -5,7 +5,7 @@ import { ComparisonViewer } from './comparison-viewer';
 import { EvaluationPanel } from './evaluation-panel';
 import { ResultActions } from './result-actions';
 import {
-  downloadAllAttemptComparisons,
+  downloadAllAttemptResults,
   downloadAttemptComparison,
   downloadAttemptDrawing,
   downloadAttemptSample,
@@ -39,11 +39,9 @@ export function ResultsScreen(props: ResultsScreenProps) {
     });
   }
 
-  function saveAllComparisons(mode: ComparisonMode) {
-    void downloadAllAttemptComparisons({
+  function saveAllResults() {
+    void downloadAllAttemptResults({
       attempts: props.attempts,
-      mode,
-      overlayOpacity,
     });
   }
 
@@ -66,7 +64,7 @@ export function ResultsScreen(props: ResultsScreenProps) {
           onSaveSample={() => downloadAttemptSample(currentResult, selectedResult)}
           onSaveComparison={saveComparison}
           onSaveDrawing={() => downloadAttemptDrawing(currentResult, selectedResult)}
-          onSaveAllComparisons={saveAllComparisons}
+          onSaveAllResults={saveAllResults}
         />
       </section>
     </div>

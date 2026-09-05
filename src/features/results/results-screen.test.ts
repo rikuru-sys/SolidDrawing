@@ -91,13 +91,15 @@ describe('ResultsScreen', () => {
       onSaveSample: () => undefined,
       onSaveComparison: () => undefined,
       onSaveDrawing: () => undefined,
-      onSaveAllComparisons: () => undefined,
+      onSaveAllResults: () => undefined,
     }));
 
     expect(html).toContain('中心を合わせて見本と描画を比較');
     expect(html).toContain('src="aligned.svg"');
     expect(html).toContain('描画の濃さ 72%');
     expect(actionsHtml).toContain('重ね合わせ画像を保存');
+    expect(actionsHtml).toContain('全結果を保存');
+    expect(actionsHtml).not.toContain('全結果：重ね合わせ保存');
   });
 
   it('影評価がある結果では影の点数と配点を表示する', () => {
