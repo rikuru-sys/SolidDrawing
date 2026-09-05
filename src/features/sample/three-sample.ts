@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { SampleStyle } from '../settings/practice-settings';
+import { fitCameraToSample } from './sample-camera';
 import { buildSampleScene, disposeSampleScene } from './sample-scene';
 import type { SampleRenderLayer, ThreeShapePrompt } from './types';
 
@@ -45,18 +46,20 @@ export function renderSample3D(
 
   const camera = new THREE.PerspectiveCamera(32, rect.width / rect.height, 0.1, 100);
   const distance = 5.4;
+  const cameraTarget = new THREE.Vector3(0, style === 'shadow' ? -0.12 : 0, 0);
   const horizontalDistance = Math.cos(prompt.cameraElevation) * distance;
   camera.position.set(
     Math.sin(prompt.cameraAzimuth) * horizontalDistance,
     Math.sin(prompt.cameraElevation) * distance,
     Math.cos(prompt.cameraAzimuth) * horizontalDistance,
   );
-  camera.lookAt(0, style === 'shadow' ? -0.12 : 0, 0);
+  camera.lookAt(cameraTarget);
   camera.updateMatrixWorld();
 
   const scene = buildSampleScene(prompt, style, background, camera, {
     renderLayer,
   });
+  fitCameraToSample(camera, scene, cameraTarget);
   renderer.render(scene, camera);
   disposeSampleScene(scene);
 }

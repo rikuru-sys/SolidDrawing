@@ -191,6 +191,7 @@ export function buildSampleScene(
       polygonOffsetUnits: 1,
     });
     const depthMesh = new THREE.Mesh(geometry, depthMaterial);
+    depthMesh.name = 'sample-shape';
     depthMesh.renderOrder = 0;
     scene.add(depthMesh);
     if (rounded) addSilhouette(scene, geometry);

@@ -149,6 +149,22 @@
   .favorite-actions { padding: 8px 12px; }
 }
 
+@media (min-width: 861px) and (orientation: landscape) {
+  .results-section { height: 100dvh; min-height: 480px; display: flex; flex-direction: column; padding-bottom: 20px; }
+  .results-heading { flex: 0 0 auto; }
+  .result-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .result-list { min-height: 0; max-height: none; align-content: start; overflow-y: auto; }
+  .comparison-panel { min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+  .comparison-heading, .comparison-footer { flex: 0 0 auto; }
+  .comparison-body { flex: 1 1 0; min-height: 0; overflow: hidden; }
+  .comparison-visual { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+  .comparison-panes, .overlay-comparison { flex: 1; min-height: 0; }
+  .compare-pane, .overlay-comparison { display: flex; flex-direction: column; }
+  .compare-pane figcaption, .overlay-opacity-control, .sample-only-result-note { flex: 0 0 auto; }
+  .compare-pane > div, .overlay-stage { flex: 1; height: auto; min-height: 160px; position: relative; }
+  .compare-pane img { position: absolute; inset: 0; }
+}
+
 @media (max-width: 860px) {
   .settings-grid { grid-template-columns: 1fr; }
   .wide-card { grid-column: auto; }
