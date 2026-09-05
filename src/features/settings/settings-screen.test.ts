@@ -28,14 +28,14 @@ describe('SettingsScreen', () => {
     expect(html).not.toContain('シード値');
   });
 
-  it('hides drawing-tool and layout settings in sample-only mode', () => {
+  it('見本のみモードでも次回利用できる描画ツール設定を表示する', () => {
     const html = renderSettings({
       ...freshDefaultSettings(),
       practiceMode: 'sample-only',
     });
 
-    expect(html).toContain('<h3>練習回数</h3>');
-    expect(html).not.toContain('手振れ補正');
+    expect(html).toContain('<h3>回数と描画ツール</h3>');
+    expect(html).toContain('手振れ補正');
     expect(html).not.toContain('見本と描画スペースの配置');
   });
 
@@ -46,5 +46,13 @@ describe('SettingsScreen', () => {
     });
 
     expect(html).toContain('使用する光源方向');
+    expect(html.indexOf('輪郭線と影')).toBeLessThan(html.indexOf('使用する光源方向'));
+    expect(html.indexOf('使用する光源方向')).toBeLessThan(html.indexOf('練習中の表示時間'));
+  });
+
+  it('影以外の場合は光源方向の設定を表示しない', () => {
+    const html = renderSettings(freshDefaultSettings());
+
+    expect(html).not.toContain('使用する光源方向');
   });
 });
