@@ -5,11 +5,21 @@ import type { Attempt } from '../results/types';
 import type { Settings } from '../settings/practice-settings';
 import { useStoredState } from '../../shared/storage/use-stored-state';
 import { readStoredFavorites, saveStoredFavorites } from './favorite-storage';
+import { createPromptIdentity } from './prompt-identity';
 import type { Favorite } from './types';
+
+let fallbackFavoriteId = 0;
+
+function createFavoriteId() {
+  if (globalThis.crypto?.randomUUID) return `favorite-${globalThis.crypto.randomUUID()}`;
+  fallbackFavoriteId += 1;
+  return `favorite-${Date.now()}-${fallbackFavoriteId}`;
+}
 
 function createFavorite(attempt: Attempt, settings: Settings): Favorite {
   return {
-    id: `favorite-${attempt.prompt.id}`,
+    id: createFavoriteId(),
+    promptKey: createPromptIdentity(attempt.prompt),
     prompt: { ...attempt.prompt },
     settings: {
       ...settings,
@@ -32,14 +42,15 @@ export function useFavorites(practiceSettings: Settings) {
     ?? null;
 
   const isFavorite = useCallback((attempt: Attempt) => (
-    favorites.some(({ prompt }) => prompt.id === attempt.prompt.id)
+    favorites.some(({ promptKey }) => promptKey === createPromptIdentity(attempt.prompt))
   ), [favorites]);
 
   const toggleFavorite = useCallback((attempt: Attempt) => {
     setFavorites((current) => {
-      const exists = current.some(({ prompt }) => prompt.id === attempt.prompt.id);
+      const promptKey = createPromptIdentity(attempt.prompt);
+      const exists = current.some((favorite) => favorite.promptKey === promptKey);
       return exists
-        ? current.filter(({ prompt }) => prompt.id !== attempt.prompt.id)
+        ? current.filter((favorite) => favorite.promptKey !== promptKey)
         : [createFavorite(attempt, practiceSettings), ...current];
     });
   }, [practiceSettings, setFavorites]);

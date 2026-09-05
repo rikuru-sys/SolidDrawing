@@ -7,6 +7,7 @@ import {
   createInitialPracticeSessionState,
   practiceSessionReducer,
 } from './practice-session-state';
+import type { PracticeSessionSnapshot } from './practice-session';
 
 function prompt(id: string): ShapePrompt {
   return {
@@ -38,16 +39,26 @@ function attempt(id: string): Attempt {
   };
 }
 
+function snapshot(prompts: ShapePrompt[]): PracticeSessionSnapshot {
+  return {
+    schemaVersion: 1,
+    seed: 12345,
+    generatorVersion: 1,
+    settings: freshDefaultSettings(),
+    prompts,
+  };
+}
+
 describe('practice session state', () => {
   it('開始時に出題と設定を保存して以前の結果を消去する', () => {
-    const settings = freshDefaultSettings();
+    const startedSnapshot = snapshot([prompt('one'), prompt('two')]);
     const state = practiceSessionReducer(createInitialPracticeSessionState(), {
       type: 'started',
-      settings,
-      prompts: [prompt('one'), prompt('two')],
+      snapshot: startedSnapshot,
     });
 
-    expect(state.sessionSettings).toBe(settings);
+    expect(state.sessionSettings).toBe(startedSnapshot.settings);
+    expect(state.sessionSnapshot).toBe(startedSnapshot);
     expect(state.prompts).toHaveLength(2);
     expect(state.questionIndex).toBe(0);
     expect(state.attempts).toEqual([]);
@@ -56,8 +67,7 @@ describe('practice session state', () => {
   it('回答完了時に結果を追加して次の問題へ進む', () => {
     const started = practiceSessionReducer(createInitialPracticeSessionState(), {
       type: 'started',
-      settings: freshDefaultSettings(),
-      prompts: [prompt('one'), prompt('two')],
+      snapshot: snapshot([prompt('one'), prompt('two')]),
     });
     const next = practiceSessionReducer(started, {
       type: 'attempt-finished',
@@ -72,8 +82,7 @@ describe('practice session state', () => {
   it('最終問題では結果を追加して問題番号を保持する', () => {
     const started = practiceSessionReducer(createInitialPracticeSessionState(), {
       type: 'started',
-      settings: freshDefaultSettings(),
-      prompts: [prompt('one')],
+      snapshot: snapshot([prompt('one')]),
     });
     const complete = practiceSessionReducer(started, {
       type: 'attempt-finished',

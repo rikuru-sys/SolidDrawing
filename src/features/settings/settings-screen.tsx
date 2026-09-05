@@ -12,7 +12,6 @@ import { LayoutSettingsSection } from './sections/layout-settings-section';
 import { PracticeSetupSection } from './sections/practice-setup-section';
 import { QuestionSettingsSection } from './sections/question-settings-section';
 import { SampleSettingsSection } from './sections/sample-settings-section';
-import { SeedSettingsSection } from './sections/seed-settings-section';
 
 export type SettingsScreenProps = {
   settings: Settings;
@@ -45,7 +44,6 @@ export function SettingsScreen({ settings, setSettings, validation, onValidation
     </div>
     <div className="settings-grid">
       <PracticeSetupSection settings={settings} changeSettings={changeSettings} />
-      <SeedSettingsSection settings={settings} changeSettings={changeSettings} />
       <QuestionSettingsSection settings={settings} changeSettings={changeSettings} onToggleShape={toggleShape} />
       <DrawingSettingsSection settings={settings} changeSettings={changeSettings} />
       <SampleSettingsSection settings={settings} changeSettings={changeSettings} onToggleLightDirection={toggleLightDirection} />

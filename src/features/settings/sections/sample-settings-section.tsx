@@ -9,8 +9,8 @@ export function SampleSettingsSection({ settings, changeSettings, onToggleLightD
     <h3>見本の表示</h3>
     <div className="sample-style-options">
       <button className={settings.sampleStyle === 'shaded' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.sampleStyle === 'shaded'} onClick={() => changeSettings({ sampleStyle: 'shaded' })}>輪郭線と薄い陰影</button>
-      <button className={settings.sampleStyle === 'shadow' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.sampleStyle === 'shadow'} onClick={() => changeSettings({ sampleStyle: 'shadow' })}>輪郭線と影</button>
       <button className={settings.sampleStyle === 'hidden-lines' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.sampleStyle === 'hidden-lines'} onClick={() => changeSettings({ sampleStyle: 'hidden-lines' })}>輪郭線（見えない部分は点線）</button>
+      <button className={settings.sampleStyle === 'shadow' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.sampleStyle === 'shadow'} onClick={() => changeSettings({ sampleStyle: 'shadow' })}>輪郭線と影</button>
     </div>
     <div className="sample-visibility-setting"><h4>練習中の表示時間</h4><div className="difficulty-options">
       <button className={settings.sampleVisibility === 'always' ? 'choice-button selected' : 'choice-button'} type="button" aria-pressed={settings.sampleVisibility === 'always'} onClick={() => changeSettings({ sampleVisibility: 'always' })}><strong>常に表示</strong><small>練習が終わるまで見本を表示します</small></button>

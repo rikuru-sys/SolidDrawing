@@ -67,8 +67,7 @@ export function usePracticeSession({
     onSettingsChange(prepared.settings);
     dispatch({
       type: 'started',
-      settings: prepared.settings,
-      prompts: prepared.prompts,
+      snapshot: prepared,
     });
     resetTimer(prepared.settings.time);
     finishingRef.current = false;
@@ -149,6 +148,7 @@ export function usePracticeSession({
     },
     results: {
       attempts: state.attempts,
+      sessionSnapshot: state.sessionSnapshot,
     },
     validation: {
       message: state.validation,

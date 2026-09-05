@@ -25,8 +25,6 @@ const testSettings: Settings = {
   sampleVisibility: 'always',
   practiceMode: 'canvas',
   stabilization: 'off',
-  seedMode: 'fixed',
-  fixedSeed: 24680,
 };
 
 async function openWithSettings(
@@ -70,7 +68,7 @@ test('サイト内で描いて練習結果へ進める', async ({ page }) => {
   await page.getByRole('button', { name: '保存して次へ' }).click();
   await expect(page.getByRole('heading', { name: '練習結果' })).toBeVisible();
   await expect(page.getByText('1回完了')).toBeVisible();
-  await expect(page.getByText('シード 24680')).toBeVisible();
+  await expect(page.getByText(/^シード \d+$/)).toBeVisible();
 });
 
 test('見本のみモードで結果画面へ進める', async ({ page }) => {
@@ -82,6 +80,18 @@ test('見本のみモードで結果画面へ進める', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: '練習結果' })).toBeVisible();
   await expect(page.getByRole('button', { name: '見本画像を保存' })).toBeVisible();
+});
+
+test('設定画面の練習回数と線の太さを同じ高さで表示する', async ({ page }) => {
+  await openWithSettings(page);
+  await page.getByRole('button', { name: '設定する' }).click();
+
+  const countBox = await page.getByLabel('練習回数').boundingBox();
+  const penWidthBox = await page.getByLabel('線の太さ').boundingBox();
+
+  expect(countBox).not.toBeNull();
+  expect(penWidthBox).not.toBeNull();
+  expect(penWidthBox?.height).toBeCloseTo(countBox?.height ?? 0, 0);
 });
 
 test('結果をお気に入りへ追加して確認できる', async ({ page }) => {
@@ -114,6 +124,8 @@ for (const viewport of responsiveViewports) {
     const nextButton = page.getByRole('button', { name: '保存して次へ' });
 
     if (viewport.width > viewport.height) {
+      expect(await page.evaluate(() => document.documentElement.scrollHeight))
+        .toBeLessThanOrEqual(viewport.height);
       const footerBox = await page.locator('.practice-footer').boundingBox();
       expect(footerBox).not.toBeNull();
       const bottomGap = footerBox

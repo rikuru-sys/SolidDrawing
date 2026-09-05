@@ -3,24 +3,27 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { freshDefaultSettings } from '../settings/practice-settings';
 import { FavoritesScreen, type FavoritesScreenProps } from './favorites-screen';
+import { createPromptIdentity } from './prompt-identity';
 import type { Favorite } from './types';
 
 function favorite(overrides: Partial<Favorite> = {}): Favorite {
+  const prompt: Favorite['prompt'] = {
+    id: 'prompt-1',
+    shape: '立方体',
+    widthScale: 1,
+    heightScale: 1,
+    depthScale: 1,
+    cameraAzimuth: 0.4,
+    cameraElevation: 0.3,
+    objectRotationX: 0,
+    objectRotationY: 0,
+    objectRotationZ: 0,
+    lightDirection: 'top-left',
+  };
   return {
     id: 'favorite-1',
-    prompt: {
-      id: 'prompt-1',
-      shape: '立方体',
-      widthScale: 1,
-      heightScale: 1,
-      depthScale: 1,
-      cameraAzimuth: 0.4,
-      cameraElevation: 0.3,
-      objectRotationX: 0,
-      objectRotationY: 0,
-      objectRotationZ: 0,
-      lightDirection: 'top-left',
-    },
+    promptKey: createPromptIdentity(prompt),
+    prompt,
     settings: freshDefaultSettings(),
     createdAt: new Date('2026-08-30T00:00:00+09:00').getTime(),
     ...overrides,

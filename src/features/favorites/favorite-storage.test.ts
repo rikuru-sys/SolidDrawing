@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { JsonStorage } from '../../shared/storage/json-storage';
 import { freshDefaultSettings } from '../settings/practice-settings';
 import {
+  FAVORITES_SCHEMA_VERSION,
   FAVORITES_STORAGE_KEY,
   MAX_STORED_FAVORITES,
   parseStoredPrompt,
   readStoredFavorites,
   saveStoredFavorites,
 } from './favorite-storage';
+import { createPromptIdentity } from './prompt-identity';
 import type { Favorite } from './types';
 
 class MemoryStorage implements JsonStorage {
@@ -20,22 +22,24 @@ class MemoryStorage implements JsonStorage {
 }
 
 function favorite(index = 0): Favorite {
+  const prompt: Favorite['prompt'] = {
+    id: `prompt-${index}`,
+    shape: '立方体',
+    widthScale: 1,
+    heightScale: 1,
+    depthScale: 1,
+    cameraAzimuth: 0.4,
+    cameraElevation: 0.3,
+    objectRotationX: 0,
+    objectRotationY: 0,
+    objectRotationZ: 0,
+    lightDirection: 'top-left',
+    generation: { seed: 12345, version: 1, index },
+  };
   return {
     id: `favorite-${index}`,
-    prompt: {
-      id: `prompt-${index}`,
-      shape: '立方体',
-      widthScale: 1,
-      heightScale: 1,
-      depthScale: 1,
-      cameraAzimuth: 0.4,
-      cameraElevation: 0.3,
-      objectRotationX: 0,
-      objectRotationY: 0,
-      objectRotationZ: 0,
-      lightDirection: 'top-left',
-      generation: { seed: 12345, version: 1, index },
-    },
+    promptKey: createPromptIdentity(prompt),
+    prompt,
     settings: freshDefaultSettings(),
     createdAt: 1_788_019_200_000 + index,
   };
@@ -48,6 +52,10 @@ describe('favorite storage', () => {
 
     expect(saveStoredFavorites(favorites, storage)).toBe(true);
     expect(readStoredFavorites(storage)).toEqual(favorites);
+    expect(JSON.parse(storage.values.get(FAVORITES_STORAGE_KEY) ?? '{}')).toMatchObject({
+      schemaVersion: FAVORITES_SCHEMA_VERSION,
+      items: favorites,
+    });
   });
 
   it('rejects unsupported shapes and incomplete prompt numbers', () => {
@@ -65,6 +73,7 @@ describe('favorite storage', () => {
 
     const [restored] = readStoredFavorites(storage);
     expect(restored.id).toBe('favorite-prompt-0');
+    expect(restored.promptKey).toBe(createPromptIdentity(favorite().prompt));
     expect(restored.settings.time).toBe(45);
     expect(restored.settings.count).toBe(4);
     expect(restored.settings.shapes.length).toBeGreaterThan(0);

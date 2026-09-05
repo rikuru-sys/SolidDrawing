@@ -1,6 +1,4 @@
 export type RandomSource = () => number;
-export type SeedMode = 'random' | 'fixed';
-
 const UINT32_RANGE = 0x1_0000_0000;
 export const MAX_SEED = UINT32_RANGE - 1;
 let fallbackSeedCounter = 0;

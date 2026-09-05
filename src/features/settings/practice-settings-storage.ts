@@ -1,5 +1,4 @@
 import type { LightDirection, ShapeName } from '../../domain/prompt/types';
-import { clampSeed } from '../../domain/random/seeded-random';
 import {
   browserLocalStorage,
   readJsonStorage,
@@ -55,10 +54,6 @@ export function normalizeStoredSettings(parsed: Record<string, unknown>): Settin
   const sampleStyle = parsed.sampleStyle === 'shadow' || parsed.sampleStyle === 'hidden-lines'
     ? parsed.sampleStyle
     : 'shaded';
-  const fixedSeed = typeof parsed.fixedSeed === 'number' && Number.isFinite(parsed.fixedSeed)
-    ? clampSeed(parsed.fixedSeed)
-    : DEFAULT_SETTINGS.fixedSeed;
-
   return {
     shapes: shapes.length ? shapes : [...ALL_SHAPES],
     time,
@@ -75,8 +70,6 @@ export function normalizeStoredSettings(parsed: Record<string, unknown>): Settin
     stabilization: parsed.stabilization === 'off' || parsed.stabilization === 'medium'
       ? parsed.stabilization
       : 'low',
-    seedMode: parsed.seedMode === 'fixed' ? 'fixed' : 'random',
-    fixedSeed,
   };
 }
 

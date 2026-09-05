@@ -29,9 +29,7 @@
 .light-direction-options .check-option { background: var(--surface); }
 .light-direction-options b { margin-left: 3px; font-size: 17px; }
 .setting-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
-.seed-controls { max-width: 520px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin-top: 14px; }
-.seed-controls .button { margin-bottom: 23px; }
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
 .field-grid.single-field-grid { grid-template-columns: minmax(0, 1fr); }
 .field-label { display: grid; gap: 7px; font-weight: 700; }
 .field-label input, .field-label select { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); color: var(--ink); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }

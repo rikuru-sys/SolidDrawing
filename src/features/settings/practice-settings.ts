@@ -1,5 +1,4 @@
 import type { Difficulty, LightDirection, ShapeName } from '../../domain/prompt/types';
-import type { SeedMode } from '../../domain/random/seeded-random';
 import type { Stabilization } from '../drawing/types';
 
 export type Layout = 'top' | 'bottom' | 'left' | 'right';
@@ -21,8 +20,6 @@ export type Settings = {
   sampleVisibility: SampleVisibility;
   practiceMode: PracticeMode;
   stabilization: Stabilization;
-  seedMode: SeedMode;
-  fixedSeed: number;
 };
 
 export const ALL_SHAPES: ShapeName[] = ['立方体', '直方体', '円柱', '楕円柱', '三角錐', '円錐'];
@@ -48,8 +45,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sampleVisibility: 'always',
   practiceMode: 'canvas',
   stabilization: 'low',
-  seedMode: 'random',
-  fixedSeed: 123456789,
 };
 
 export function freshDefaultSettings(): Settings {

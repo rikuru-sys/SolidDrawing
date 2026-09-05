@@ -24,7 +24,8 @@ describe('SettingsScreen', () => {
     expect(html).toContain('45秒');
     expect(html).toContain('回数と描画ツール');
     expect(html).toContain('見本と描画スペースの配置');
-    expect(html).not.toContain('type="number" min="0"');
+    expect(html).not.toContain('出題の再現');
+    expect(html).not.toContain('シード値');
   });
 
   it('hides drawing-tool and layout settings in sample-only mode', () => {
@@ -38,15 +39,12 @@ describe('SettingsScreen', () => {
     expect(html).not.toContain('見本と描画スペースの配置');
   });
 
-  it('shows fixed-seed and light-direction controls when enabled', () => {
+  it('影を選んだ場合は光源方向の設定を表示する', () => {
     const html = renderSettings({
       ...freshDefaultSettings(),
-      seedMode: 'fixed',
       sampleStyle: 'shadow',
     });
 
-    expect(html).toContain('シード値');
     expect(html).toContain('使用する光源方向');
-    expect(html).toContain('別のシードを作成');
   });
 });

@@ -9,15 +9,13 @@ import {
 } from './practice-session';
 
 describe('practice session', () => {
-  it('出題数と固定シードを安全な範囲へ正規化する', () => {
+  it('出題数を安全な範囲へ正規化する', () => {
     const settings = freshDefaultSettings();
     settings.count = 99;
-    settings.fixedSeed = -12;
 
     const normalized = normalizeSessionSettings(settings);
 
     expect(normalized.count).toBe(20);
-    expect(normalized.fixedSeed).toBeGreaterThanOrEqual(0);
     expect(settings.count).toBe(99);
   });
 
@@ -33,14 +31,29 @@ describe('practice session', () => {
     expect(validatePracticeSettings(freshDefaultSettings())).toBe('');
   });
 
-  it('固定シードなら常に同じ出題列を作る', () => {
+  it('同じシードと設定ならセッション全体を再現する', () => {
     const settings = freshDefaultSettings();
-    settings.seedMode = 'fixed';
-    settings.fixedSeed = 24680;
     settings.count = 3;
 
-    expect(preparePracticeSession(settings, 1).prompts)
-      .toEqual(preparePracticeSession(settings, 999).prompts);
+    const first = preparePracticeSession(settings, 24680);
+    const second = preparePracticeSession(settings, 24680);
+
+    expect(first).toEqual(second);
+    expect(first).toMatchObject({
+      schemaVersion: 1,
+      seed: 24680,
+      generatorVersion: 1,
+      settings: { count: 3 },
+    });
+  });
+
+  it('実際に使用したシードをセッションへ記録する', () => {
+    const settings = freshDefaultSettings();
+
+    const prepared = preparePracticeSession(settings, 13579);
+
+    expect(prepared.seed).toBe(13579);
+    expect(prepared.prompts.every((prompt) => prompt.generation?.seed === 13579)).toBe(true);
   });
 
   it('再挑戦では見本を保ったまま一意なIDだけを付け直す', () => {

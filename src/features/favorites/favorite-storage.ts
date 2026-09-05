@@ -16,9 +16,16 @@ import {
   type JsonStorage,
 } from '../../shared/storage/json-storage';
 import type { Favorite } from './types';
+import { createPromptIdentity } from './prompt-identity';
 
 export const FAVORITES_STORAGE_KEY = 'solid-drawing-favorites';
 export const MAX_STORED_FAVORITES = 100;
+export const FAVORITES_SCHEMA_VERSION = 1 as const;
+
+type StoredFavorites = {
+  schemaVersion: typeof FAVORITES_SCHEMA_VERSION;
+  items: Favorite[];
+};
 
 export function parseStoredPrompt(value: unknown): ShapePrompt | null {
   if (!value || typeof value !== 'object') return null;
@@ -80,21 +87,30 @@ export function readStoredFavorites(
     key: FAVORITES_STORAGE_KEY,
     fallback: () => [],
     parse: (parsed) => {
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((value): Favorite[] => {
-      if (!value || typeof value !== 'object') return [];
-      const item = value as Record<string, unknown>;
-      const prompt = parseStoredPrompt(item.prompt);
-      if (!prompt || !item.settings || typeof item.settings !== 'object') return [];
-      return [{
-        id: typeof item.id === 'string' ? item.id : `favorite-${prompt.id}`,
-        prompt,
-        settings: normalizeStoredSettings(item.settings as Record<string, unknown>),
-        createdAt: typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)
-          ? item.createdAt
-          : Date.now(),
-      }];
-    }).slice(0, MAX_STORED_FAVORITES);
+      const storedItems = Array.isArray(parsed)
+        ? parsed
+        : parsed
+          && typeof parsed === 'object'
+          && (parsed as Record<string, unknown>).schemaVersion === FAVORITES_SCHEMA_VERSION
+          && Array.isArray((parsed as Record<string, unknown>).items)
+          ? (parsed as Record<string, unknown>).items as unknown[]
+          : [];
+
+      return storedItems.flatMap((value): Favorite[] => {
+        if (!value || typeof value !== 'object') return [];
+        const item = value as Record<string, unknown>;
+        const prompt = parseStoredPrompt(item.prompt);
+        if (!prompt || !item.settings || typeof item.settings !== 'object') return [];
+        return [{
+          id: typeof item.id === 'string' ? item.id : `favorite-${prompt.id}`,
+          promptKey: createPromptIdentity(prompt),
+          prompt,
+          settings: normalizeStoredSettings(item.settings as Record<string, unknown>),
+          createdAt: typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)
+            ? item.createdAt
+            : Date.now(),
+        }];
+      }).slice(0, MAX_STORED_FAVORITES);
     },
   });
 }
@@ -103,9 +119,13 @@ export function saveStoredFavorites(
   favorites: Favorite[],
   storage: JsonStorage | null = browserLocalStorage(),
 ) {
+  const stored: StoredFavorites = {
+    schemaVersion: FAVORITES_SCHEMA_VERSION,
+    items: favorites.slice(0, MAX_STORED_FAVORITES),
+  };
   return writeJsonStorage(
     storage,
     FAVORITES_STORAGE_KEY,
-    favorites.slice(0, MAX_STORED_FAVORITES),
+    stored,
   );
 }

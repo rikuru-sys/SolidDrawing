@@ -62,8 +62,6 @@ describe('practice settings storage', () => {
       sampleVisibility: 'partway',
       practiceMode: 'sample-only',
       stabilization: 'medium',
-      seedMode: 'fixed',
-      fixedSeed: 987654321,
     };
 
     expect(saveStoredSettings(settings, storage)).toBe(true);
@@ -80,7 +78,6 @@ describe('practice settings storage', () => {
       penColor: 'black',
       penOpacity: 0,
       lightDirections: ['top-left', 'center'],
-      fixedSeed: -50,
     });
 
     expect(normalized.shapes).toEqual(['立方体']);
@@ -91,7 +88,6 @@ describe('practice settings storage', () => {
     expect(normalized.penColor).toBe(DEFAULT_SETTINGS.penColor);
     expect(normalized.penOpacity).toBe(0.1);
     expect(normalized.lightDirections).toEqual(['top-left']);
-    expect(normalized.fixedSeed).toBe(0);
   });
 
   it('15秒と45秒の保存値を受け入れる', () => {
