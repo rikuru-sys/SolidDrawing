@@ -18,6 +18,12 @@ import {
 export type SettingsStorage = JsonStorage;
 
 export const SETTINGS_STORAGE_KEY = 'solid-drawing-settings';
+export const SETTINGS_SCHEMA_VERSION = 1 as const;
+
+type StoredSettings = {
+  schemaVersion: typeof SETTINGS_SCHEMA_VERSION;
+  settings: Settings;
+};
 
 const LAYOUTS: Layout[] = ['top', 'bottom', 'left', 'right'];
 const PEN_WIDTHS = [2, 3, 5];
@@ -73,6 +79,18 @@ export function normalizeStoredSettings(parsed: Record<string, unknown>): Settin
   };
 }
 
+/** 現行形式とバージョン導入前の設定を、正規化対象のオブジェクトへ変換する。 */
+function storedSettingsValue(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  const stored = value as Record<string, unknown>;
+  if (stored.schemaVersion === SETTINGS_SCHEMA_VERSION
+    && stored.settings
+    && typeof stored.settings === 'object') {
+    return stored.settings as Record<string, unknown>;
+  }
+  return stored;
+}
+
 /** 端末に保存された設定を読み込み、利用できない場合は既定値を返す。 */
 export function readStoredSettings(
   storage: SettingsStorage | null = browserLocalStorage(),
@@ -81,7 +99,7 @@ export function readStoredSettings(
     storage,
     key: SETTINGS_STORAGE_KEY,
     fallback: freshDefaultSettings,
-    parse: (value) => normalizeStoredSettings(value as Record<string, unknown>),
+    parse: (value) => normalizeStoredSettings(storedSettingsValue(value)),
   });
 }
 
@@ -90,5 +108,9 @@ export function saveStoredSettings(
   settings: Settings,
   storage: SettingsStorage | null = browserLocalStorage(),
 ) {
-  return writeJsonStorage(storage, SETTINGS_STORAGE_KEY, settings);
+  const stored: StoredSettings = {
+    schemaVersion: SETTINGS_SCHEMA_VERSION,
+    settings,
+  };
+  return writeJsonStorage(storage, SETTINGS_STORAGE_KEY, stored);
 }

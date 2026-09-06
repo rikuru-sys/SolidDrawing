@@ -1,2 +1,2 @@
 /** 画面表示と保存データへ記録するアプリケーションの公開バージョン。 */
-export const APP_VERSION = '2026.09.05.1';
+export const APP_VERSION = '2026.09.06.1';

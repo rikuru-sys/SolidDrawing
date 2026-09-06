@@ -102,6 +102,7 @@ GitHub Pages向けの静的ファイルをビルドし、`/SolidDrawing/`配下�
 - 結果画面で横並び・重ね合わせと描画の濃さを変更できる
 - 通常モードと影モードで必要な評価項目が表示される
 - 結果をお気に入りへ追加して確認する
+- お気に入りを削除する前に確認が表示され、承認後に削除される
 - 制限時間終了時に自動で結果へ進み、一時停止中は時間が進まない
 - 時間指定なしで見本を途中で隠すと、15秒後に見本が非表示になる
 - 複数の結果を前後に移動し、同じ立体・同じ設定で再練習できる
@@ -452,20 +453,21 @@ it('同じシードから同じ出題を生成する', () => {
 
 ## 14. CIと公開時の確認
 
-GitHub Actionsには、品質確認とGitHub Pages公開の2つのワークフローがあります。
+GitHub Actionsには、Pull Request向けの品質確認と、`main`向けのGitHub Pages公開の2つのワークフローがあります。公開ワークフロー自身も同じ品質確認を実行し、成功した場合だけデプロイへ進みます。
 
 ### 品質確認
 
-`ci.yml`は、`main`ブランチへのpush、Pull Request、手動実行を契機に次を実行します。
+`ci.yml`は、Pull Requestまたは手動実行を契機に次を実行します。
 
 1. Node.js 22.13.0を準備する
 2. `npm ci`で依存パッケージをインストールする
-3. `npm test`を実行する
-4. Playwright用のChromiumとLinux依存パッケージをインストールする
-5. `npm run test:e2e`を実行する
-6. `npm run typecheck`を実行する
-7. `npm run lint`を実行する
-8. `npm run build:pages`を実行する
+3. `npm audit --audit-level=high`で依存関係を監査する
+4. `npm test`を実行する
+5. Playwright用のChromiumとLinux依存パッケージをインストールする
+6. `npm run test:e2e`を実行する
+7. `npm run typecheck`を実行する
+8. `npm run lint`を実行する
+9. `npm run build:pages`を実行する
 
 ### GitHub Pages公開
 
@@ -473,10 +475,14 @@ GitHub Actionsには、品質確認とGitHub Pages公開の2つのワークフ�
 
 1. Node.js 22.13.0を準備する
 2. `npm ci`で依存パッケージをインストールする
-3. `npm run build:pages`を実行する
-4. `pages-dist`をGitHub Pagesへ公開する
-
-現在、この2つは独立したワークフローです。品質確認が失敗しても、Pages公開ワークフローを自動的に停止する構成にはなっていません。そのため、push前にもローカルで基本確認を完了させます。
+3. `npm audit --audit-level=high`で依存関係を監査する
+4. `npm test`を実行する
+5. Playwright用のChromiumとLinux依存パッケージをインストールする
+6. `npm run test:e2e`を実行する
+7. `npm run typecheck`を実行する
+8. `npm run lint`を実行する
+9. `npm run build:pages`を実行する
+10. ここまでが成功した場合だけ、`pages-dist`をGitHub Pagesへ公開する
 
 ## 15. 現在の自動テスト対象外
 
@@ -504,10 +510,9 @@ Three.jsで生成した見本やCanvasの線を、画像差分で比較するテ
 
 優先度の高い順に、次を候補とします。
 
-1. 品質確認が成功した場合だけ公開するようワークフローを統合する
-2. 中間幅と複数ブラウザのレスポンシブ確認を追加する
-3. CanvasとThree.jsの代表的な画像差分テストを追加する
-4. キーボード操作とアクセシビリティの自動検査を追加する
-5. 自動評価の回帰データを増やす
+1. 中間幅と複数ブラウザのレスポンシブ確認を追加する
+2. CanvasとThree.jsの代表的な画像差分テストを追加する
+3. キーボード操作とアクセシビリティの自動検査を追加する
+4. 自動評価の回帰データを増やす
 
 自動化が難しい項目は、手動確認の条件と結果を記録し、再現可能性を保つことを優先します。

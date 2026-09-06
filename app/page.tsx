@@ -80,6 +80,8 @@ export default function Home() {
     sampleCanvasRef,
     shapeEvaluationCanvasRef,
     shadowEvaluationCanvasRef,
+    sampleRenderError,
+    retrySampleRender,
   } = usePracticeSampleCanvases({
     active: screen === 'practice',
     prompt: currentPrompt,
@@ -227,6 +229,8 @@ export default function Home() {
                   onNext: () => finishCurrent(false),
                 }}
                 sampleCanvasRef={sampleCanvasRef}
+                sampleRenderError={sampleRenderError}
+                onRetrySampleRender={retrySampleRender}
               />
             </>
           )}

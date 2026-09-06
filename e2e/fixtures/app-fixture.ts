@@ -5,6 +5,7 @@ import {
   type Page,
 } from '@playwright/test';
 import type { Settings } from '../../src/features/settings/practice-settings';
+import { SETTINGS_SCHEMA_VERSION } from '../../src/features/settings/practice-settings-storage';
 
 const SETTINGS_STORAGE_KEY = 'solid-drawing-settings';
 
@@ -33,12 +34,16 @@ export class AppDriver {
     this.settings = { ...DEFAULT_TEST_SETTINGS, ...overrides };
     await this.page.goto('./');
     await this.page.evaluate(
-      ({ key, settings }) => {
+      ({ key, schemaVersion, settings }) => {
         localStorage.clear();
-        localStorage.setItem(key, JSON.stringify(settings));
+        localStorage.setItem(key, JSON.stringify({
+          schemaVersion,
+          settings,
+        }));
       },
       {
         key: SETTINGS_STORAGE_KEY,
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
         settings: this.settings,
       },
     );

@@ -4,7 +4,7 @@
 .home-brand strong { font-size: 17px; }
 .home-brand small { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .eyebrow { width: fit-content; margin: 0 0 18px; padding: 7px 11px; border: 1px solid rgba(34, 107, 80, .14); border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: 13px; font-weight: 800; letter-spacing: .045em; }
-h1 { margin: 0; font-size: clamp(44px, 5.4vw, 68px); line-height: 1.1; letter-spacing: -.055em; font-weight: 800; }
+.hero-copy h1 { margin: 0; font-size: clamp(44px, 5.4vw, 68px); line-height: 1.1; letter-spacing: -.055em; font-weight: 800; }
 .lead { max-width: 600px; margin: 22px 0 0; color: var(--muted); font-size: clamp(16px, 1.7vw, 18px); line-height: 1.85; }
 .hero-actions { margin-top: 26px; }
 .hero-actions .button { min-width: 132px; }

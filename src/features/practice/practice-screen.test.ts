@@ -11,6 +11,7 @@ type PracticeOverrides = {
   current?: Partial<PracticeScreenProps['current']>;
   timer?: Partial<PracticeScreenProps['timer']>;
   drawing?: Partial<PracticeScreenProps['drawing']>;
+  sampleRenderError?: boolean;
 };
 
 function renderPractice(overrides: PracticeOverrides = {}) {
@@ -64,6 +65,8 @@ function renderPractice(overrides: PracticeOverrides = {}) {
       onNext: () => undefined,
     },
     sampleCanvasRef: createRef<HTMLCanvasElement>(),
+    sampleRenderError: overrides.sampleRenderError ?? false,
+    onRetrySampleRender: () => undefined,
   };
   return renderToStaticMarkup(createElement(PracticeScreen, props));
 }
@@ -157,5 +160,12 @@ describe('PracticeScreen', () => {
     expect(html).toContain('>影</button>');
     expect(html).toContain('影色・濃さは固定');
     expect(html).not.toContain('aria-label="練習中のペン色"');
+  });
+
+  it('3D見本を表示できない場合は再試行操作を表示する', () => {
+    const html = renderPractice({ sampleRenderError: true });
+
+    expect(html).toContain('3D見本を表示できませんでした');
+    expect(html).toContain('再試行する');
   });
 });

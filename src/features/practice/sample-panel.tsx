@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import type { Settings } from '../settings/practice-settings';
 import { LIGHT_DIRECTION_OPTIONS } from '../settings/settings-options';
+import { SampleRenderError } from '../sample/sample-render-error';
 
 type Props = {
   prompt: ShapePrompt;
@@ -10,9 +11,11 @@ type Props = {
   elapsedSeconds: number;
   paused: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  renderError: boolean;
+  onRetryRender: () => void;
 };
 
-export function SamplePanel({ prompt, settings, remainingSeconds, elapsedSeconds, paused, canvasRef }: Props) {
+export function SamplePanel({ prompt, settings, remainingSeconds, elapsedSeconds, paused, canvasRef, renderError, onRetryRender }: Props) {
   const currentLight = LIGHT_DIRECTION_OPTIONS.find(({ value }) => value === prompt.lightDirection);
   const sampleHideAfterSeconds = settings.time === null ? 15 : Math.ceil(settings.time / 2);
   const currentQuestionElapsed = settings.time === null ? elapsedSeconds : Math.max(0, settings.time - remainingSeconds);
@@ -28,6 +31,7 @@ export function SamplePanel({ prompt, settings, remainingSeconds, elapsedSeconds
     <div className="work-panel-header"><strong>見本</strong><small>{description + (settings.sampleVisibility === 'partway' ? '・途中で非表示' : '')}</small></div>
     <div className="canvas-stage">
       <canvas ref={canvasRef} className={paused || sampleHiddenByMode ? 'sample-canvas hidden-sample' : 'sample-canvas'} aria-label={`${prompt.shape}の見本`} aria-hidden={paused || sampleHiddenByMode} />
+      {renderError && <SampleRenderError onRetry={onRetryRender} />}
       {settings.sampleStyle === 'shadow' && currentLight && !paused && !sampleHiddenByMode && <span className="light-direction-badge">光源 {currentLight.label} <b aria-hidden="true">{currentLight.arrow}</b></span>}
       {settings.sampleVisibility === 'partway' && !paused && !sampleHiddenByMode && <span className="sample-hide-countdown">あと {secondsUntilSampleHide}秒で非表示</span>}
       {paused ? <div className="pause-cover"><strong>一時停止中</strong><span>{sampleHiddenByMode ? '再開後も見本は非表示です' : '再開すると見本を表示します'}</span></div>

@@ -51,4 +51,6 @@ export type PracticeScreenProps = {
   drawing: PracticeDrawingBindings;
   actions: PracticeScreenActions;
   sampleCanvasRef: RefObject<HTMLCanvasElement | null>;
+  sampleRenderError: boolean;
+  onRetrySampleRender: () => void;
 };

@@ -393,6 +393,8 @@ PNG出力では描画Canvasを白背景の出力用Canvasへ転写します。SV
 
 保存データを読み込むときは、型や値の範囲を正規化します。古いデータや不正な値があっても、可能な限り既定値へ戻してアプリを継続できるようにしています。
 
+設定は`schemaVersion`と設定本体を持つラッパー形式で保存します。バージョン情報を持たない旧形式も読み込み、次回保存時に現行形式へ移行します。お気に入りは一覧全体の保存形式と、各見本のスナップショットの両方へバージョンを記録します。
+
 保存処理は次の3層へ分けています。
 
 1. `shared/storage`がJSONの読み書きと、保存済み状態をReactへ接続する`useStoredState`を提供する
@@ -435,7 +437,7 @@ React
 - `npm run build`：Vinextによる通常ビルド
 - `npm run build:pages`：GitHub Pages向けのViteビルド
 
-GitHub Actionsは`main`ブランチへのpushを契機に`build:pages`を実行し、生成された`pages-dist`をGitHub Pagesへ公開します。
+GitHub Actionsは`main`ブランチへのpushを契機に、依存関係の監査、Vitest、Playwright、型チェック、Lintを実行します。すべて成功した場合だけ`build:pages`で生成した`pages-dist`をGitHub Pagesへ公開します。Pull Requestでは同じ品質確認を行い、公開はしません。
 
 ## 14. テスト方針
 
@@ -455,6 +457,8 @@ UIの見た目だけでなく、変更時に壊れやすい計算と状態遷移
 - 各画面の表示条件
 - 保存画像の寸法とファイル名
 - Playwrightによる描画・結果・お気に入りの主要操作
+- 3D見本の読み込み失敗時の案内と再試行
+- 画像作成中の操作抑止と保存結果の通知
 - デスクトップ・横長・縦長画面での主要操作とCanvas寸法
 
 Vitest、Playwright、型チェック、静的解析、GitHub Pages用ビルドを変更後の基本的な検証としています。

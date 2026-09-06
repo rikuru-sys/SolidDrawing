@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import type { SampleStyle } from '../settings/practice-settings';
 import { disposeSample3D, renderSample3D } from './sample-renderer';
@@ -24,6 +30,13 @@ export function useSampleCanvas({
   sizeSourceRef,
 }: UseSampleCanvasOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [renderError, setRenderError] = useState(false);
+  const [renderAttempt, setRenderAttempt] = useState(0);
+
+  const retryRender = useCallback(() => {
+    setRenderError(false);
+    setRenderAttempt((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,7 +48,7 @@ export function useSampleCanvas({
         renderLayer,
         width: sourceRect?.width,
         height: sourceRect?.height,
-      });
+      }, (error) => setRenderError(error !== null));
     }
 
     render(canvas);
@@ -45,7 +58,7 @@ export function useSampleCanvas({
       observer.disconnect();
       disposeSample3D(canvas);
     };
-  }, [active, background, prompt, renderLayer, sizeSourceRef, style]);
+  }, [active, background, prompt, renderAttempt, renderLayer, sizeSourceRef, style]);
 
-  return canvasRef;
+  return { canvasRef, renderError, retryRender };
 }

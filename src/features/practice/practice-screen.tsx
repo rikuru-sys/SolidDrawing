@@ -18,10 +18,13 @@ export function PracticeScreen({
   drawing,
   actions,
   sampleCanvasRef,
+  sampleRenderError,
+  onRetrySampleRender,
 }: PracticeScreenProps) {
   const hasDrawingCanvas = usesDrawingCanvas(current.settings.practiceMode);
 
   return <section className={hasDrawingCanvas ? 'practice-section' : 'practice-section sample-only-practice'}>
+    <h1 className="visually-hidden">{current.prompt.shape}の練習</h1>
     <PracticeHeader
       prompt={current.prompt}
       questionIndex={current.questionIndex}
@@ -41,6 +44,8 @@ export function PracticeScreen({
         elapsedSeconds={timer.elapsedSeconds}
         paused={timer.paused}
         canvasRef={sampleCanvasRef}
+        renderError={sampleRenderError}
+        onRetryRender={onRetrySampleRender}
       />
       {hasDrawingCanvas && <DrawingPanel
         settings={current.settings}

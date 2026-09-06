@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ja_JP',
     url: 'https://rikuru-sys.github.io/SolidDrawing/',
-    images: [{ url: 'https://rikuru-sys.github.io/SolidDrawing/og.png', width: 1200, height: 630, alt: '立体ドローイング' }],
+    images: [{ url: 'https://rikuru-sys.github.io/SolidDrawing/og.png', width: 1200, height: 630, alt: '立体ドローイングの画面と立方体の見本' }],
   },
   twitter: {
     card: 'summary_large_image',

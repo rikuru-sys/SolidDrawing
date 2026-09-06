@@ -92,6 +92,7 @@ describe('ResultsScreen', () => {
       onSaveComparison: () => undefined,
       onSaveDrawing: () => undefined,
       onSaveAllResults: () => undefined,
+      saving: false,
     }));
 
     expect(html).toContain('中心を合わせて見本と描画を比較');
@@ -100,6 +101,26 @@ describe('ResultsScreen', () => {
     expect(actionsHtml).toContain('重ね合わせ画像を保存');
     expect(actionsHtml).toContain('全結果を保存');
     expect(actionsHtml).not.toContain('全結果：重ね合わせ保存');
+  });
+
+  it('画像の作成中は保存操作を無効にする', () => {
+    const html = renderToStaticMarkup(createElement(ResultActions, {
+      attempt: attempt(),
+      selectedResult: 0,
+      resultCount: 1,
+      comparisonMode: 'side-by-side',
+      isCurrentFavorite: false,
+      onSelectResult: () => undefined,
+      onToggleFavorite: () => undefined,
+      onSaveSample: () => undefined,
+      onSaveComparison: () => undefined,
+      onSaveDrawing: () => undefined,
+      onSaveAllResults: () => undefined,
+      saving: true,
+    }));
+
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('比較画像を保存');
   });
 
   it('影評価がある結果では影の点数と配点を表示する', () => {

@@ -39,7 +39,7 @@ export function SettingsScreen({ settings, setSettings, validation, onValidation
 
   return <section className="settings-section">
     <div className="section-heading">
-      <div><h2>練習の設定</h2><p>今日の練習内容を選びます。</p></div>
+      <div><h1>練習の設定</h1><p>今日の練習内容を選びます。</p></div>
       <button className="text-button" type="button" onClick={onBack}>トップへ戻る</button>
     </div>
     <div className="settings-grid">

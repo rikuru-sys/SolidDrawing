@@ -41,7 +41,7 @@ export async function downloadAttemptComparison(options: {
 }) {
   const { date = new Date(), ...composition } = options;
   const output = await composeAttemptComparison(composition);
-  if (!output) return;
+  if (!output) throw new Error('比較画像を作成できませんでした。');
   downloadDataUrl(output.toDataURL('image/png'), resultFileName('comparison', {
     index: options.index,
     shape: options.attempt.prompt.shape,
@@ -56,7 +56,7 @@ export async function downloadAllAttemptResults(options: {
 }) {
   const { attempts, date = new Date() } = options;
   const output = await composeAllAttemptResults(attempts);
-  if (!output) return;
+  if (!output) throw new Error('全結果画像を作成できませんでした。');
   downloadDataUrl(output.toDataURL('image/png'), resultFileName('all', {
     date,
   }));

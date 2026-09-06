@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { practiceModeDetails } from '../settings/practice-mode';
 import type { SampleStyle } from '../settings/practice-settings';
 import { LIGHT_DIRECTION_OPTIONS } from '../settings/settings-options';
+import { SampleRenderError } from '../sample/sample-render-error';
 import type { Favorite } from './types';
 
 type FavoritePreviewProps = {
@@ -9,6 +10,8 @@ type FavoritePreviewProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   onPractice: () => void;
   onDelete: () => void;
+  renderError: boolean;
+  onRetryRender: () => void;
 };
 
 function sampleStyleLabel(style: SampleStyle) {
@@ -22,6 +25,8 @@ export function FavoritePreview({
   canvasRef,
   onPractice,
   onDelete,
+  renderError,
+  onRetryRender,
 }: FavoritePreviewProps) {
   const prompt = favorite.sample.prompt;
   const settings = favorite.savedPractice.settings;
@@ -36,6 +41,7 @@ export function FavoritePreview({
     </div>
     <div className="favorite-canvas-stage">
       <canvas ref={canvasRef} className="favorite-canvas" aria-label={`お気に入りの${prompt.shape}`} />
+      {renderError && <SampleRenderError onRetry={onRetryRender} />}
       {settings.sampleStyle === 'shadow' && selectedLight && (
         <span className="light-direction-badge">
           光源 {selectedLight.label} <b aria-hidden="true">{selectedLight.arrow}</b>

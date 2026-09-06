@@ -1,6 +1,7 @@
 'use client';
 
 import type { ShapePrompt } from '../../domain/prompt/types';
+import { SampleRenderError } from '../sample/sample-render-error';
 import { useSampleCanvas } from '../sample/use-sample-canvas';
 
 const HERO_PROMPT: ShapePrompt = {
@@ -25,7 +26,7 @@ type HomeScreenProps = {
 };
 
 export function HomeScreen({ appVersion, onStart, onOpenSettings, onOpenFavorites }: HomeScreenProps) {
-  const canvasRef = useSampleCanvas({
+  const { canvasRef, renderError, retryRender } = useSampleCanvas({
     active: true,
     prompt: HERO_PROMPT,
     background: '#fffef9',
@@ -54,6 +55,7 @@ export function HomeScreen({ appVersion, onStart, onOpenSettings, onOpenFavorite
     </div>
     <div className="hero-visual">
       <canvas ref={canvasRef} className="hero-canvas" aria-label="薄い陰影が付いた立方体" />
+      {renderError && <SampleRenderError onRetry={retryRender} />}
       <span className="visual-caption">ランダムな角度で出題</span>
     </div>
   </section>;

@@ -27,23 +27,43 @@ export function ResultsScreen(props: ResultsScreenProps) {
   const [selectedResult, setSelectedResult] = useState(() => Math.max(0, props.attempts.length - 1));
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
   const [overlayOpacity, setOverlayOpacity] = useState(0.72);
+  const [exportStatus, setExportStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const currentResult = props.attempts[selectedResult];
   if (!currentResult) return null;
 
+  async function runExport(action: () => void | Promise<void>) {
+    setExportStatus('saving');
+    try {
+      await action();
+      setExportStatus('saved');
+    } catch (error: unknown) {
+      console.error('画像の保存に失敗しました。', error);
+      setExportStatus('error');
+    }
+  }
+
   function saveComparison() {
-    void downloadAttemptComparison({
+    void runExport(() => downloadAttemptComparison({
       attempt: currentResult,
       index: selectedResult,
       mode: comparisonMode,
       overlayOpacity,
-    });
+    }));
   }
 
   function saveAllResults() {
-    void downloadAllAttemptResults({
+    void runExport(() => downloadAllAttemptResults({
       attempts: props.attempts,
-    });
+    }));
   }
+
+  const exportMessage = exportStatus === 'saving'
+    ? '画像を作成しています…'
+    : exportStatus === 'saved'
+      ? '画像を保存しました。'
+      : exportStatus === 'error'
+        ? '画像を保存できませんでした。もう一度お試しください。'
+        : '';
 
   return <section className="results-section">
     <ResultsHeader attempts={props.attempts} onRetryCurrent={() => props.onRetryCurrent(currentResult)} onRetrySession={props.onRetrySession} onBack={props.onBack} />
@@ -61,11 +81,20 @@ export function ResultsScreen(props: ResultsScreenProps) {
           isCurrentFavorite={props.isFavorite(currentResult)}
           onSelectResult={setSelectedResult}
           onToggleFavorite={() => props.onToggleFavorite(currentResult)}
-          onSaveSample={() => downloadAttemptSample(currentResult, selectedResult)}
+          onSaveSample={() => void runExport(() => downloadAttemptSample(currentResult, selectedResult))}
           onSaveComparison={saveComparison}
-          onSaveDrawing={() => downloadAttemptDrawing(currentResult, selectedResult)}
+          onSaveDrawing={() => void runExport(() => downloadAttemptDrawing(currentResult, selectedResult))}
           onSaveAllResults={saveAllResults}
+          saving={exportStatus === 'saving'}
         />
+        {exportMessage && (
+          <p
+            className={`export-status ${exportStatus}`}
+            role={exportStatus === 'error' ? 'alert' : 'status'}
+          >
+            {exportMessage}
+          </p>
+        )}
       </section>
     </div>
   </section>;

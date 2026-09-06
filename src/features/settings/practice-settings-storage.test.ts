@@ -11,6 +11,7 @@ import {
   normalizeStoredSettings,
   readStoredSettings,
   saveStoredSettings,
+  SETTINGS_SCHEMA_VERSION,
   SETTINGS_STORAGE_KEY,
 } from './practice-settings-storage';
 
@@ -65,7 +66,25 @@ describe('practice settings storage', () => {
     };
 
     expect(saveStoredSettings(settings, storage)).toBe(true);
+    expect(JSON.parse(storage.values.get(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
+      schemaVersion: SETTINGS_SCHEMA_VERSION,
+      settings,
+    });
     expect(readStoredSettings(storage)).toEqual(settings);
+  });
+
+  it('バージョン導入前の設定を読み込める', () => {
+    const storage = new MemoryStorage();
+    storage.values.set(SETTINGS_STORAGE_KEY, JSON.stringify({
+      ...freshDefaultSettings(),
+      shapes: ['円錐'],
+      count: 7,
+    }));
+
+    expect(readStoredSettings(storage)).toMatchObject({
+      shapes: ['円錐'],
+      count: 7,
+    });
   });
 
   it('不正値と範囲外の保存値を補正する', () => {

@@ -18,29 +18,37 @@ export function usePracticeSampleCanvases({
   style,
   evaluatesShadow,
 }: UsePracticeSampleCanvasesOptions) {
-  const sampleCanvasRef = useSampleCanvas({
+  const sample = useSampleCanvas({
     active,
     prompt,
     style,
   });
-  const shapeEvaluationCanvasRef = useSampleCanvas({
+  const shapeEvaluation = useSampleCanvas({
     active: active && evaluatesShadow,
     prompt,
     style,
     renderLayer: 'shape',
-    sizeSourceRef: sampleCanvasRef,
+    sizeSourceRef: sample.canvasRef,
   });
-  const shadowEvaluationCanvasRef = useSampleCanvas({
+  const shadowEvaluation = useSampleCanvas({
     active: active && evaluatesShadow,
     prompt,
     style,
     renderLayer: 'shadow',
-    sizeSourceRef: sampleCanvasRef,
+    sizeSourceRef: sample.canvasRef,
   });
 
   return {
-    sampleCanvasRef,
-    shapeEvaluationCanvasRef,
-    shadowEvaluationCanvasRef,
+    sampleCanvasRef: sample.canvasRef,
+    shapeEvaluationCanvasRef: shapeEvaluation.canvasRef,
+    shadowEvaluationCanvasRef: shadowEvaluation.canvasRef,
+    sampleRenderError: sample.renderError
+      || shapeEvaluation.renderError
+      || shadowEvaluation.renderError,
+    retrySampleRender() {
+      sample.retryRender();
+      shapeEvaluation.retryRender();
+      shadowEvaluation.retryRender();
+    },
   };
 }

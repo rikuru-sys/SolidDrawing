@@ -25,16 +25,22 @@ export function FavoritesScreen({
   onStartPractice,
   onBack,
 }: FavoritesScreenProps) {
-  const canvasRef = useSampleCanvas({
+  const { canvasRef, renderError, retryRender } = useSampleCanvas({
     active: selectedFavorite !== null,
     prompt: selectedFavorite?.sample.prompt,
     style: selectedFavorite?.savedPractice.settings.sampleStyle,
   });
 
+  function deleteFavorite() {
+    if (window.confirm('選択中の見本をお気に入りから削除しますか？')) {
+      onDeleteFavorite();
+    }
+  }
+
   return (
     <section className="favorites-section">
       <div className="section-heading">
-        <div><h2>お気に入り</h2><p>保存した見本を確認し、同じ立体でもう一度練習できます。</p></div>
+        <div><h1>お気に入り</h1><p>保存した見本を確認し、同じ立体でもう一度練習できます。</p></div>
         <button className="text-button" type="button" onClick={onBack}>トップへ戻る</button>
       </div>
       {selectedFavorite ? (
@@ -47,8 +53,10 @@ export function FavoritesScreen({
           <FavoritePreview
             favorite={selectedFavorite}
             canvasRef={canvasRef}
+            renderError={renderError}
+            onRetryRender={retryRender}
             onPractice={() => onPracticeFavorite(selectedFavorite)}
-            onDelete={onDeleteFavorite}
+            onDelete={deleteFavorite}
           />
         </div>
       ) : (

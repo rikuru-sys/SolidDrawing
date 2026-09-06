@@ -7,7 +7,7 @@ export function ResultsHeader({ attempts, onRetryCurrent, onRetrySession, onBack
   const sessionSeconds = attempts.reduce((total, attempt) => total + attempt.seconds, 0);
   const resultSeed = attempts[0]?.prompt.generation?.seed;
   return <div className="results-heading">
-    <div><h2>練習結果</h2><div className="result-meta">
+    <div><h1>練習結果</h1><div className="result-meta">
       <span>{attempts.length}回完了</span><span>合計 {formatTimerSeconds(sessionSeconds)}</span>
       {resultSeed !== undefined && <span>シード {resultSeed}</span>}
       <span>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date())}</span>

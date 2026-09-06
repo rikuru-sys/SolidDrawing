@@ -8,7 +8,10 @@ let modulePromise: Promise<ThreeSampleModule> | null = null;
 const renderVersions = new WeakMap<HTMLCanvasElement, number>();
 
 function loadThreeSample() {
-  modulePromise ??= import('./three-sample');
+  modulePromise ??= import('./three-sample').catch((error: unknown) => {
+    modulePromise = null;
+    throw error;
+  });
   return modulePromise;
 }
 
@@ -24,13 +27,17 @@ export function renderSample3D(
   style: SampleStyle = 'shaded',
   background = '#ffffff',
   options: RenderSampleOptions = {},
+  onComplete?: (error: unknown | null) => void,
 ) {
   const version = nextRenderVersion(canvas);
   void loadThreeSample().then((module) => {
     if (renderVersions.get(canvas) !== version) return;
     module.renderSample3D(canvas, prompt, style, background, options);
+    onComplete?.(null);
   }).catch((error: unknown) => {
+    if (renderVersions.get(canvas) !== version) return;
     console.error('3D見本の読み込みに失敗しました。', error);
+    onComplete?.(error);
   });
 }
 
