@@ -30,4 +30,22 @@ describe('excludeDrawingNoise', () => {
     expect(excludeDrawingNoise([shapeLine, shadowLine, eraser]))
       .toEqual([shapeLine, shadowLine, eraser]);
   });
+
+  it('固定境界より短い線を除外し、境界と同じ長さの線を残す', () => {
+    const mainLine = stroke('pen', [{ x: 0.1, y: 0.5 }, { x: 0.6, y: 0.5 }]);
+    const belowBoundary = stroke('pen', [{ x: 0.7, y: 0.2 }, { x: 0.719, y: 0.2 }]);
+    const atBoundary = stroke('pen', [{ x: 0.7, y: 0.3 }, { x: 0.72, y: 0.3 }]);
+
+    expect(excludeDrawingNoise([mainLine, belowBoundary, atBoundary]))
+      .toEqual([mainLine, atBoundary]);
+  });
+
+  it('最大ストロークの4%未満を除外し、4%以上を残す', () => {
+    const mainLine = stroke('pen', [{ x: 0, y: 0.5 }, { x: 1, y: 0.5 }]);
+    const belowRelativeBoundary = stroke('pen', [{ x: 0.1, y: 0.2 }, { x: 0.139, y: 0.2 }]);
+    const atRelativeBoundary = stroke('pen', [{ x: 0.1, y: 0.3 }, { x: 0.14, y: 0.3 }]);
+
+    expect(excludeDrawingNoise([mainLine, belowRelativeBoundary, atRelativeBoundary]))
+      .toEqual([mainLine, atRelativeBoundary]);
+  });
 });

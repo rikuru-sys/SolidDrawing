@@ -158,6 +158,19 @@ function sampleStyleMask(shape: ShapeName, style: SampleStyle) {
   return mask;
 }
 
+/** マスクを中央基準で水平方向へ傾ける。 */
+function shearMask(mask: Uint8Array, amount: number) {
+  const transformed = new Uint8Array(mask.length);
+  mask.forEach((value, index) => {
+    if (!value) return;
+    const x = index % SIZE;
+    const y = Math.floor(index / SIZE);
+    const targetX = Math.round(x + (y - SIZE / 2) * amount);
+    if (targetX >= 0 && targetX < SIZE) transformed[y * SIZE + targetX] = 1;
+  });
+  return transformed;
+}
+
 describe('evaluateShapeMasks', () => {
   describe('各立体・各描写モード', () => {
     describe.each(ALL_SHAPES)('%s', (shape) => {
@@ -175,6 +188,22 @@ describe('evaluateShapeMasks', () => {
           alignmentY: 0,
         });
       });
+    });
+  });
+
+  describe.each(ALL_SHAPES)('%sの変形量', (shape) => {
+    it('正しい形、少し崩した形、大きく崩した形の順に評価が下がる', () => {
+      const sample = shapeMask(shape);
+      const slightlyDeformed = shearMask(sample, 0.08);
+      const heavilyDeformed = shearMask(sample, 0.35);
+      const perfect = evaluateShapeMasks(sample, sample.slice(), SIZE);
+      const slight = evaluateShapeMasks(sample, slightlyDeformed, SIZE);
+      const heavy = evaluateShapeMasks(sample, heavilyDeformed, SIZE);
+
+      expect(perfect.score).toBeGreaterThanOrEqual(slight.score);
+      expect(slight.score).toBeGreaterThan(heavy.score);
+      expect(perfect.angle).toBeGreaterThanOrEqual(slight.angle);
+      expect(slight.angle).toBeGreaterThan(heavy.angle);
     });
   });
 
@@ -208,6 +237,7 @@ describe('evaluateShapeMasks', () => {
 
     expect(evaluation.size).toBeLessThan(100);
     expect(evaluation.proportion).toBe(100);
+    expect(evaluation.angle).toBeGreaterThan(90);
   });
 
   it('幅と高さの比率を評価する', () => {
@@ -216,6 +246,7 @@ describe('evaluateShapeMasks', () => {
     const evaluation = evaluateShapeMasks(sample, wide, SIZE);
 
     expect(evaluation.proportion).toBeLessThan(70);
+    expect(evaluation.angle).toBeGreaterThan(90);
   });
 
   it('角度を評価する', () => {

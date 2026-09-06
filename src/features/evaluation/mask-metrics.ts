@@ -125,14 +125,12 @@ function calculateAngleScore(
   sampleMask: Uint8Array,
   drawingMask: Uint8Array,
   size: number,
-  tolerance: number,
   outlineRatio: number,
 ) {
   const angleRatio = lineAngleMatch(
     sampleMask,
     drawingMask,
     size,
-    tolerance,
   ) ?? outlineRatio;
 
   return strictMetricScore(angleRatio);
@@ -225,7 +223,6 @@ export function calculateShapeMetricScores(
       sampleMask,
       centeredDrawingMask,
       size,
-      tolerance,
       outlineRatio,
     ),
     size: calculateSizeScore(sampleBounds, drawingBounds),

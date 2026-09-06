@@ -152,72 +152,63 @@ function localLineDirection(mask: Uint8Array, size: number, centerX: number, cen
 }
 
 /**
- * 指定位置から一定範囲内にある、最も近い評価対象ピクセルを探す。
- *
- * @param mask - 探索対象の二値マスク
- * @param size - 正方形マスクの一辺のピクセル数
- * @param x - 探索を開始するX座標
- * @param y - 探索を開始するY座標
- * @param radius - 探索する半径（ピクセル単位）
- * @returns 最も近いマスク点。範囲内に存在しなければ`null`
- */
-function nearestMaskPoint(mask: Uint8Array, size: number, x: number, y: number, radius: number) {
-  let nearest: Point | null = null;
-  let nearestDistance = radius * radius + 1;
-  for (let targetY = Math.max(0, y - radius); targetY <= Math.min(size - 1, y + radius); targetY += 1) {
-    for (let targetX = Math.max(0, x - radius); targetX <= Math.min(size - 1, x + radius); targetX += 1) {
-      if (!mask[targetY * size + targetX]) continue;
-      const distance = (targetX - x) ** 2 + (targetY - y) ** 2;
-      if (distance >= nearestDistance) continue;
-      nearestDistance = distance;
-      nearest = { x: targetX, y: targetY };
-    }
-  }
-  return nearest;
-}
-
-/**
- * 描画線と、その近くにある見本線の局所的な角度を比較する。
+ * 見本線と描画線の局所的な方向を集計し、方向分布を比較する。
  *
  * @param sampleMask - 見本の二値マスク
- * @param drawingMask - 中心合わせ後の描画の二値マスク
+ * @param drawingMask - 描画の二値マスク
  * @param size - 正方形マスクの一辺のピクセル数
- * @param tolerance - 対応する見本線を探す距離（ピクセル単位）
  * @returns 角度の一致率。判定できる描画点が少なければ`null`
  *
  * @remarks
- * 描画線を3ピクセルおきに調べ、近くの見本線との角度差を比較する。
- * 角度差が0度なら一致率1、30度以上なら0として、方向の信頼度で重み付けする。
+ * 方向は180度を18区間へ分け、区間境界による急な点数変化を避けるため平滑化する。
+ * 線の位置や大きさには依存せず、角や交差部のように方向が曖昧な点は集計しない。
  */
 export function lineAngleMatch(
   sampleMask: Uint8Array,
   drawingMask: Uint8Array,
   size: number,
-  tolerance: number,
 ) {
-  let totalWeight = 0;
-  let matchedWeight = 0;
-  let sampleCount = 0;
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const index = y * size + x;
-      if (!drawingMask[index] || index % 3 !== 0) continue;
-      const drawingDirection = localLineDirection(drawingMask, size, x, y);
-      if (!drawingDirection) continue;
-      totalWeight += drawingDirection.confidence;
-      sampleCount += 1;
-      const samplePoint = nearestMaskPoint(sampleMask, size, x, y, tolerance);
-      if (!samplePoint) continue;
-      const sampleDirection = localLineDirection(sampleMask, size, samplePoint.x, samplePoint.y);
-      if (!sampleDirection) continue;
-      let difference = Math.abs(drawingDirection.angle - sampleDirection.angle) % Math.PI;
-      difference = Math.min(difference, Math.PI - difference);
-      const similarity = Math.max(0, 1 - difference / (Math.PI / 6));
-      const weight = Math.min(drawingDirection.confidence, sampleDirection.confidence);
-      matchedWeight += similarity * weight;
+  const binCount = 18;
+
+  function directionHistogram(mask: Uint8Array) {
+    const histogram = new Float64Array(binCount);
+    let samples = 0;
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const index = y * size + x;
+        if (!mask[index]) continue;
+        const direction = localLineDirection(mask, size, x, y);
+        if (!direction) continue;
+
+        const normalizedAngle = ((direction.angle % Math.PI) + Math.PI) % Math.PI;
+        const binPosition = normalizedAngle / Math.PI * binCount;
+        const lowerBin = Math.floor(binPosition) % binCount;
+        const fraction = binPosition - Math.floor(binPosition);
+        histogram[lowerBin] += direction.confidence * (1 - fraction);
+        histogram[(lowerBin + 1) % binCount] += direction.confidence * fraction;
+        samples += 1;
+      }
     }
+
+    const smoothed = new Float64Array(binCount);
+    for (let index = 0; index < binCount; index += 1) {
+      smoothed[index] = histogram[index] * 0.6
+        + histogram[(index + binCount - 1) % binCount] * 0.2
+        + histogram[(index + 1) % binCount] * 0.2;
+    }
+    const total = smoothed.reduce((sum, value) => sum + value, 0);
+    if (samples < 12 || !total) return null;
+    return smoothed.map((value) => value / total);
   }
-  return sampleCount >= 12 && totalWeight ? matchedWeight / totalWeight : null;
+
+  const sampleHistogram = directionHistogram(sampleMask);
+  const drawingHistogram = directionHistogram(drawingMask);
+  if (!sampleHistogram || !drawingHistogram) return null;
+
+  return sampleHistogram.reduce(
+    (similarity, value, index) => similarity + Math.sqrt(value * drawingHistogram[index]),
+    0,
+  );
 }
 
 /**

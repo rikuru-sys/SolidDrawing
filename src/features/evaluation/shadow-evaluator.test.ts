@@ -49,4 +49,37 @@ describe('evaluateShadowMasks', () => {
       alignmentY: 0,
     })).toBe(0);
   });
+
+  it('完全一致、少しずれた影、大きくずれた影の順に評価が下がる', () => {
+    const sample = rectangleMask(4, 18, 13, 23);
+    const slightlyShifted = rectangleMask(12, 18, 21, 23);
+    const heavilyShifted = rectangleMask(20, 18, 29, 23);
+    const alignment = { alignmentX: 0, alignmentY: 0 };
+    const perfect = evaluateShadowMasks(sample, sample.slice(), SIZE, alignment);
+    const slight = evaluateShadowMasks(sample, slightlyShifted, SIZE, alignment);
+    const heavy = evaluateShadowMasks(sample, heavilyShifted, SIZE, alignment);
+
+    expect(perfect).toBeGreaterThan(slight);
+    expect(slight).toBeGreaterThan(heavy);
+  });
+
+  it('影の方向が反対なら低く評価する', () => {
+    const sample = rectangleMask(17, 18, 27, 23);
+    const oppositeDirection = rectangleMask(2, 18, 12, 23);
+
+    expect(evaluateShadowMasks(sample, oppositeDirection, SIZE, {
+      alignmentX: 0,
+      alignmentY: 0,
+    })).toBeLessThan(30);
+  });
+
+  it('影の長さが近いほど高く評価する', () => {
+    const sample = rectangleMask(4, 18, 24, 23);
+    const slightlyShort = rectangleMask(4, 18, 20, 23);
+    const veryShort = rectangleMask(4, 18, 12, 23);
+    const alignment = { alignmentX: 0, alignmentY: 0 };
+
+    expect(evaluateShadowMasks(sample, slightlyShort, SIZE, alignment))
+      .toBeGreaterThan(evaluateShadowMasks(sample, veryShort, SIZE, alignment));
+  });
 });
