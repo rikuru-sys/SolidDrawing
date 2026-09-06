@@ -4,6 +4,7 @@ import {
   evaluateShape,
   unevaluatedShape,
 } from '../evaluation/shape-evaluator';
+import { excludeDrawingNoise } from '../evaluation/stroke-noise-filter';
 import type { ShapeEvaluation } from '../evaluation/types';
 import { usesDrawingCanvas } from '../settings/practice-mode';
 import type { PracticeMode } from '../settings/practice-settings';
@@ -20,6 +21,7 @@ type DrawingAssets = Pick<
 type CaptureDrawingAssetsOptions = {
   practiceMode: PracticeMode;
   strokes: Stroke[];
+  alignedStrokes?: Stroke[];
   evaluation: ShapeEvaluation;
   exportDrawing: ExportDrawing;
   exportDrawingSvg: ExportDrawingSvg;
@@ -44,6 +46,7 @@ type CaptureAttemptOptions = {
 export function captureDrawingAssets({
   practiceMode,
   strokes,
+  alignedStrokes = strokes,
   evaluation,
   exportDrawing,
   exportDrawingSvg,
@@ -62,7 +65,7 @@ export function captureDrawingAssets({
     alignedDrawingImage: exportDrawing(evaluation.alignmentX, evaluation.alignmentY),
     drawingSvg: exportDrawingSvg(strokes),
     alignedDrawingSvg: exportDrawingSvg(
-      strokes,
+      alignedStrokes,
       evaluation.alignmentX,
       evaluation.alignmentY,
     ),
@@ -82,8 +85,9 @@ export function captureAttempt({
   exportDrawingSvg,
 }: CaptureAttemptOptions): Attempt {
   const strokes = getCurrentStrokes();
+  const evaluationStrokes = excludeDrawingNoise(strokes);
   const evaluation = usesDrawingCanvas(practiceMode)
-    ? evaluateShape(evaluationSampleCanvas, strokes, shadowEvaluationSampleCanvas)
+    ? evaluateShape(evaluationSampleCanvas, evaluationStrokes, shadowEvaluationSampleCanvas)
     : unevaluatedShape();
 
   return {
@@ -92,6 +96,7 @@ export function captureAttempt({
     ...captureDrawingAssets({
       practiceMode,
       strokes,
+      alignedStrokes: evaluationStrokes,
       evaluation,
       exportDrawing,
       exportDrawingSvg,
