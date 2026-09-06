@@ -128,16 +128,22 @@ test('横長の見本のみモードを縦スクロールなしで表示する',
   expect(imageMargins?.bottom).toBeLessThan((imageMargins?.height ?? 0) - 5);
 });
 
-test('設定画面の練習回数と線の太さを同じ高さで表示する', async ({ page }) => {
+test('設定画面の描画ツールを同じ高さで表示する', async ({ page }) => {
   await openWithSettings(page);
   await page.getByRole('button', { name: '設定する' }).click();
 
   const countBox = await page.getByLabel('練習回数').boundingBox();
   const penWidthBox = await page.getByLabel('線の太さ').boundingBox();
+  const penColorBox = await page.locator('.color-setting').boundingBox();
+  const penOpacityBox = await page.locator('.opacity-setting').boundingBox();
 
   expect(countBox).not.toBeNull();
   expect(penWidthBox).not.toBeNull();
+  expect(penColorBox).not.toBeNull();
+  expect(penOpacityBox).not.toBeNull();
   expect(penWidthBox?.height).toBeCloseTo(countBox?.height ?? 0, 0);
+  expect(penColorBox?.height).toBeCloseTo(countBox?.height ?? 0, 0);
+  expect(penOpacityBox?.height).toBeCloseTo(countBox?.height ?? 0, 0);
 });
 
 test('結果をお気に入りへ追加して確認できる', async ({ page }) => {
@@ -153,6 +159,32 @@ test('結果をお気に入りへ追加して確認できる', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'お気に入り' })).toBeVisible();
   await expect(page.getByRole('button', { name: /立方体/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'この見本でもう一度' })).toBeVisible();
+});
+
+test('mobile comparison panes keep enough height for both images', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWithSettings(page);
+  await page.locator('.hero-actions .button.primary').click();
+
+  const drawingCanvas = page.locator('.drawing-canvas');
+  const bounds = await drawingCanvas.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (!bounds) return;
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width * 0.7, bounds.y + bounds.height * 0.6);
+  await page.mouse.up();
+  await page.locator('.practice-footer .button.primary').click();
+
+  const panes = page.locator('.comparison-panes:not(.sample-only-result) .compare-pane > div');
+  await expect(panes).toHaveCount(2);
+  const paneBoxes = await Promise.all((await panes.all()).map((pane) => pane.boundingBox()));
+  for (const paneBox of paneBoxes) {
+    expect(paneBox).not.toBeNull();
+    expect(paneBox?.height).toBeGreaterThanOrEqual(260);
+    expect(paneBox?.height).toBeGreaterThan((paneBox?.width ?? 0) * 0.75);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 for (const viewport of responsiveViewports) {

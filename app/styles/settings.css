@@ -35,10 +35,10 @@
 .field-label input, .field-label select { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); color: var(--ink); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
 .field-label input:hover, .field-label select:hover { border-color: #aeb9b0; }
 .field-label small { color: var(--muted); font-weight: 400; }
-.color-setting, .opacity-setting { min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 7px 11px; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); font-weight: 400; }
-.color-setting input[type="color"] { width: 44px; height: 44px; padding: 3px; cursor: pointer; }
+.color-setting, .opacity-setting { height: 46px; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); font-weight: 400; }
+.color-setting input[type="color"] { width: 36px; height: 36px; min-height: 0; padding: 3px; cursor: pointer; }
 .color-setting span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-.opacity-setting input[type="range"] { min-width: 0; min-height: 44px; padding: 0; accent-color: var(--green); }
+.opacity-setting input[type="range"] { min-width: 0; height: 36px; min-height: 0; padding: 0; accent-color: var(--green); }
 .opacity-setting output { min-width: 42px; text-align: right; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .readonly-setting { min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
 .readonly-setting span { font-weight: 700; }
