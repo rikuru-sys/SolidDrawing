@@ -21,7 +21,7 @@ export function PracticeScreen({
 }: PracticeScreenProps) {
   const hasDrawingCanvas = usesDrawingCanvas(current.settings.practiceMode);
 
-  return <section className="practice-section">
+  return <section className={hasDrawingCanvas ? 'practice-section' : 'practice-section sample-only-practice'}>
     <PracticeHeader
       prompt={current.prompt}
       questionIndex={current.questionIndex}

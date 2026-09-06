@@ -82,6 +82,52 @@ test('見本のみモードで結果画面へ進める', async ({ page }) => {
   await expect(page.getByRole('button', { name: '見本画像を保存' })).toBeVisible();
 });
 
+test('横長の見本のみモードを縦スクロールなしで表示する', async ({ page }) => {
+  const viewport = { width: 1518, height: 664 };
+  await page.setViewportSize(viewport);
+  await openWithSettings(page, {
+    practiceMode: 'sample-only',
+    sampleStyle: 'hidden-lines',
+    shapes: ['円錐'],
+  });
+  await startPractice(page);
+
+  expect(await page.evaluate(() => document.documentElement.scrollHeight))
+    .toBeLessThanOrEqual(viewport.height);
+  await expect(page.getByRole('button', { name: '次の見本へ' })).toBeInViewport();
+
+  await page.getByRole('button', { name: '次の見本へ' }).click();
+  const imageMargins = await page.getByRole('img', { name: '円錐の見本' }).evaluate((element) => {
+    const image = element as HTMLImageElement;
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let top = canvas.height;
+    let bottom = -1;
+
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const index = (y * canvas.width + x) * 4;
+        const isVisibleLine = pixels[index + 3] > 0
+          && (pixels[index] < 235 || pixels[index + 1] < 235 || pixels[index + 2] < 235);
+        if (!isVisibleLine) continue;
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
+
+    return { top, bottom, height: canvas.height };
+  });
+
+  expect(imageMargins).not.toBeNull();
+  expect(imageMargins?.top).toBeGreaterThan(4);
+  expect(imageMargins?.bottom).toBeLessThan((imageMargins?.height ?? 0) - 5);
+});
+
 test('設定画面の練習回数と線の太さを同じ高さで表示する', async ({ page }) => {
   await openWithSettings(page);
   await page.getByRole('button', { name: '設定する' }).click();

@@ -52,6 +52,13 @@ function includesObject(scene: THREE.Scene, name: string) {
 }
 
 describe('buildSampleScene', () => {
+  it.each(['shaded', 'hidden-lines'] as const)('%sでもカメラ調整対象の立体を識別できる', (style) => {
+    const scene = buildSampleScene(prompt('円錐'), style, '#ffffff', camera());
+
+    expect(includesObject(scene, 'sample-shape')).toBe(true);
+    disposeSampleScene(scene);
+  });
+
   it('画面表示用の影モードには投影影を作る環境を含める', () => {
     const scene = buildSampleScene(prompt('立方体'), 'shadow', '#ffffff', camera());
 

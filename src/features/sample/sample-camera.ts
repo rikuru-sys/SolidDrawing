@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 const MINIMUM_CAMERA_DISTANCE = 5.4;
 const CAMERA_VERTICAL_FOV = 32;
-const FIT_MARGIN = 1.12;
+const FIT_MARGIN = 1.25;
 
 /**
  * 画面の縦横比にかかわらず、立体を収めるために必要なカメラ距離を求める。
