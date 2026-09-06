@@ -155,12 +155,19 @@ export function buildSampleScene(
 
   if (style === 'shaded' || style === 'shadow') {
     const shadowOnly = style === 'shadow' && renderLayer === 'shadow';
+    const shapeOnly = style === 'shadow' && renderLayer === 'shape';
     const material = shadowOnly
       ? new THREE.MeshBasicMaterial({
         colorWrite: false,
         depthWrite: false,
         side: THREE.DoubleSide,
       })
+      : shapeOnly
+        ? new THREE.MeshBasicMaterial({
+          color: background,
+          depthWrite: true,
+          side: THREE.DoubleSide,
+        })
       : new THREE.MeshStandardMaterial({
         color: 0xe5e2d8,
         roughness: 0.9,
@@ -177,7 +184,7 @@ export function buildSampleScene(
         includeGroundLine: renderLayer === 'complete',
         shadowOpacity: renderLayer === 'shadow' ? 0.75 : 0.3,
       });
-    } else {
+    } else if (!shapeOnly) {
       addShadedEnvironment(scene);
     }
     if (!shadowOnly && rounded) addSilhouette(scene, geometry);

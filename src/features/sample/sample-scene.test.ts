@@ -51,6 +51,11 @@ function includesObject(scene: THREE.Scene, name: string) {
   return Boolean(scene.getObjectByName(name));
 }
 
+function sampleShapeMaterial(scene: THREE.Scene) {
+  const shape = scene.getObjectByName('sample-shape');
+  return shape instanceof THREE.Mesh ? shape.material : undefined;
+}
+
 describe('buildSampleScene', () => {
   it.each(['shaded', 'hidden-lines'] as const)('%sでもカメラ調整対象の立体を識別できる', (style) => {
     const scene = buildSampleScene(prompt('円錐'), style, '#ffffff', camera());
@@ -75,6 +80,10 @@ describe('buildSampleScene', () => {
 
     expect(includesShadowEnvironment(scene)).toBe(false);
     expect(scene.children.some((object) => object instanceof THREE.Mesh)).toBe(true);
+    const material = sampleShapeMaterial(scene);
+    expect(material).toBeInstanceOf(THREE.MeshBasicMaterial);
+    expect((material as THREE.MeshBasicMaterial).color.getHex()).toBe(0xffffff);
+    expect(scene.children.some((object) => object instanceof THREE.Light)).toBe(false);
     disposeSampleScene(scene);
   });
 
