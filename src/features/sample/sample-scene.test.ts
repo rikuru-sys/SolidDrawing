@@ -99,4 +99,17 @@ describe('buildSampleScene', () => {
     expect(scene.children.some((object) => object instanceof THREE.LineSegments)).toBe(false);
     disposeSampleScene(scene);
   });
+
+  it('三角錐は三角形の専用キャスターから影を生成する', () => {
+    const scene = buildSampleScene(prompt('三角錐'), 'shadow', '#ffffff', camera());
+    const shape = scene.getObjectByName('sample-shape');
+    const caster = scene.getObjectByName('triangular-shadow-caster');
+
+    expect(shape).toBeInstanceOf(THREE.Mesh);
+    expect((shape as THREE.Mesh).castShadow).toBe(false);
+    expect(caster).toBeInstanceOf(THREE.Mesh);
+    expect((caster as THREE.Mesh).castShadow).toBe(true);
+    expect((caster as THREE.Mesh).geometry.getAttribute('position').count).toBe(3);
+    disposeSampleScene(scene);
+  });
 });

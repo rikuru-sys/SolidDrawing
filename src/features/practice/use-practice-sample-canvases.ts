@@ -28,12 +28,14 @@ export function usePracticeSampleCanvases({
     prompt,
     style,
     renderLayer: 'shape',
+    sizeSourceRef: sampleCanvasRef,
   });
   const shadowEvaluationCanvasRef = useSampleCanvas({
     active: active && evaluatesShadow,
     prompt,
     style,
     renderLayer: 'shadow',
+    sizeSourceRef: sampleCanvasRef,
   });
 
   return {

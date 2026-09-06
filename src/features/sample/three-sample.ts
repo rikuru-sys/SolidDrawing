@@ -7,6 +7,8 @@ import type { SampleRenderLayer, ThreeShapePrompt } from './types';
 export type RenderSampleOptions = {
   /** 完成見本・形状だけ・投影影だけのどれを描画するか。 */
   renderLayer?: SampleRenderLayer;
+  width?: number;
+  height?: number;
 };
 
 const renderers = new WeakMap<HTMLCanvasElement, THREE.WebGLRenderer>();
@@ -34,17 +36,19 @@ export function renderSample3D(
 ) {
   const renderLayer = options.renderLayer ?? 'complete';
   const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
+  const width = options.width ?? rect.width;
+  const height = options.height ?? rect.height;
+  if (!width || !height) return;
   const renderer = rendererFor(canvas);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(rect.width, rect.height, false);
+  renderer.setSize(width, height, false);
   renderer.setClearColor(background, 1);
   const rendersShadow = style === 'shadow' && renderLayer !== 'shape';
   renderer.shadowMap.enabled = rendersShadow;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.needsUpdate = rendersShadow;
 
-  const camera = new THREE.PerspectiveCamera(32, rect.width / rect.height, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
   const distance = 5.4;
   const cameraTarget = new THREE.Vector3(0, style === 'shadow' ? -0.12 : 0, 0);
   const horizontalDistance = Math.cos(prompt.cameraElevation) * distance;

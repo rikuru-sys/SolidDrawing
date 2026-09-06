@@ -55,10 +55,38 @@ function addShadowEnvironment(
   mesh: THREE.Mesh,
   camera: THREE.PerspectiveCamera,
   direction: LightDirection,
-  options: { includeGroundLine: boolean; shadowOpacity: number },
+  options: {
+    includeGroundLine: boolean;
+    shadowOpacity: number;
+    useTriangularCaster: boolean;
+  },
 ) {
-  mesh.castShadow = true;
+  mesh.castShadow = !options.useTriangularCaster;
   mesh.receiveShadow = true;
+
+  if (options.useTriangularCaster) {
+    const source = mesh.geometry.getAttribute('position');
+    const triangle = new THREE.BufferGeometry();
+    const positions = new Float32Array(9);
+    [0, 2, 1].forEach((vertexIndex, targetIndex) => {
+      positions[targetIndex * 3] = source.getX(vertexIndex);
+      positions[targetIndex * 3 + 1] = source.getY(vertexIndex);
+      positions[targetIndex * 3 + 2] = source.getZ(vertexIndex);
+    });
+    triangle.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    triangle.computeVertexNormals();
+    const caster = new THREE.Mesh(
+      triangle,
+      new THREE.MeshBasicMaterial({
+        colorWrite: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    caster.name = 'triangular-shadow-caster';
+    caster.castShadow = true;
+    scene.add(caster);
+  }
   scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b5ab, 0.85));
 
   const target = new THREE.Vector3(0, -0.2, 0);
@@ -183,6 +211,7 @@ export function buildSampleScene(
       addShadowEnvironment(scene, mesh, camera, prompt.lightDirection, {
         includeGroundLine: renderLayer === 'complete',
         shadowOpacity: renderLayer === 'shadow' ? 0.75 : 0.3,
+        useTriangularCaster: prompt.shape === '三角錐',
       });
     } else if (!shapeOnly) {
       addShadedEnvironment(scene);
