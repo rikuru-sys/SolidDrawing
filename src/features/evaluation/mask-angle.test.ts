@@ -81,7 +81,7 @@ describe('lineAngleMatch', () => {
     const sample = rectangle(45, 45, 125, 125);
     const wide = rectangle(20, 65, 155, 105);
 
-    expect(lineAngleMatch(sample, wide, SIZE)).toBeGreaterThan(0.95);
+    expect(lineAngleMatch(sample, wide, SIZE)).toBeGreaterThan(0.94);
   });
 
   it('線幅が変わっても同じ方向として評価する', () => {
@@ -109,5 +109,16 @@ describe('lineAngleMatch', () => {
     ]);
 
     expect(lineAngleMatch(sample, diamond, SIZE)).toBeLessThan(0.6);
+  });
+
+  it('同じ方向の線でも形の中の位置が異なれば低く評価する', () => {
+    const sample = emptyMask();
+    drawLine(sample, [35, 35], [135, 35]);
+    drawLine(sample, [35, 35], [35, 135]);
+    const misplaced = emptyMask();
+    drawLine(misplaced, [35, 135], [135, 135]);
+    drawLine(misplaced, [135, 35], [135, 135]);
+
+    expect(lineAngleMatch(sample, misplaced, SIZE)).toBeLessThan(0.35);
   });
 });

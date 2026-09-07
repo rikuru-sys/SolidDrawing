@@ -49,13 +49,13 @@ describe('評価点の判定範囲', () => {
     expect(strictMetricScore(ratio)).toBe(expectedScore);
   });
 
-  it('輪郭は5ピクセル以内のずれを許容する', () => {
+  it('輪郭は4ピクセル以内のずれを許容する', () => {
     const sample = horizontalLine(40, 139, 80);
-    const withinTolerance = horizontalLine(40, 139, 85);
-    const outsideTolerance = horizontalLine(40, 139, 86);
+    const withinTolerance = horizontalLine(40, 139, 84);
+    const outsideTolerance = horizontalLine(40, 139, 85);
 
-    expect(calculateMaskOverlapRatio(sample, withinTolerance, SIZE, 5)).toBe(1);
-    expect(calculateMaskOverlapRatio(sample, outsideTolerance, SIZE, 5)).toBe(0);
+    expect(calculateMaskOverlapRatio(sample, withinTolerance, SIZE, 4)).toBe(1);
+    expect(calculateMaskOverlapRatio(sample, outsideTolerance, SIZE, 4)).toBe(0);
   });
 
   it('輪郭は同じ量の描き足しと描き漏らしを同程度に減点する', () => {

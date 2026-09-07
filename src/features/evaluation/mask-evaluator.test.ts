@@ -207,6 +207,33 @@ describe('evaluateShapeMasks', () => {
     });
   });
 
+  describe('良い・普通・悪い描画の固定評価例', () => {
+    const sample = shapeMask('立方体');
+    const goodDrawing = shearMask(sample, 0.03);
+    const ordinaryDrawing = shearMask(sample, 0.28);
+    const badDrawing = polylineMask([
+      [90, 32],
+      [40, 136],
+      [140, 136],
+      [90, 32],
+    ]);
+
+    it('見た目の一致度に応じた評価帯へ分類する', () => {
+      const good = evaluateShapeMasks(sample, goodDrawing, SIZE);
+      const ordinary = evaluateShapeMasks(sample, ordinaryDrawing, SIZE);
+      const bad = evaluateShapeMasks(sample, badDrawing, SIZE);
+
+      expect(good.score).toBeGreaterThanOrEqual(90);
+      expect(ordinary.score).toBeGreaterThanOrEqual(60);
+      expect(ordinary.score).toBeLessThanOrEqual(79);
+      expect(bad.score).toBeLessThanOrEqual(49);
+      expect(good.outline).toBeGreaterThan(ordinary.outline);
+      expect(ordinary.outline).toBeGreaterThan(bad.outline);
+      expect(good.angle).toBeGreaterThan(ordinary.angle);
+      expect(ordinary.angle).toBeGreaterThan(bad.angle);
+    });
+  });
+
   it('完全に一致するマスクは100点', () => {
     const sample = rectangleMask(45, 45, 125, 125);
     const evaluation = evaluateShapeMasks(sample, sample.slice(), SIZE);

@@ -9,8 +9,8 @@ import type { ShapeEvaluation } from './types';
 
 /** 評価できる描画とみなすために必要な最小ピクセル数。 */
 const MINIMUM_DRAWING_PIXELS = 12;
-/** 輪郭のずれと対応線の探索で許容するピクセル数。 */
-const MATCH_TOLERANCE = 5;
+/** 輪郭のずれで許容するピクセル数。 */
+const MATCH_TOLERANCE = 4;
 
 /**
  * 描画量が足りず、自動評価できない場合の結果を作成する。

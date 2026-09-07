@@ -2,6 +2,7 @@ import {
   dilateMask,
   lineAngleMatch,
   maskMatch,
+  metricScore,
   strictMetricScore,
   translateMask,
 } from './mask-geometry';
@@ -133,7 +134,7 @@ function calculateAngleScore(
     size,
   ) ?? outlineRatio;
 
-  return strictMetricScore(angleRatio);
+  return metricScore(angleRatio, 1.4);
 }
 
 /**
@@ -218,7 +219,7 @@ export function calculateShapeMetricScores(
   );
 
   return {
-    outline: strictMetricScore(outlineRatio),
+    outline: metricScore(outlineRatio, 1.35),
     angle: calculateAngleScore(
       sampleMask,
       centeredDrawingMask,

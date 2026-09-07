@@ -152,7 +152,7 @@ function localLineDirection(mask: Uint8Array, size: number, centerX: number, cen
 }
 
 /**
- * 見本線と描画線の局所的な方向を集計し、方向分布を比較する。
+ * 見本線と描画線の局所的な方向を、形の中の位置ごとに集計して比較する。
  *
  * @param sampleMask - 見本の二値マスク
  * @param drawingMask - 描画の二値マスク
@@ -160,8 +160,11 @@ function localLineDirection(mask: Uint8Array, size: number, centerX: number, cen
  * @returns 角度の一致率。判定できる描画点が少なければ`null`
  *
  * @remarks
- * 方向は180度を18区間へ分け、区間境界による急な点数変化を避けるため平滑化する。
- * 線の位置や大きさには依存せず、角や交差部のように方向が曖昧な点は集計しない。
+ * 方向は180度を18区間、位置は外接矩形を基準に3×3区画へ分ける。
+ * 区間境界による急な点数変化を避けるため、隣接する角度区間へ値を分配する。
+ * 外接矩形内の相対位置を使うため、平行移動や一様な拡大・縮小には依存しない。
+ * 一方、形の異なる場所に同じ向きの線を描いた場合は一致とみなさない。
+ * 角や交差部のように方向が曖昧な点は集計しない。
  */
 export function lineAngleMatch(
   sampleMask: Uint8Array,
@@ -169,10 +172,19 @@ export function lineAngleMatch(
   size: number,
 ) {
   const binCount = 18;
+  const gridSize = 3;
 
   function directionHistogram(mask: Uint8Array) {
-    const histogram = new Float64Array(binCount);
+    const bounds = maskBounds(mask, size);
+    if (!bounds) return null;
+
+    const histogram = new Float64Array(binCount * gridSize * gridSize);
     let samples = 0;
+    const minX = bounds.centerX - (bounds.width - 1) / 2;
+    const minY = bounds.centerY - (bounds.height - 1) / 2;
+    const horizontalRange = Math.max(1, bounds.width - 1);
+    const verticalRange = Math.max(1, bounds.height - 1);
+
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
         const index = y * size + x;
@@ -184,17 +196,30 @@ export function lineAngleMatch(
         const binPosition = normalizedAngle / Math.PI * binCount;
         const lowerBin = Math.floor(binPosition) % binCount;
         const fraction = binPosition - Math.floor(binPosition);
-        histogram[lowerBin] += direction.confidence * (1 - fraction);
-        histogram[(lowerBin + 1) % binCount] += direction.confidence * fraction;
+        const gridX = Math.min(
+          gridSize - 1,
+          Math.floor(((x - minX) / horizontalRange) * gridSize),
+        );
+        const gridY = Math.min(
+          gridSize - 1,
+          Math.floor(((y - minY) / verticalRange) * gridSize),
+        );
+        const gridOffset = (gridY * gridSize + gridX) * binCount;
+        histogram[gridOffset + lowerBin] += direction.confidence * (1 - fraction);
+        histogram[gridOffset + ((lowerBin + 1) % binCount)]
+          += direction.confidence * fraction;
         samples += 1;
       }
     }
 
-    const smoothed = new Float64Array(binCount);
-    for (let index = 0; index < binCount; index += 1) {
-      smoothed[index] = histogram[index] * 0.6
-        + histogram[(index + binCount - 1) % binCount] * 0.2
-        + histogram[(index + 1) % binCount] * 0.2;
+    const smoothed = new Float64Array(histogram.length);
+    for (let gridIndex = 0; gridIndex < gridSize * gridSize; gridIndex += 1) {
+      const gridOffset = gridIndex * binCount;
+      for (let angleIndex = 0; angleIndex < binCount; angleIndex += 1) {
+        smoothed[gridOffset + angleIndex] = histogram[gridOffset + angleIndex] * 0.6
+          + histogram[gridOffset + ((angleIndex + binCount - 1) % binCount)] * 0.2
+          + histogram[gridOffset + ((angleIndex + 1) % binCount)] * 0.2;
+      }
     }
     const total = smoothed.reduce((sum, value) => sum + value, 0);
     if (samples < 12 || !total) return null;
@@ -221,6 +246,11 @@ export function lineAngleMatch(
  * `ratio ** 1.2`とすることで、完全一致以外の値を単純な百分率より少し低くする。
  */
 export function strictMetricScore(ratio: number) {
+  return metricScore(ratio, 1.2);
+}
+
+/** 一致率を、指定した厳しさの指数で0〜100点へ変換する。 */
+export function metricScore(ratio: number, exponent: number) {
   const normalizedRatio = Math.max(0, Math.min(1, ratio));
-  return Math.round(Math.pow(normalizedRatio, 1.2) * 100);
+  return Math.round(Math.pow(normalizedRatio, exponent) * 100);
 }
