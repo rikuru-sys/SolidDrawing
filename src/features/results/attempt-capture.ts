@@ -29,6 +29,7 @@ type CaptureDrawingAssetsOptions = {
 
 type CaptureAttemptOptions = {
   prompt: ShapePrompt;
+  drawingCanvas?: HTMLCanvasElement;
   /** 結果画像として保存する、画面に表示されている見本Canvas。 */
   sampleCanvas: HTMLCanvasElement;
   /** 形状評価に使用する見本Canvas。影表示では立体だけを含む。 */
@@ -75,6 +76,7 @@ export function captureDrawingAssets({
 /** 現在の見本と描画を評価し、結果画面で使用する1回分のデータを作成する。 */
 export function captureAttempt({
   prompt,
+  drawingCanvas,
   sampleCanvas,
   evaluationSampleCanvas = sampleCanvas,
   shadowEvaluationSampleCanvas,
@@ -86,8 +88,14 @@ export function captureAttempt({
 }: CaptureAttemptOptions): Attempt {
   const strokes = getCurrentStrokes();
   const evaluationStrokes = excludeDrawingNoise(strokes);
+  const drawingBounds = drawingCanvas?.getBoundingClientRect();
   const evaluation = usesDrawingCanvas(practiceMode)
-    ? evaluateShape(evaluationSampleCanvas, evaluationStrokes, shadowEvaluationSampleCanvas)
+    ? evaluateShape(
+      evaluationSampleCanvas,
+      evaluationStrokes,
+      shadowEvaluationSampleCanvas,
+      drawingBounds?.width && drawingBounds.height ? drawingBounds : undefined,
+    )
     : unevaluatedShape();
 
   return {

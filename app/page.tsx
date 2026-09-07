@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { APP_VERSION } from '../src/config/app-version';
+import type { ShapePrompt } from '../src/domain/prompt/types';
 import { useDrawingCanvas } from '../src/features/drawing/use-drawing-canvas';
 import { FavoritesScreen } from '../src/features/favorites/favorites-screen';
 import type { Favorite } from '../src/features/favorites/types';
@@ -40,6 +41,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
 /** アプリ全体の状態を保持し、機能別の画面とフックを接続する。 */
 export default function Home() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [readyPrompt, setReadyPrompt] = useState<ShapePrompt | null>(null);
   const [settings, setSettings] = useStoredState(
     readStoredSettings,
     saveStoredSettings,
@@ -53,6 +55,7 @@ export default function Home() {
 
   const session = usePracticeSession({
     active: screen === 'practice',
+    readyPrompt,
     settings,
     onSettingsChange: setSettings,
     onTimeout: () => finishRef.current(false, true),
@@ -69,7 +72,7 @@ export default function Home() {
 
   const drawing = useDrawingCanvas({
     active: screen === 'practice' && hasDrawingCanvas,
-    paused: session.timer.paused,
+    paused: session.timer.paused || readyPrompt !== currentPrompt,
     penWidth: practiceSettings.penWidth,
     penColor: practiceSettings.penColor,
     penOpacity: practiceSettings.penOpacity,
@@ -81,12 +84,14 @@ export default function Home() {
     shapeEvaluationCanvasRef,
     shadowEvaluationCanvasRef,
     sampleRenderError,
+    sampleReady,
     retrySampleRender,
   } = usePracticeSampleCanvases({
     active: screen === 'practice',
     prompt: currentPrompt,
     style: practiceSettings.sampleStyle,
     evaluatesShadow,
+    onReadyPromptChange: setReadyPrompt,
   });
   const favorites = useFavorites(practiceSettings);
 
@@ -97,6 +102,8 @@ export default function Home() {
     prompt: currentPrompt,
     practiceMode: practiceSettings.practiceMode,
     evaluatesShadow,
+    sampleReady,
+    drawingCanvasRef: drawing.drawingCanvasRef,
     sampleCanvasRef,
     shapeEvaluationCanvasRef,
     shadowEvaluationCanvasRef,
@@ -230,6 +237,7 @@ export default function Home() {
                 }}
                 sampleCanvasRef={sampleCanvasRef}
                 sampleRenderError={sampleRenderError}
+                sampleReady={sampleReady}
                 onRetrySampleRender={retrySampleRender}
               />
             </>

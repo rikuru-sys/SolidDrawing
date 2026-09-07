@@ -47,7 +47,7 @@ export function useDrawingPointer({
   const beginStroke = useCallback((
     event: ReactPointerEvent<HTMLCanvasElement>,
   ) => {
-    if (paused) return;
+    if (paused || activePointerIdRef.current !== null || event.button !== 0) return;
 
     updateBrushCursor(event);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -81,7 +81,7 @@ export function useDrawingPointer({
 
     const stroke = activeStrokeRef.current;
     const canvas = canvasRef.current;
-    if (!stroke || !canvas || paused) return;
+    if (!stroke || !canvas || paused || event.pointerId !== activePointerIdRef.current) return;
 
     const bounds = canvas.getBoundingClientRect();
     const previousPoint = stroke.points[stroke.points.length - 1];
@@ -107,6 +107,7 @@ export function useDrawingPointer({
   const endStroke = useCallback((
     event: ReactPointerEvent<HTMLCanvasElement>,
   ) => {
+    if (event.pointerId !== activePointerIdRef.current) return;
     const stroke = activeStrokeRef.current;
     if (stroke && event.type === 'pointerup') {
       continueStroke(event, true);

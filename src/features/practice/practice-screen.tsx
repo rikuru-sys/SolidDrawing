@@ -19,11 +19,12 @@ export function PracticeScreen({
   actions,
   sampleCanvasRef,
   sampleRenderError,
+  sampleReady = true,
   onRetrySampleRender,
 }: PracticeScreenProps) {
   const hasDrawingCanvas = usesDrawingCanvas(current.settings.practiceMode);
 
-  return <section className={hasDrawingCanvas ? 'practice-section' : 'practice-section sample-only-practice'}>
+  return <section className={hasDrawingCanvas ? 'practice-section' : 'practice-section sample-only-practice'} aria-busy={!sampleReady}>
     <h1 className="visually-hidden">{current.prompt.shape}の練習</h1>
     <PracticeHeader
       prompt={current.prompt}
@@ -67,6 +68,6 @@ export function PracticeScreen({
         onPointerLeave={drawing.onPointerLeave}
       />}
     </div>
-    <PracticeFooter settings={current.settings} onNext={actions.onNext} />
+    <PracticeFooter settings={current.settings} onNext={actions.onNext} disabled={!sampleReady} />
   </section>;
 }

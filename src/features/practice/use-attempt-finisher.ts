@@ -11,6 +11,8 @@ type UseAttemptFinisherOptions = {
   prompt?: ShapePrompt;
   practiceMode: PracticeMode;
   evaluatesShadow: boolean;
+  sampleReady: boolean;
+  drawingCanvasRef: RefObject<HTMLCanvasElement | null>;
   sampleCanvasRef: RefObject<HTMLCanvasElement | null>;
   shapeEvaluationCanvasRef: RefObject<HTMLCanvasElement | null>;
   shadowEvaluationCanvasRef: RefObject<HTMLCanvasElement | null>;
@@ -34,6 +36,8 @@ export function useAttemptFinisher({
   prompt,
   practiceMode,
   evaluatesShadow,
+  sampleReady,
+  drawingCanvasRef,
   sampleCanvasRef,
   shapeEvaluationCanvasRef,
   shadowEvaluationCanvasRef,
@@ -58,6 +62,7 @@ export function useAttemptFinisher({
 
     if (
       !prompt
+      || !sampleReady
       || !sampleCanvas
       || !evaluationSampleCanvas
       || (evaluatesShadow && !shadowEvaluationSampleCanvas)
@@ -66,6 +71,7 @@ export function useAttemptFinisher({
 
     const attempt = captureAttempt({
       prompt,
+      drawingCanvas: drawingCanvasRef.current ?? undefined,
       sampleCanvas,
       evaluationSampleCanvas,
       shadowEvaluationSampleCanvas: shadowEvaluationSampleCanvas ?? undefined,
@@ -85,6 +91,8 @@ export function useAttemptFinisher({
   }, [
     beginFinishing,
     evaluatesShadow,
+    drawingCanvasRef,
+    sampleReady,
     exportDrawing,
     exportDrawingSvg,
     finishAttempt,

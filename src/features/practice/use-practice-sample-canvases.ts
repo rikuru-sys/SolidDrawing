@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import { useSampleCanvas } from '../sample/use-sample-canvas';
 import type { SampleStyle } from '../settings/practice-settings';
@@ -9,6 +10,7 @@ type UsePracticeSampleCanvasesOptions = {
   prompt?: ShapePrompt;
   style: SampleStyle;
   evaluatesShadow: boolean;
+  onReadyPromptChange: (prompt: ShapePrompt | null) => void;
 };
 
 /** 練習表示用と形状・影評価用の3D見本Canvasを準備する。 */
@@ -17,6 +19,7 @@ export function usePracticeSampleCanvases({
   prompt,
   style,
   evaluatesShadow,
+  onReadyPromptChange,
 }: UsePracticeSampleCanvasesOptions) {
   const sample = useSampleCanvas({
     active,
@@ -37,8 +40,15 @@ export function usePracticeSampleCanvases({
     renderLayer: 'shadow',
     sizeSourceRef: sample.canvasRef,
   });
+  const sampleReady = sample.renderReady && (!evaluatesShadow
+    || (shapeEvaluation.renderReady && shadowEvaluation.renderReady));
+
+  useEffect(() => {
+    onReadyPromptChange(sampleReady && prompt ? prompt : null);
+  }, [sampleReady, prompt, onReadyPromptChange]);
 
   return {
+    sampleReady,
     sampleCanvasRef: sample.canvasRef,
     shapeEvaluationCanvasRef: shapeEvaluation.canvasRef,
     shadowEvaluationCanvasRef: shadowEvaluation.canvasRef,

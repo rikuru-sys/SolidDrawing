@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -30,11 +31,15 @@ export function useSampleCanvas({
   sizeSourceRef,
 }: UseSampleCanvasOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [renderError, setRenderError] = useState(false);
   const [renderAttempt, setRenderAttempt] = useState(0);
+  const request = useMemo(() => ({
+    active, prompt, background, style, renderLayer, sizeSourceRef, renderAttempt,
+  }), [active, prompt, background, style, renderLayer, sizeSourceRef, renderAttempt]);
+  const [result, setResult] = useState<{ request: typeof request; error: unknown | null } | null>(null);
+  const renderReady = active && result?.request === request && result.error === null;
+  const renderError = result?.request === request && result.error !== null;
 
   const retryRender = useCallback(() => {
-    setRenderError(false);
     setRenderAttempt((current) => current + 1);
   }, []);
 
@@ -48,7 +53,7 @@ export function useSampleCanvas({
         renderLayer,
         width: sourceRect?.width,
         height: sourceRect?.height,
-      }, (error) => setRenderError(error !== null));
+      }, (error) => setResult({ request, error }));
     }
 
     render(canvas);
@@ -58,7 +63,7 @@ export function useSampleCanvas({
       observer.disconnect();
       disposeSample3D(canvas);
     };
-  }, [active, background, prompt, renderAttempt, renderLayer, sizeSourceRef, style]);
+  }, [active, background, prompt, request, renderLayer, sizeSourceRef, style]);
 
-  return { canvasRef, renderError, retryRender };
+  return { canvasRef, renderError, renderReady, retryRender };
 }

@@ -52,5 +52,6 @@ export type PracticeScreenProps = {
   actions: PracticeScreenActions;
   sampleCanvasRef: RefObject<HTMLCanvasElement | null>;
   sampleRenderError: boolean;
+  sampleReady?: boolean;
   onRetrySampleRender: () => void;
 };

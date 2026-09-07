@@ -117,18 +117,24 @@ function createSampleMask(
  * @param context - 描画線を解析するための2D描画コンテキスト
  * @param strokes - ユーザーが描いたストロークの一覧
  * @param target - 形状用と影用のどちらのストロークを再描画するか
+ * @param drawingSize - 描画CanvasのCSSピクセル単位の表示サイズ
  * @returns 0を背景、1を評価対象の描画線として持つ二値マスク
  *
  * @remarks
  * 評価対象外のストロークは`applyEvaluationStrokeStyle`で除外する。
- * 座標は0〜1で保存されているため、解析用サイズを掛けてピクセル座標へ戻す。
+ * 座標を表示時のピクセル座標へ戻し、線幅とともに解析用サイズへ変換する。
  */
 function createDrawingMask(
   context: CanvasRenderingContext2D,
   strokes: Stroke[],
   target: EvaluationStrokeTarget,
+  drawingSize: { width: number; height: number },
 ) {
   const size = ANALYSIS_SIZE;
+  const { width, height } = drawingSize;
+  // 座標と線幅を同じ倍率で縮小し、画面上の消去範囲を保つ。
+  context.save();
+  context.scale(size / width, size / height);
   strokes.forEach((stroke) => {
     if (!stroke.points.length) return;
     context.save();
@@ -139,16 +145,17 @@ function createDrawingMask(
     if (stroke.points.length === 1) {
       const point = stroke.points[0];
       context.beginPath();
-      context.arc(point.x * size, point.y * size, context.lineWidth / 2, 0, Math.PI * 2);
+      context.arc(point.x * width, point.y * height, context.lineWidth / 2, 0, Math.PI * 2);
       context.fill();
     } else {
       context.beginPath();
-      context.moveTo(stroke.points[0].x * size, stroke.points[0].y * size);
-      stroke.points.slice(1).forEach((point) => context.lineTo(point.x * size, point.y * size));
+      context.moveTo(stroke.points[0].x * width, stroke.points[0].y * height);
+      stroke.points.slice(1).forEach((point) => context.lineTo(point.x * width, point.y * height));
       context.stroke();
     }
     context.restore();
   });
+  context.restore();
 
   // 透明度が十分にあるピクセルだけを描画線として記録する。
   const drawingPixels = context.getImageData(0, 0, size, size).data;
@@ -165,6 +172,7 @@ function createDrawingMask(
  * @param sampleCanvas - 3D見本が描画されているCanvas
  * @param strokes - ユーザーが描いたストロークの一覧
  * @param shadowSampleCanvas - 投影影だけが描画されている評価用Canvas
+ * @param drawingSize - 描画Canvasの表示サイズ。省略時は解析用サイズを使用する
  * @returns 総合点、項目別得点、中心合わせ情報、助言を含む評価結果
  *
  * @remarks
@@ -175,6 +183,7 @@ export function evaluateShape(
   sampleCanvas: HTMLCanvasElement,
   strokes: Stroke[],
   shadowSampleCanvas?: HTMLCanvasElement,
+  drawingSize = { width: ANALYSIS_SIZE, height: ANALYSIS_SIZE },
 ): ShapeEvaluation {
   const sampleAnalysis = document.createElement('canvas');
   sampleAnalysis.width = ANALYSIS_SIZE;
@@ -189,7 +198,7 @@ export function evaluateShape(
   if (!sampleContext || !drawingContext) return unavailableEvaluation();
 
   const sampleMask = createSampleMask(sampleContext, sampleCanvas);
-  const drawingMask = createDrawingMask(drawingContext, strokes, 'shape');
+  const drawingMask = createDrawingMask(drawingContext, strokes, 'shape', drawingSize);
   const shapeEvaluation = evaluateShapeMasks(sampleMask, drawingMask, ANALYSIS_SIZE);
   if (!shadowSampleCanvas) return shapeEvaluation;
 
@@ -214,7 +223,7 @@ export function evaluateShape(
     shadowSampleCanvas,
     false,
   );
-  const shadowDrawingMask = createDrawingMask(shadowDrawingContext, strokes, 'shadow');
+  const shadowDrawingMask = createDrawingMask(shadowDrawingContext, strokes, 'shadow', drawingSize);
   const shadowScore = evaluateShadowMasks(
     shadowSampleMask,
     shadowDrawingMask,

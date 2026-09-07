@@ -50,9 +50,12 @@ export class AppDriver {
     await this.page.reload();
   }
 
-  async startPractice() {
+  async startPractice(waitForSample = true) {
     await this.page.getByRole('button', { name: '開始する' }).click();
     await expect(this.page.getByText(`1 / ${this.settings.count}`)).toBeVisible();
+    if (waitForSample) {
+      await expect(this.page.locator('.practice-section')).toHaveAttribute('aria-busy', 'false');
+    }
   }
 
   async drawLine(canvas: Locator = this.page.getByLabel('描画キャンバス')) {

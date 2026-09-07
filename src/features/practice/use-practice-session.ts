@@ -6,6 +6,7 @@ import {
   useRef,
 } from 'react';
 import type { Favorite } from '../favorites/types';
+import type { ShapePrompt } from '../../domain/prompt/types';
 import type { Attempt } from '../results/types';
 import type { Settings } from '../settings/practice-settings';
 import {
@@ -22,6 +23,7 @@ import { usePracticeTimer } from './use-practice-timer';
 
 type UsePracticeSessionOptions = {
   active: boolean;
+  readyPrompt: ShapePrompt | null;
   settings: Settings;
   onSettingsChange: (settings: Settings) => void;
   onTimeout: () => void;
@@ -30,6 +32,7 @@ type UsePracticeSessionOptions = {
 /** 出題、試行結果、設定とタイマーを接続し、練習セッションの操作を提供する。 */
 export function usePracticeSession({
   active,
+  readyPrompt,
   settings,
   onSettingsChange,
   onTimeout,
@@ -51,7 +54,7 @@ export function usePracticeSession({
     togglePaused,
     getDurationSeconds,
   } = usePracticeTimer({
-    active,
+    active: active && currentPrompt !== undefined && readyPrompt === currentPrompt,
     timeLimit: practiceSettings.time,
     onTimeout,
   });
