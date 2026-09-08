@@ -64,28 +64,33 @@ describe('practice session state', () => {
     expect(state.attempts).toEqual([]);
   });
 
-  it('お気に入りでは保存した立体情報を変更せず現在の設定で1問開始する', () => {
-    const savedPrompt = {
+  it('お気に入りでは選択した立体情報を変更せず現在の設定で連続練習を開始する', () => {
+    const firstPrompt = {
       ...prompt('favorite'),
       widthScale: 1.2,
       objectRotationY: 0.75,
       lightDirection: 'bottom-right' as const,
     };
+    const secondPrompt = {
+      ...prompt('favorite-2'),
+      shape: '円柱' as const,
+      cameraAzimuth: 0.9,
+    };
     const currentSettings = {
       ...freshDefaultSettings(),
-      shapes: ['立方体'] as const,
-      count: 1,
+      shapes: ['立方体', '円柱'] as const,
+      count: 2,
       time: 45,
     };
     const state = practiceSessionReducer(createInitialPracticeSessionState(), {
-      type: 'favorite-started',
+      type: 'favorites-started',
       settings: { ...currentSettings, shapes: [...currentSettings.shapes] },
-      prompt: savedPrompt,
+      prompts: [firstPrompt, secondPrompt],
     });
 
-    expect(state.prompts).toEqual([savedPrompt]);
+    expect(state.prompts).toEqual([firstPrompt, secondPrompt]);
     expect(state.sessionSettings?.time).toBe(45);
-    expect(state.sessionSettings?.count).toBe(1);
+    expect(state.sessionSettings?.count).toBe(2);
     expect(state.sessionSnapshot).toBeNull();
   });
 

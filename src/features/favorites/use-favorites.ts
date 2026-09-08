@@ -37,14 +37,12 @@ export function useFavorites() {
     });
   }, [setFavorites]);
 
-  const deleteSelectedFavorite = useCallback(() => {
-    if (!selectedFavorite) return;
-    const selectedKey = createPromptIdentity(selectedFavorite.prompt);
+  const deleteFavorite = useCallback((promptKey: string) => {
     setFavorites((current) => current.filter(({ prompt }) => (
-      createPromptIdentity(prompt) !== selectedKey
+      createPromptIdentity(prompt) !== promptKey
     )));
-    setSelectedPromptKey(null);
-  }, [selectedFavorite, setFavorites]);
+    setSelectedPromptKey((current) => current === promptKey ? null : current);
+  }, [setFavorites]);
 
   return {
     favorites,
@@ -52,6 +50,6 @@ export function useFavorites() {
     selectFavorite: setSelectedPromptKey,
     isFavorite,
     toggleFavorite,
-    deleteSelectedFavorite,
+    deleteFavorite,
   };
 }

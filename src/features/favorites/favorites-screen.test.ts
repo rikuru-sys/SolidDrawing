@@ -32,7 +32,7 @@ function renderFavorites(overrides: Partial<FavoritesScreenProps> = {}) {
     selectedFavorite: selected,
     settings: freshDefaultSettings(),
     onSelectFavorite: () => undefined,
-    onPracticeFavorite: () => undefined,
+    onPracticeFavorites: () => undefined,
     onDeleteFavorite: () => undefined,
     onStartPractice: () => undefined,
     onBack: () => undefined,
@@ -52,18 +52,31 @@ describe('FavoritesScreen', () => {
 
   it('向き・比率・光源を保存した立体とプレビューを表示する', () => {
     const selected = favorite();
-    const cylinder = favorite({ id: 'prompt-2', shape: '円柱', objectRotationY: 0.8 });
+    const secondCube = favorite({
+      id: 'prompt-2',
+      objectRotationY: 0.8,
+      lightDirection: 'bottom-left',
+    });
+    const cylinder = favorite({
+      id: 'prompt-3',
+      shape: '円柱',
+      objectRotationY: 0.8,
+      lightDirection: 'top-right',
+    });
     const html = renderFavorites({
-      favorites: [selected, cylinder],
+      favorites: [selected, secondCube, cylinder],
       selectedFavorite: selected,
     });
 
-    expect(html).toContain('★ 立方体');
-    expect(html).toContain('★ 円柱');
-    expect(html).toContain('向き・比率・光源を保存');
-    expect(html).toContain('aria-label="お気に入りの立方体"');
-    expect(html).toContain('この立体を現在の設定で練習');
-    expect(html).toContain('お気に入りから削除');
+    expect(html).toContain('★ 立方体 1・光源左上');
+    expect(html).toContain('★ 立方体 2・光源左下');
+    expect(html).toContain('★ 円柱 1・光源右上');
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('立方体 1・光源左上を練習対象に選択');
+    expect(html).toContain('立方体 2・光源左下を削除');
+    expect(html).toContain('aria-label="お気に入りの立方体 1・光源左上"');
+    expect(html).toContain('選択した立体を現在の設定で練習（0件）');
+    expect(html).toContain('disabled=""');
   });
 
   it('保存した光源と現在の練習設定を表示する', () => {

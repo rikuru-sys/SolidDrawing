@@ -1,32 +1,45 @@
-import type { Favorite } from './types';
-import { createPromptIdentity } from './prompt-identity';
+import type { FavoriteListItem } from './favorite-list-item';
 
 type FavoriteListProps = {
-  favorites: Favorite[];
-  selectedPromptKey: string;
-  onSelectFavorite: (promptKey: string) => void;
+  items: FavoriteListItem[];
+  selectedPromptKeys: ReadonlySet<string>;
+  onTogglePracticeSelection: (promptKey: string) => void;
+  onDeleteFavorite: (item: FavoriteListItem) => void;
 };
 
 export function FavoriteList({
-  favorites,
-  selectedPromptKey,
-  onSelectFavorite,
+  items,
+  selectedPromptKeys,
+  onTogglePracticeSelection,
+  onDeleteFavorite,
 }: FavoriteListProps) {
-  return <nav className="favorite-list" aria-label="保存した立体">
-    {favorites.map((favorite) => {
-      const promptKey = createPromptIdentity(favorite.prompt);
-      return (
+  return <div className="favorite-list" role="group" aria-label="保存した立体">
+    {items.map((item) => (
+      <div
+        key={item.promptKey}
+        className={selectedPromptKeys.has(item.promptKey) ? 'favorite-item selected' : 'favorite-item'}
+      >
+        <label className="favorite-item-select">
+          <input
+            type="checkbox"
+            aria-label={`${item.displayName}を練習対象に選択`}
+            checked={selectedPromptKeys.has(item.promptKey)}
+            onChange={() => onTogglePracticeSelection(item.promptKey)}
+          />
+          <span className="favorite-item-content">
+            <strong>★ {item.displayName}</strong>
+            <span>向き・比率を保存</span>
+          </span>
+        </label>
         <button
-          key={promptKey}
-          className={selectedPromptKey === promptKey ? 'favorite-item selected' : 'favorite-item'}
+          className="text-button danger favorite-item-delete"
           type="button"
-          aria-pressed={selectedPromptKey === promptKey}
-          onClick={() => onSelectFavorite(promptKey)}
+          aria-label={`${item.displayName}を削除`}
+          onClick={() => onDeleteFavorite(item)}
         >
-          <strong>★ {favorite.prompt.shape}</strong>
-          <span>向き・比率・光源を保存</span>
+          削除
         </button>
-      );
-    })}
-  </nav>;
+      </div>
+    ))}
+  </div>;
 }

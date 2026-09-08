@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import type { Settings } from '../settings/practice-settings';
 import { useSampleCanvas } from '../sample/use-sample-canvas';
 import { FavoriteEmptyState } from './favorite-empty-state';
 import { FavoriteList } from './favorite-list';
+import { createFavoriteListItems, type FavoriteListItem } from './favorite-list-item';
 import { FavoritePreview } from './favorite-preview';
 import type { Favorite } from './types';
 import { createPromptIdentity } from './prompt-identity';
@@ -13,8 +15,8 @@ export type FavoritesScreenProps = {
   selectedFavorite: Favorite | null;
   settings: Settings;
   onSelectFavorite: (promptKey: string) => void;
-  onPracticeFavorite: (favorite: Favorite) => void;
-  onDeleteFavorite: () => void;
+  onPracticeFavorites: (favorites: Favorite[]) => void;
+  onDeleteFavorite: (promptKey: string) => void;
   onStartPractice: () => void;
   onBack: () => void;
 };
@@ -24,21 +26,48 @@ export function FavoritesScreen({
   selectedFavorite,
   settings,
   onSelectFavorite,
-  onPracticeFavorite,
+  onPracticeFavorites,
   onDeleteFavorite,
   onStartPractice,
   onBack,
 }: FavoritesScreenProps) {
+  const [practiceSelection, setPracticeSelection] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const { canvasRef, renderError, retryRender } = useSampleCanvas({
     active: selectedFavorite !== null,
     prompt: selectedFavorite?.prompt,
     style: settings.sampleStyle,
   });
+  const favoriteItems = createFavoriteListItems(favorites);
+  const selectedPromptKey = selectedFavorite
+    ? createPromptIdentity(selectedFavorite.prompt)
+    : null;
+  const selectedItem = favoriteItems.find(({ promptKey }) => promptKey === selectedPromptKey)
+    ?? favoriteItems[0];
+  const selectedForPractice = favoriteItems
+    .filter(({ promptKey }) => practiceSelection.has(promptKey))
+    .map(({ favorite }) => favorite);
 
-  function deleteFavorite() {
-    if (window.confirm('選択中の立体をお気に入りから削除しますか？')) {
-      onDeleteFavorite();
-    }
+  function togglePracticeSelection(promptKey: string) {
+    onSelectFavorite(promptKey);
+    setPracticeSelection((current) => {
+      const next = new Set(current);
+      if (next.has(promptKey)) next.delete(promptKey);
+      else next.add(promptKey);
+      return next;
+    });
+  }
+
+  function deleteFavorite(item: FavoriteListItem) {
+    if (!window.confirm(`${item.displayName}をお気に入りから削除しますか？`)) return;
+
+    onDeleteFavorite(item.promptKey);
+    setPracticeSelection((current) => {
+      const next = new Set(current);
+      next.delete(item.promptKey);
+      return next;
+    });
   }
 
   return (
@@ -49,19 +78,29 @@ export function FavoritesScreen({
       </div>
       {selectedFavorite ? (
         <div className="favorite-layout">
-          <FavoriteList
-            favorites={favorites}
-            selectedPromptKey={createPromptIdentity(selectedFavorite.prompt)}
-            onSelectFavorite={onSelectFavorite}
-          />
+          <div className="favorite-list-column">
+            <FavoriteList
+              items={favoriteItems}
+              selectedPromptKeys={practiceSelection}
+              onTogglePracticeSelection={togglePracticeSelection}
+              onDeleteFavorite={deleteFavorite}
+            />
+            <button
+              className="button primary favorite-practice-button"
+              type="button"
+              disabled={selectedForPractice.length === 0}
+              onClick={() => onPracticeFavorites(selectedForPractice)}
+            >
+              選択した立体を現在の設定で練習（{selectedForPractice.length}件）
+            </button>
+          </div>
           <FavoritePreview
             favorite={selectedFavorite}
+            displayName={selectedItem.displayName}
             settings={settings}
             canvasRef={canvasRef}
             renderError={renderError}
             onRetryRender={retryRender}
-            onPractice={() => onPracticeFavorite(selectedFavorite)}
-            onDelete={deleteFavorite}
           />
         </div>
       ) : (

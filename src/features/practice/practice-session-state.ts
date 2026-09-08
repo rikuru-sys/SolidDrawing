@@ -16,7 +16,7 @@ export type PracticeSessionAction =
   | { type: 'validation-failed'; message: string }
   | { type: 'started'; snapshot: PracticeSessionSnapshot }
   | { type: 'retried'; settings: Settings; prompt: ShapePrompt }
-  | { type: 'favorite-started'; settings: Settings; prompt: ShapePrompt }
+  | { type: 'favorites-started'; settings: Settings; prompts: ShapePrompt[] }
   | { type: 'attempt-finished'; attempt: Attempt; complete: boolean }
   | { type: 'settings-updated'; settings: Settings }
   | { type: 'validation-cleared' };
@@ -57,11 +57,11 @@ export function practiceSessionReducer(
         prompts: [action.prompt],
         questionIndex: 0,
       };
-    case 'favorite-started':
+    case 'favorites-started':
       return {
         sessionSettings: action.settings,
         sessionSnapshot: null,
-        prompts: [action.prompt],
+        prompts: action.prompts,
         questionIndex: 0,
         attempts: [],
         validation: '',

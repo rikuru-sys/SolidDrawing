@@ -140,8 +140,8 @@ export default function Home() {
     setScreen('practice');
   }
 
-  function startFavoritePractice(favorite: Favorite) {
-    if (!session.actions.startFavorite(favorite.prompt)) return;
+  function startFavoritePractice(favorites: Favorite[]) {
+    if (!session.actions.startFavorite(favorites.map(({ prompt }) => prompt))) return;
     drawing.resetDrawing();
     setScreen('practice');
   }
@@ -249,8 +249,8 @@ export default function Home() {
               selectedFavorite={favorites.selectedFavorite}
               settings={settings}
               onSelectFavorite={favorites.selectFavorite}
-              onPracticeFavorite={startFavoritePractice}
-              onDeleteFavorite={favorites.deleteSelectedFavorite}
+              onPracticeFavorites={startFavoritePractice}
+              onDeleteFavorite={favorites.deleteFavorite}
               onStartPractice={() => startPractice()}
               onBack={() => setScreen('home')}
             />

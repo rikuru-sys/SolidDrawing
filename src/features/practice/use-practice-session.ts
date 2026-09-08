@@ -87,11 +87,12 @@ export function usePracticeSession({
     finishingRef.current = false;
   }, [resetTimer, settings, state.sessionSettings]);
 
-  const startFavoritePractice = useCallback((prompt: ShapePrompt) => {
+  const startFavoritePractice = useCallback((prompts: ShapePrompt[]) => {
+    if (prompts.length === 0) return false;
     const favoriteSettings = {
       ...settings,
-      shapes: [prompt.shape],
-      count: 1,
+      shapes: [...new Set(prompts.map((prompt) => prompt.shape))],
+      count: prompts.length,
     };
     const error = validatePracticeSettings(favoriteSettings);
     if (error) {
@@ -100,9 +101,9 @@ export function usePracticeSession({
     }
 
     dispatch({
-      type: 'favorite-started',
+      type: 'favorites-started',
       settings: favoriteSettings,
-      prompt: { ...prompt },
+      prompts: prompts.map((prompt) => ({ ...prompt })),
     });
     resetTimer(favoriteSettings.time);
     finishingRef.current = false;

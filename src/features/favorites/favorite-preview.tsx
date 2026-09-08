@@ -7,10 +7,9 @@ import type { Favorite } from './types';
 
 type FavoritePreviewProps = {
   favorite: Favorite;
+  displayName: string;
   settings: Settings;
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  onPractice: () => void;
-  onDelete: () => void;
   renderError: boolean;
   onRetryRender: () => void;
 };
@@ -23,10 +22,9 @@ function sampleStyleLabel(style: SampleStyle) {
 
 export function FavoritePreview({
   favorite,
+  displayName,
   settings,
   canvasRef,
-  onPractice,
-  onDelete,
   renderError,
   onRetryRender,
 }: FavoritePreviewProps) {
@@ -37,11 +35,11 @@ export function FavoritePreview({
 
   return <section className="favorite-preview-panel">
     <div className="favorite-preview-heading">
-      <div><p>保存した立体</p><h3>{prompt.shape}</h3></div>
+      <div><p>保存した立体</p><h3>{displayName}</h3></div>
       <small>向き・比率・光源を再現</small>
     </div>
     <div className="favorite-canvas-stage">
-      <canvas ref={canvasRef} className="favorite-canvas" aria-label={`お気に入りの${prompt.shape}`} />
+      <canvas ref={canvasRef} className="favorite-canvas" aria-label={`お気に入りの${displayName}`} />
       {renderError && <SampleRenderError onRetry={onRetryRender} />}
       {settings.sampleStyle === 'shadow' && selectedLight && (
         <span className="light-direction-badge">
@@ -57,8 +55,7 @@ export function FavoritePreview({
       <span><small>制限時間</small><strong>{settings.time === null ? '指定なし' : `${settings.time}秒`}</strong></span>
     </div>
     <div className="favorite-actions">
-      <button className="button primary" type="button" onClick={onPractice}>この立体を現在の設定で練習</button>
-      <button className="text-button danger" type="button" onClick={onDelete}>お気に入りから削除</button>
+      <p>一覧のチェックマークで、練習する立体を選択してください。</p>
     </div>
   </section>;
 }
