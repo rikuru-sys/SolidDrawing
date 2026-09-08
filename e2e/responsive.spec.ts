@@ -40,6 +40,7 @@ test('スマートフォンの比較画像に十分な高さを確保する', as
   await app.startPractice();
   await app.drawLine();
   await app.finishCanvasPractice();
+  await page.getByRole('button', { name: '横並び' }).click();
 
   const panes = page.locator('.comparison-panes:not(.sample-only-result) .compare-pane > div');
   await expect(panes).toHaveCount(2);

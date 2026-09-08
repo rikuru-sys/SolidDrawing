@@ -5,7 +5,6 @@ import {
   useReducer,
   useRef,
 } from 'react';
-import type { Favorite } from '../favorites/types';
 import type { ShapePrompt } from '../../domain/prompt/types';
 import type { Attempt } from '../results/types';
 import type { Settings } from '../settings/practice-settings';
@@ -88,16 +87,27 @@ export function usePracticeSession({
     finishingRef.current = false;
   }, [resetTimer, settings, state.sessionSettings]);
 
-  const startFavoritePractice = useCallback((favorite: Favorite) => {
-    const favoriteSettings = { ...favorite.savedPractice.settings, count: 1 };
+  const startFavoritePractice = useCallback((prompt: ShapePrompt) => {
+    const favoriteSettings = {
+      ...settings,
+      shapes: [prompt.shape],
+      count: 1,
+    };
+    const error = validatePracticeSettings(favoriteSettings);
+    if (error) {
+      dispatch({ type: 'validation-failed', message: error });
+      return false;
+    }
+
     dispatch({
       type: 'favorite-started',
       settings: favoriteSettings,
-      prompt: { ...favorite.sample.prompt },
+      prompt: { ...prompt },
     });
     resetTimer(favoriteSettings.time);
     finishingRef.current = false;
-  }, [resetTimer]);
+    return true;
+  }, [resetTimer, settings]);
 
   const tryStartFinishing = useCallback(() => {
     if (finishingRef.current) return false;

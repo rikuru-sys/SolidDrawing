@@ -1,12 +1,13 @@
 import type { RefObject } from 'react';
 import { practiceModeDetails } from '../settings/practice-mode';
-import type { SampleStyle } from '../settings/practice-settings';
+import type { SampleStyle, Settings } from '../settings/practice-settings';
 import { LIGHT_DIRECTION_OPTIONS } from '../settings/settings-options';
 import { SampleRenderError } from '../sample/sample-render-error';
 import type { Favorite } from './types';
 
 type FavoritePreviewProps = {
   favorite: Favorite;
+  settings: Settings;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   onPractice: () => void;
   onDelete: () => void;
@@ -22,22 +23,22 @@ function sampleStyleLabel(style: SampleStyle) {
 
 export function FavoritePreview({
   favorite,
+  settings,
   canvasRef,
   onPractice,
   onDelete,
   renderError,
   onRetryRender,
 }: FavoritePreviewProps) {
-  const prompt = favorite.sample.prompt;
-  const settings = favorite.savedPractice.settings;
+  const prompt = favorite.prompt;
   const selectedLight = LIGHT_DIRECTION_OPTIONS.find(
     ({ value }) => value === prompt.lightDirection,
   );
 
   return <section className="favorite-preview-panel">
     <div className="favorite-preview-heading">
-      <div><p>保存した見本</p><h3>{prompt.shape}</h3></div>
-      <small>{new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date(favorite.createdAt))}に追加</small>
+      <div><p>保存した立体</p><h3>{prompt.shape}</h3></div>
+      <small>向き・比率・光源を再現</small>
     </div>
     <div className="favorite-canvas-stage">
       <canvas ref={canvasRef} className="favorite-canvas" aria-label={`お気に入りの${prompt.shape}`} />
@@ -56,7 +57,7 @@ export function FavoritePreview({
       <span><small>制限時間</small><strong>{settings.time === null ? '指定なし' : `${settings.time}秒`}</strong></span>
     </div>
     <div className="favorite-actions">
-      <button className="button primary" type="button" onClick={onPractice}>この見本でもう一度</button>
+      <button className="button primary" type="button" onClick={onPractice}>この立体を現在の設定で練習</button>
       <button className="text-button danger" type="button" onClick={onDelete}>お気に入りから削除</button>
     </div>
   </section>;

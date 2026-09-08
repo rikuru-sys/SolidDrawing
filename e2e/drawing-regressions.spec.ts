@@ -55,6 +55,7 @@ test('描画中に別の指で触れて離しても最初の指の線だけを�
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
   await app.finishCanvasPractice();
+  await page.getByRole('button', { name: '横並び' }).click();
   const paths = await page.getByAltText('立方体を描いた結果', { exact: true }).evaluate((image: HTMLImageElement) => {
     const svg = decodeURIComponent(image.src.slice(image.src.indexOf(',') + 1));
     return Array.from(new DOMParser().parseFromString(svg, 'image/svg+xml').querySelectorAll('path'))

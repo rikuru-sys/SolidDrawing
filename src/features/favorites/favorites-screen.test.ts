@@ -1,33 +1,27 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import type { ShapePrompt } from '../../domain/prompt/types';
 import { freshDefaultSettings } from '../settings/practice-settings';
 import { FavoritesScreen, type FavoritesScreenProps } from './favorites-screen';
-import { createPromptIdentity } from './prompt-identity';
-import { FAVORITE_SNAPSHOT_VERSION, type Favorite } from './types';
+import type { Favorite } from './types';
 
-function favorite(overrides: Partial<Favorite> = {}): Favorite {
-  const prompt: Favorite['sample']['prompt'] = {
-    id: 'prompt-1',
-    shape: '立方体',
-    widthScale: 1,
-    heightScale: 1,
-    depthScale: 1,
-    cameraAzimuth: 0.4,
-    cameraElevation: 0.3,
-    objectRotationX: 0,
-    objectRotationY: 0,
-    objectRotationZ: 0,
-    lightDirection: 'top-left',
-  };
+function favorite(overrides: Partial<ShapePrompt> = {}): Favorite {
   return {
-    id: 'favorite-1',
-    snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
-    sample: { promptKey: createPromptIdentity(prompt), prompt },
-    savedPractice: { settings: freshDefaultSettings() },
-    createdWithAppVersion: '2026.09.05.1',
-    createdAt: new Date('2026-08-30T00:00:00+09:00').getTime(),
-    ...overrides,
+    prompt: {
+      id: 'prompt-1',
+      shape: '立方体',
+      widthScale: 1,
+      heightScale: 1,
+      depthScale: 1,
+      cameraAzimuth: 0.4,
+      cameraElevation: 0.3,
+      objectRotationX: 0,
+      objectRotationY: 0,
+      objectRotationZ: 0,
+      lightDirection: 'top-left',
+      ...overrides,
+    },
   };
 }
 
@@ -36,6 +30,7 @@ function renderFavorites(overrides: Partial<FavoritesScreenProps> = {}) {
   const props: FavoritesScreenProps = {
     favorites: [selected],
     selectedFavorite: selected,
+    settings: freshDefaultSettings(),
     onSelectFavorite: () => undefined,
     onPracticeFavorite: () => undefined,
     onDeleteFavorite: () => undefined,
@@ -47,7 +42,7 @@ function renderFavorites(overrides: Partial<FavoritesScreenProps> = {}) {
 }
 
 describe('FavoritesScreen', () => {
-  it('renders the empty state and practice action', () => {
+  it('空の案内と練習開始操作を表示する', () => {
     const html = renderFavorites({ favorites: [], selectedFavorite: null });
 
     expect(html).toContain('お気に入りはまだありません');
@@ -55,54 +50,43 @@ describe('FavoritesScreen', () => {
     expect(html).not.toContain('favorite-preview-panel');
   });
 
-  it('renders the selected favorite, its settings, and actions', () => {
+  it('向き・比率・光源を保存した立体とプレビューを表示する', () => {
     const selected = favorite();
-    const second = favorite({
-      id: 'favorite-2',
-      sample: {
-        promptKey: 'second',
-        prompt: { ...selected.sample.prompt, id: 'prompt-2', shape: '円柱' },
-      },
+    const cylinder = favorite({ id: 'prompt-2', shape: '円柱', objectRotationY: 0.8 });
+    const html = renderFavorites({
+      favorites: [selected, cylinder],
+      selectedFavorite: selected,
     });
-    const html = renderFavorites({ favorites: [selected, second], selectedFavorite: selected });
 
     expect(html).toContain('★ 立方体');
     expect(html).toContain('★ 円柱');
+    expect(html).toContain('向き・比率・光源を保存');
     expect(html).toContain('aria-label="お気に入りの立方体"');
-    expect(html).toContain('輪郭線と薄い陰影');
-    expect(html).toContain('この見本でもう一度');
+    expect(html).toContain('この立体を現在の設定で練習');
     expect(html).toContain('お気に入りから削除');
   });
 
-  it('renders sample-only, hidden-partway, shadow, and light settings', () => {
-    const selected = favorite();
-    const shadowFavorite = favorite({
-      sample: {
-        promptKey: 'shadow',
-        prompt: {
-          ...selected.sample.prompt,
-          shape: '三角錐',
-          lightDirection: 'bottom-right',
-        },
-      },
-      savedPractice: {
-        settings: {
-          ...freshDefaultSettings(),
-          difficulty: 'hard',
-          practiceMode: 'sample-only',
-          sampleStyle: 'shadow',
-          sampleVisibility: 'partway',
-          time: null,
-        },
-      },
+  it('保存した光源と現在の練習設定を表示する', () => {
+    const selected = favorite({
+      shape: '三角錐',
+      lightDirection: 'bottom-right',
     });
     const html = renderFavorites({
-      favorites: [shadowFavorite],
-      selectedFavorite: shadowFavorite,
+      favorites: [selected],
+      selectedFavorite: selected,
+      settings: {
+        ...freshDefaultSettings(),
+        difficulty: 'hard',
+        practiceMode: 'sample-only',
+        sampleStyle: 'shadow',
+        sampleVisibility: 'partway',
+        time: null,
+      },
     });
 
-    expect(html).toContain('難しい・見本のみ・時間指定なし');
     expect(html).toContain('光源 右下');
+    expect(html).toContain('難しい');
+    expect(html).toContain('見本のみ');
     expect(html).toContain('輪郭線と影');
     expect(html).toContain('途中で隠す');
     expect(html).toContain('指定なし');

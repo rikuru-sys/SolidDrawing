@@ -93,7 +93,7 @@ export default function Home() {
     evaluatesShadow,
     onReadyPromptChange: setReadyPrompt,
   });
-  const favorites = useFavorites(practiceSettings);
+  const favorites = useFavorites();
 
   const showResults = useCallback(() => {
     setScreen('results');
@@ -141,7 +141,7 @@ export default function Home() {
   }
 
   function startFavoritePractice(favorite: Favorite) {
-    session.actions.startFavorite(favorite);
+    if (!session.actions.startFavorite(favorite.prompt)) return;
     drawing.resetDrawing();
     setScreen('practice');
   }
@@ -247,6 +247,7 @@ export default function Home() {
             <FavoritesScreen
               favorites={favorites.favorites}
               selectedFavorite={favorites.selectedFavorite}
+              settings={settings}
               onSelectFavorite={favorites.selectFavorite}
               onPracticeFavorite={startFavoritePractice}
               onDeleteFavorite={favorites.deleteSelectedFavorite}

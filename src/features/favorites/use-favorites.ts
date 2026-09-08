@@ -1,77 +1,55 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { APP_VERSION } from '../../config/app-version';
 import type { Attempt } from '../results/types';
-import type { Settings } from '../settings/practice-settings';
 import { useStoredState } from '../../shared/storage/use-stored-state';
 import { readStoredFavorites, saveStoredFavorites } from './favorite-storage';
 import { createPromptIdentity } from './prompt-identity';
-import { FAVORITE_SNAPSHOT_VERSION, type Favorite } from './types';
-
-let fallbackFavoriteId = 0;
-
-function createFavoriteId() {
-  if (globalThis.crypto?.randomUUID) return `favorite-${globalThis.crypto.randomUUID()}`;
-  fallbackFavoriteId += 1;
-  return `favorite-${Date.now()}-${fallbackFavoriteId}`;
-}
-
-function createFavorite(attempt: Attempt, settings: Settings): Favorite {
-  return {
-    id: createFavoriteId(),
-    snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
-    sample: {
-      promptKey: createPromptIdentity(attempt.prompt),
-      prompt: { ...attempt.prompt },
-    },
-    savedPractice: {
-      settings: {
-        ...settings,
-        shapes: [...settings.shapes],
-        lightDirections: [...settings.lightDirections],
-      },
-    },
-    createdWithAppVersion: APP_VERSION,
-    createdAt: Date.now(),
-  };
-}
 
 /** お気に入りの保存、選択、追加、削除を管理する。 */
-export function useFavorites(practiceSettings: Settings) {
+export function useFavorites() {
   const [favorites, setFavorites] = useStoredState(
     readStoredFavorites,
     saveStoredFavorites,
   );
-  const [selectedFavoriteId, setSelectedFavoriteId] = useState<string | null>(null);
-  const selectedFavorite = favorites.find(({ id }) => id === selectedFavoriteId)
+  const [selectedPromptKey, setSelectedPromptKey] = useState<string | null>(null);
+  const selectedFavorite = favorites.find(({ prompt }) => (
+    createPromptIdentity(prompt) === selectedPromptKey
+  ))
     ?? favorites[0]
     ?? null;
 
   const isFavorite = useCallback((attempt: Attempt) => (
-    favorites.some(({ sample }) => sample.promptKey === createPromptIdentity(attempt.prompt))
+    favorites.some(({ prompt }) => (
+      createPromptIdentity(prompt) === createPromptIdentity(attempt.prompt)
+    ))
   ), [favorites]);
 
   const toggleFavorite = useCallback((attempt: Attempt) => {
     setFavorites((current) => {
       const promptKey = createPromptIdentity(attempt.prompt);
-      const exists = current.some((favorite) => favorite.sample.promptKey === promptKey);
+      const exists = current.some((favorite) => (
+        createPromptIdentity(favorite.prompt) === promptKey
+      ));
       return exists
-        ? current.filter((favorite) => favorite.sample.promptKey !== promptKey)
-        : [createFavorite(attempt, practiceSettings), ...current];
+        ? current.filter((favorite) => createPromptIdentity(favorite.prompt) !== promptKey)
+        : [{ prompt: { ...attempt.prompt } }, ...current];
     });
-  }, [practiceSettings, setFavorites]);
+  }, [setFavorites]);
 
   const deleteSelectedFavorite = useCallback(() => {
     if (!selectedFavorite) return;
-    setFavorites((current) => current.filter(({ id }) => id !== selectedFavorite.id));
-    setSelectedFavoriteId(null);
+    const selectedKey = createPromptIdentity(selectedFavorite.prompt);
+    setFavorites((current) => current.filter(({ prompt }) => (
+      createPromptIdentity(prompt) !== selectedKey
+    )));
+    setSelectedPromptKey(null);
   }, [selectedFavorite, setFavorites]);
 
   return {
     favorites,
     selectedFavorite,
-    selectFavorite: setSelectedFavoriteId,
+    selectFavorite: setSelectedPromptKey,
     isFavorite,
     toggleFavorite,
     deleteSelectedFavorite,

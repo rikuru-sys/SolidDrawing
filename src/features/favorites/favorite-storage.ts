@@ -5,40 +5,53 @@ import type {
   ShapePrompt,
 } from '../../domain/prompt/types';
 import {
-  ALL_LIGHT_DIRECTIONS,
-  ALL_SHAPES,
-} from '../settings/practice-settings';
-import { normalizeStoredSettings } from '../settings/practice-settings-storage';
-import {
   browserLocalStorage,
   readJsonStorage,
   writeJsonStorage,
   type JsonStorage,
 } from '../../shared/storage/json-storage';
 import {
-  FAVORITE_SNAPSHOT_VERSION,
-  type Favorite,
-} from './types';
+  ALL_LIGHT_DIRECTIONS,
+  ALL_SHAPES,
+} from '../settings/practice-settings';
 import { createPromptIdentity } from './prompt-identity';
+import type { Favorite } from './types';
 
 export const FAVORITES_STORAGE_KEY = 'solid-drawing-favorites';
 export const MAX_STORED_FAVORITES = 100;
-export const FAVORITES_SCHEMA_VERSION = 2 as const;
+export const FAVORITES_SCHEMA_VERSION = 3 as const;
 
 type StoredFavorites = {
   schemaVersion: typeof FAVORITES_SCHEMA_VERSION;
   items: Favorite[];
 };
 
-function storedFavoriteItems(parsed: unknown) {
-  if (Array.isArray(parsed)) return parsed;
+function storedFavoriteItems(parsed: unknown): unknown[] {
   if (!parsed || typeof parsed !== 'object') return [];
   const record = parsed as Record<string, unknown>;
-  const supportedVersion = record.schemaVersion === 1
-    || record.schemaVersion === FAVORITES_SCHEMA_VERSION;
-  return supportedVersion && Array.isArray(record.items) ? record.items : [];
+  return record.schemaVersion === FAVORITES_SCHEMA_VERSION && Array.isArray(record.items)
+    ? record.items
+    : [];
 }
 
+function parseGeneration(value: unknown): PromptGeneration | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const generation = value as Record<string, unknown>;
+  if (typeof generation.seed !== 'number'
+    || !Number.isFinite(generation.seed)
+    || generation.version !== 1
+    || typeof generation.index !== 'number'
+    || !Number.isInteger(generation.index)) {
+    return undefined;
+  }
+  return {
+    seed: generation.seed >>> 0,
+    version: 1,
+    index: generation.index,
+  };
+}
+
+/** LocalStorageから読み込んだ値を、安全に利用できる立体情報へ変換する。 */
 export function parseStoredPrompt(value: unknown): ShapePrompt | null {
   if (!value || typeof value !== 'object') return null;
   const prompt = value as Record<string, unknown>;
@@ -52,29 +65,19 @@ export function parseStoredPrompt(value: unknown): ShapePrompt | null {
     'objectRotationY',
     'objectRotationZ',
   ] as const;
+
   if (typeof prompt.id !== 'string'
     || typeof prompt.shape !== 'string'
     || !ALL_SHAPES.includes(prompt.shape as ShapeName)
     || typeof prompt.lightDirection !== 'string'
     || !ALL_LIGHT_DIRECTIONS.includes(prompt.lightDirection as LightDirection)
-    || !numericKeys.every((key) => typeof prompt[key] === 'number' && Number.isFinite(prompt[key]))) {
+    || !numericKeys.every((key) => (
+      typeof prompt[key] === 'number' && Number.isFinite(prompt[key])
+    ))) {
     return null;
   }
-  const storedGeneration = prompt.generation;
-  const generation: PromptGeneration | undefined = storedGeneration
-    && typeof storedGeneration === 'object'
-    && typeof (storedGeneration as Record<string, unknown>).seed === 'number'
-    && Number.isFinite((storedGeneration as Record<string, unknown>).seed)
-    && (storedGeneration as Record<string, unknown>).version === 1
-    && typeof (storedGeneration as Record<string, unknown>).index === 'number'
-    && Number.isInteger((storedGeneration as Record<string, unknown>).index)
-    ? {
-      seed: ((storedGeneration as Record<string, unknown>).seed as number) >>> 0,
-      version: 1,
-      index: (storedGeneration as Record<string, unknown>).index as number,
-    }
-    : undefined;
 
+  const generation = parseGeneration(prompt.generation);
   return {
     id: prompt.id,
     shape: prompt.shape as ShapeName,
@@ -93,45 +96,22 @@ export function parseStoredPrompt(value: unknown): ShapePrompt | null {
 
 export function readStoredFavorites(
   storage: JsonStorage | null = browserLocalStorage(),
-): Favorite[] {
-  return readJsonStorage({
+) {
+  return readJsonStorage<Favorite[]>({
     storage,
     key: FAVORITES_STORAGE_KEY,
     fallback: () => [],
     parse: (parsed) => {
-      const storedItems = storedFavoriteItems(parsed);
-
-      return storedItems.flatMap((value): Favorite[] => {
+      const identities = new Set<string>();
+      return storedFavoriteItems(parsed).flatMap((value): Favorite[] => {
         if (!value || typeof value !== 'object') return [];
-        const item = value as Record<string, unknown>;
-        if (item.snapshotVersion !== undefined
-          && item.snapshotVersion !== FAVORITE_SNAPSHOT_VERSION) return [];
-        const storedSample = item.sample && typeof item.sample === 'object'
-          ? item.sample as Record<string, unknown>
-          : item;
-        const storedPractice = item.savedPractice && typeof item.savedPractice === 'object'
-          ? item.savedPractice as Record<string, unknown>
-          : item;
-        const prompt = parseStoredPrompt(storedSample.prompt);
-        const storedSettings = storedPractice.settings;
-        if (!prompt || !storedSettings || typeof storedSettings !== 'object') return [];
-        return [{
-          id: typeof item.id === 'string' ? item.id : `favorite-${prompt.id}`,
-          snapshotVersion: FAVORITE_SNAPSHOT_VERSION,
-          sample: {
-            promptKey: createPromptIdentity(prompt),
-            prompt,
-          },
-          savedPractice: {
-            settings: normalizeStoredSettings(storedSettings as Record<string, unknown>),
-          },
-          createdWithAppVersion: typeof item.createdWithAppVersion === 'string'
-            ? item.createdWithAppVersion
-            : 'unknown',
-          createdAt: typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)
-            ? item.createdAt
-            : Date.now(),
-        }];
+        const prompt = parseStoredPrompt((value as Record<string, unknown>).prompt);
+        if (!prompt) return [];
+
+        const identity = createPromptIdentity(prompt);
+        if (identities.has(identity)) return [];
+        identities.add(identity);
+        return [{ prompt }];
       }).slice(0, MAX_STORED_FAVORITES);
     },
   });
@@ -141,13 +121,9 @@ export function saveStoredFavorites(
   favorites: Favorite[],
   storage: JsonStorage | null = browserLocalStorage(),
 ) {
-  const stored: StoredFavorites = {
+  const payload: StoredFavorites = {
     schemaVersion: FAVORITES_SCHEMA_VERSION,
     items: favorites.slice(0, MAX_STORED_FAVORITES),
   };
-  return writeJsonStorage(
-    storage,
-    FAVORITES_STORAGE_KEY,
-    stored,
-  );
+  return writeJsonStorage(storage, FAVORITES_STORAGE_KEY, payload);
 }

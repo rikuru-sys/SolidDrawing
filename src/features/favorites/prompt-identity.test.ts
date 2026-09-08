@@ -21,18 +21,19 @@ function prompt(overrides: Partial<ShapePrompt> = {}): ShapePrompt {
 }
 
 describe('prompt identity', () => {
-  it('再挑戦で出題IDが変わっても同じ見本として判定する', () => {
+  it('再挑戦で出題IDが変わっても同じ立体として判定する', () => {
     const original = prompt();
     const retry = prompt({ id: `${original.id}-retry-100` });
 
     expect(createPromptIdentity(retry)).toBe(createPromptIdentity(original));
   });
 
-  it('同じシード由来のIDでも表示結果が違えば別の見本として判定する', () => {
+  it('回転や光源などの表示結果が違えば別の立体として判定する', () => {
     const original = prompt();
     const rotated = prompt({ objectRotationY: 0.8 });
+    const relit = prompt({ lightDirection: 'bottom-right' });
 
-    expect(rotated.id).toBe(original.id);
     expect(createPromptIdentity(rotated)).not.toBe(createPromptIdentity(original));
+    expect(createPromptIdentity(relit)).not.toBe(createPromptIdentity(original));
   });
 });

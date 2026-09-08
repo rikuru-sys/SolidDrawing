@@ -64,6 +64,31 @@ describe('practice session state', () => {
     expect(state.attempts).toEqual([]);
   });
 
+  it('お気に入りでは保存した立体情報を変更せず現在の設定で1問開始する', () => {
+    const savedPrompt = {
+      ...prompt('favorite'),
+      widthScale: 1.2,
+      objectRotationY: 0.75,
+      lightDirection: 'bottom-right' as const,
+    };
+    const currentSettings = {
+      ...freshDefaultSettings(),
+      shapes: ['立方体'] as const,
+      count: 1,
+      time: 45,
+    };
+    const state = practiceSessionReducer(createInitialPracticeSessionState(), {
+      type: 'favorite-started',
+      settings: { ...currentSettings, shapes: [...currentSettings.shapes] },
+      prompt: savedPrompt,
+    });
+
+    expect(state.prompts).toEqual([savedPrompt]);
+    expect(state.sessionSettings?.time).toBe(45);
+    expect(state.sessionSettings?.count).toBe(1);
+    expect(state.sessionSnapshot).toBeNull();
+  });
+
   it('回答完了時に結果を追加して次の問題へ進む', () => {
     const started = practiceSessionReducer(createInitialPracticeSessionState(), {
       type: 'started',

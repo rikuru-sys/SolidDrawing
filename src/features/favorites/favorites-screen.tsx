@@ -1,15 +1,18 @@
 'use client';
 
+import type { Settings } from '../settings/practice-settings';
 import { useSampleCanvas } from '../sample/use-sample-canvas';
 import { FavoriteEmptyState } from './favorite-empty-state';
 import { FavoriteList } from './favorite-list';
 import { FavoritePreview } from './favorite-preview';
 import type { Favorite } from './types';
+import { createPromptIdentity } from './prompt-identity';
 
 export type FavoritesScreenProps = {
   favorites: Favorite[];
   selectedFavorite: Favorite | null;
-  onSelectFavorite: (id: string) => void;
+  settings: Settings;
+  onSelectFavorite: (promptKey: string) => void;
   onPracticeFavorite: (favorite: Favorite) => void;
   onDeleteFavorite: () => void;
   onStartPractice: () => void;
@@ -19,6 +22,7 @@ export type FavoritesScreenProps = {
 export function FavoritesScreen({
   favorites,
   selectedFavorite,
+  settings,
   onSelectFavorite,
   onPracticeFavorite,
   onDeleteFavorite,
@@ -27,12 +31,12 @@ export function FavoritesScreen({
 }: FavoritesScreenProps) {
   const { canvasRef, renderError, retryRender } = useSampleCanvas({
     active: selectedFavorite !== null,
-    prompt: selectedFavorite?.sample.prompt,
-    style: selectedFavorite?.savedPractice.settings.sampleStyle,
+    prompt: selectedFavorite?.prompt,
+    style: settings.sampleStyle,
   });
 
   function deleteFavorite() {
-    if (window.confirm('選択中の見本をお気に入りから削除しますか？')) {
+    if (window.confirm('選択中の立体をお気に入りから削除しますか？')) {
       onDeleteFavorite();
     }
   }
@@ -40,18 +44,19 @@ export function FavoritesScreen({
   return (
     <section className="favorites-section">
       <div className="section-heading">
-        <div><h1>お気に入り</h1><p>保存した見本を確認し、同じ立体でもう一度練習できます。</p></div>
+        <div><h1>お気に入り</h1><p>立体の向き・比率・光源を保存し、現在の練習設定で繰り返し練習できます。</p></div>
         <button className="text-button" type="button" onClick={onBack}>トップへ戻る</button>
       </div>
       {selectedFavorite ? (
         <div className="favorite-layout">
           <FavoriteList
             favorites={favorites}
-            selectedFavoriteId={selectedFavorite.id}
+            selectedPromptKey={createPromptIdentity(selectedFavorite.prompt)}
             onSelectFavorite={onSelectFavorite}
           />
           <FavoritePreview
             favorite={selectedFavorite}
+            settings={settings}
             canvasRef={canvasRef}
             renderError={renderError}
             onRetryRender={retryRender}
