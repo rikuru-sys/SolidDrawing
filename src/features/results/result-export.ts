@@ -52,12 +52,20 @@ export async function downloadAttemptComparison(options: {
 
 export async function downloadAllAttemptResults(options: {
   attempts: Attempt[];
+  mode?: ComparisonMode;
+  overlayOpacity?: number;
   date?: Date;
 }) {
-  const { attempts, date = new Date() } = options;
-  const output = await composeAllAttemptResults(attempts);
+  const {
+    attempts,
+    mode = 'side-by-side',
+    overlayOpacity = 0.72,
+    date = new Date(),
+  } = options;
+  const output = await composeAllAttemptResults(attempts, mode, overlayOpacity);
   if (!output) throw new Error('全結果画像を作成できませんでした。');
   downloadDataUrl(output.toDataURL('image/png'), resultFileName('all', {
+    mode,
     date,
   }));
 }

@@ -25,7 +25,7 @@ export type ResultsScreenProps = {
 
 export function ResultsScreen(props: ResultsScreenProps) {
   const [selectedResult, setSelectedResult] = useState(() => Math.max(0, props.attempts.length - 1));
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('side-by-side');
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('overlay');
   const [overlayOpacity, setOverlayOpacity] = useState(0.72);
   const [exportStatus, setExportStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const currentResult = props.attempts[selectedResult];
@@ -57,6 +57,14 @@ export function ResultsScreen(props: ResultsScreenProps) {
     }));
   }
 
+  function saveAllOverlayResults() {
+    void runExport(() => downloadAllAttemptResults({
+      attempts: props.attempts,
+      mode: 'overlay',
+      overlayOpacity,
+    }));
+  }
+
   const exportMessage = exportStatus === 'saving'
     ? '画像を作成しています…'
     : exportStatus === 'saved'
@@ -85,6 +93,7 @@ export function ResultsScreen(props: ResultsScreenProps) {
           onSaveComparison={saveComparison}
           onSaveDrawing={() => void runExport(() => downloadAttemptDrawing(currentResult, selectedResult))}
           onSaveAllResults={saveAllResults}
+          onSaveAllOverlayResults={saveAllOverlayResults}
           saving={exportStatus === 'saving'}
         />
         {exportMessage && (

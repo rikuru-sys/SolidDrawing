@@ -114,7 +114,11 @@ export async function composeAttemptComparison(options: { attempt: Attempt; inde
   return output;
 }
 
-export async function composeAllAttemptResults(attempts: Attempt[]) {
+export async function composeAllAttemptResults(
+  attempts: Attempt[],
+  mode: ComparisonMode = 'side-by-side',
+  overlayOpacity = 0.72,
+) {
   if (!attempts.length) return null;
   const output = document.createElement('canvas');
   const outerPadding = 40;
@@ -146,9 +150,11 @@ export async function composeAllAttemptResults(attempts: Attempt[]) {
     const cardPadding = 18;
     const paneGap = 14;
     const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
+    const fullPaneWidth = cardWidth - cardPadding * 2;
     const imageTop = top + 104;
     const imageHeight = 292;
-    const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(attempt.drawingSvg)]);
+    const drawingSource = mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg;
+    const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(drawingSource)]);
     context.fillStyle = '#fffef9';
     context.fillRect(left, top, cardWidth, cardHeight);
     context.strokeStyle = '#d9d6cc';
@@ -165,13 +171,25 @@ export async function composeAllAttemptResults(attempts: Attempt[]) {
     context.font = '15px sans-serif';
     context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
     context.font = '16px sans-serif';
-    context.fillText('見本', left + cardPadding, top + 88);
-    context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
-    context.fillStyle = '#ffffff';
-    context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
-    context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-    drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
-    drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+    if (mode === 'overlay') {
+      context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 88);
+      context.fillStyle = '#ffffff';
+      context.fillRect(left + cardPadding, imageTop, fullPaneWidth, imageHeight);
+      drawImageContained(context, sample, left + cardPadding, imageTop, fullPaneWidth, imageHeight);
+      context.save();
+      context.globalAlpha = overlayOpacity;
+      context.globalCompositeOperation = 'multiply';
+      drawImageContained(context, drawing, left + cardPadding, imageTop, fullPaneWidth, imageHeight);
+      context.restore();
+    } else {
+      context.fillText('見本', left + cardPadding, top + 88);
+      context.fillText('描いたもの', left + cardPadding + paneWidth + paneGap, top + 88);
+      context.fillStyle = '#ffffff';
+      context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
+      context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
+      drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+    }
   }
   return output;
 }

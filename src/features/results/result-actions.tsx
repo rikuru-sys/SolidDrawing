@@ -13,6 +13,7 @@ type Props = {
   onSaveComparison: () => void;
   onSaveDrawing: () => void;
   onSaveAllResults: () => void;
+  onSaveAllOverlayResults: () => void;
   saving: boolean;
 };
 
@@ -26,6 +27,7 @@ export function ResultActions(props: Props) {
           <button className="button secondary compact" type="button" disabled={props.saving} onClick={props.onSaveComparison}>{props.comparisonMode === 'overlay' ? '重ね合わせ画像を保存' : '比較画像を保存'}</button>
           <button className="button secondary compact" type="button" disabled={props.saving} onClick={props.onSaveDrawing}>描画だけ保存</button>
           <button className="button primary compact" type="button" disabled={props.saving} onClick={props.onSaveAllResults}>全結果を保存</button>
+          <button className="button primary compact" type="button" disabled={props.saving} onClick={props.onSaveAllOverlayResults}>全結果を重ね合わせで保存</button>
         </>
         : <button className="button primary compact" type="button" disabled={props.saving} onClick={props.onSaveSample}>見本画像を保存</button>}
     </div>

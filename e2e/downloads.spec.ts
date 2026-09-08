@@ -24,6 +24,7 @@ test('描画・比較・重ね合わせ・全結果をPNGで保存できる', as
     /^立体ドローイング_描画_1_立方体_.+\.png$/,
   );
 
+  await page.getByRole('button', { name: '横並び' }).click();
   const comparison = await downloadByClick(
     page,
     page.getByRole('button', { name: '比較画像を保存' }),
@@ -47,6 +48,14 @@ test('描画・比較・重ね合わせ・全結果をPNGで保存できる', as
   );
   expect(allResults.suggestedFilename()).toMatch(
     /^立体ドローイング_全結果_.+\.png$/,
+  );
+
+  const allOverlayResults = await downloadByClick(
+    page,
+    page.getByRole('button', { name: '全結果を重ね合わせで保存' }),
+  );
+  expect(allOverlayResults.suggestedFilename()).toMatch(
+    /^立体ドローイング_全結果_重ね合わせ_.+\.png$/,
   );
 });
 

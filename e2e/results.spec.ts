@@ -8,6 +8,8 @@ test('結果画面で横並びと重ね合わせを切り替えられる', async
 
   const sideBySide = page.getByRole('button', { name: '横並び' });
   const overlay = page.getByRole('button', { name: '重ね合わせ', exact: true });
+  await expect(overlay).toHaveAttribute('aria-pressed', 'true');
+  await sideBySide.click();
   await expect(sideBySide).toHaveAttribute('aria-pressed', 'true');
   await overlay.click();
   await expect(overlay).toHaveAttribute('aria-pressed', 'true');

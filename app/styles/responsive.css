@@ -197,6 +197,7 @@
   .favorite-list { grid-template-columns: repeat(3, 1fr); }
   .comparison-panes { grid-template-columns: 1fr; }
   .compare-pane > div, .overlay-stage { height: clamp(260px, 78vw, 380px); min-height: 260px; }
+  .comparison-panes:not(.sample-only-result) .compare-pane img { transform: scale(1.08); }
   .history-tools { margin-left: 0; }
   .comparison-footer { align-items: flex-start; flex-direction: column; }
   .evaluation-summary { grid-template-columns: auto minmax(0, 1fr); }

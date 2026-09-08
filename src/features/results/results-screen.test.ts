@@ -58,7 +58,7 @@ function renderResults(overrides: Partial<ResultsScreenProps> = {}) {
 }
 
 describe('ResultsScreen', () => {
-  it('renders side-by-side comparison, evaluation, duration, and seed', () => {
+  it('renders overlay comparison by default with evaluation, duration, and seed', () => {
     const html = renderResults();
 
     expect(html).toContain('練習結果');
@@ -68,7 +68,9 @@ describe('ResultsScreen', () => {
     expect(html).toContain('輪郭</dt><dd>80');
     expect(html).toContain('描画だけ保存');
     expect(html).toContain('トップへ戻る');
-    expect(html).toContain('src="drawing.svg"');
+    expect(html).toContain('中心を合わせて見本と描画を比較');
+    expect(html).toContain('src="aligned.svg"');
+    expect(html).toContain('重ね合わせ画像を保存');
   });
 
   it('renders the aligned SVG and opacity control in overlay mode', () => {
@@ -92,6 +94,7 @@ describe('ResultsScreen', () => {
       onSaveComparison: () => undefined,
       onSaveDrawing: () => undefined,
       onSaveAllResults: () => undefined,
+      onSaveAllOverlayResults: () => undefined,
       saving: false,
     }));
 
@@ -100,7 +103,7 @@ describe('ResultsScreen', () => {
     expect(html).toContain('描画の濃さ 72%');
     expect(actionsHtml).toContain('重ね合わせ画像を保存');
     expect(actionsHtml).toContain('全結果を保存');
-    expect(actionsHtml).not.toContain('全結果：重ね合わせ保存');
+    expect(actionsHtml).toContain('全結果を重ね合わせで保存');
   });
 
   it('画像の作成中は保存操作を無効にする', () => {
@@ -116,6 +119,7 @@ describe('ResultsScreen', () => {
       onSaveComparison: () => undefined,
       onSaveDrawing: () => undefined,
       onSaveAllResults: () => undefined,
+      onSaveAllOverlayResults: () => undefined,
       saving: true,
     }));
 

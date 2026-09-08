@@ -39,6 +39,7 @@ describe('result export helpers', () => {
     expect(resultFileName('drawing', { index: 0, shape: '立方体', date: DATE })).toContain('_描画_1_立方体_');
     expect(resultFileName('sample', { index: 0, shape: '立方体', date: DATE })).toContain('_見本_1_立方体_');
     expect(resultFileName('all', { date: DATE })).toBe('立体ドローイング_全結果_2026年08月30日_09時45分.png');
+    expect(resultFileName('all', { mode: 'overlay', date: DATE })).toBe('立体ドローイング_全結果_重ね合わせ_2026年08月30日_09時45分.png');
   });
 
   it('uses one row per result and grows the canvas by result count', () => {

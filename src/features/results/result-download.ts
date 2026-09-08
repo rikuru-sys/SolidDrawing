@@ -16,7 +16,8 @@ export function resultFileName(
 ) {
   const timestamp = formatFileTimestamp(options.date);
   if (kind === 'all') {
-    return `立体ドローイング_全結果_${timestamp}.png`;
+    const comparison = options.mode === 'overlay' ? '_重ね合わせ' : '';
+    return `立体ドローイング_全結果${comparison}_${timestamp}.png`;
   }
   const number = (options.index ?? 0) + 1;
   const shape = options.shape ?? '立体';
