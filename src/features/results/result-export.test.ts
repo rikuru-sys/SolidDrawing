@@ -42,10 +42,20 @@ describe('result export helpers', () => {
     expect(resultFileName('all', { mode: 'overlay', date: DATE })).toBe('立体ドローイング_全結果_重ね合わせ_2026年08月30日_09時45分.png');
   });
 
-  it('uses one row per result and grows the canvas by result count', () => {
+  it('fits two questions (four sample/drawing panes) per row, including an odd final question', () => {
+    expect(allResultsCanvasSize(0)).toEqual({ width: 1600, height: 180, rowCount: 0 });
     expect(allResultsCanvasSize(1)).toEqual({ width: 1600, height: 610, rowCount: 1 });
-    expect(allResultsCanvasSize(2)).toEqual({ width: 1600, height: 1060, rowCount: 2 });
-    expect(allResultsCanvasSize(3)).toEqual({ width: 1600, height: 1510, rowCount: 3 });
+    expect(allResultsCanvasSize(2)).toEqual({ width: 1600, height: 610, rowCount: 1 });
+    expect(allResultsCanvasSize(3)).toEqual({ width: 1600, height: 1060, rowCount: 2 });
+    expect(allResultsCanvasSize(10)).toEqual({ width: 1600, height: 2410, rowCount: 5 });
+  });
+
+  it('fits four overlaid questions per row with room for the evaluation text', () => {
+    expect(allResultsCanvasSize(0, 'overlay')).toEqual({ width: 1600, height: 180, rowCount: 0 });
+    expect(allResultsCanvasSize(1, 'overlay')).toEqual({ width: 1600, height: 660, rowCount: 1 });
+    expect(allResultsCanvasSize(4, 'overlay')).toEqual({ width: 1600, height: 660, rowCount: 1 });
+    expect(allResultsCanvasSize(5, 'overlay')).toEqual({ width: 1600, height: 1160, rowCount: 2 });
+    expect(allResultsCanvasSize(10, 'overlay')).toEqual({ width: 1600, height: 1660, rowCount: 3 });
   });
 
   it('calculates drawing-time and evaluation averages', () => {

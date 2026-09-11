@@ -24,12 +24,16 @@ export function containedImageRect(sourceWidth: number, sourceHeight: number, x:
   return { x: x + (width - drawWidth) / 2, y: y + (height - drawHeight) / 2, width: drawWidth, height: drawHeight };
 }
 
-export function allResultsCanvasSize(attemptCount: number) {
+function resultsGrid(mode: ComparisonMode) {
+  return { cardsPerRow: mode === 'overlay' ? 4 : 2, cardHeight: mode === 'overlay' ? 480 : 430 };
+}
+
+export function allResultsCanvasSize(attemptCount: number, mode: ComparisonMode = 'side-by-side') {
   const width = 1600;
   const rowGap = 20;
   const headerHeight = 150;
-  const cardHeight = 430;
-  const rowCount = Math.max(0, attemptCount);
+  const { cardsPerRow, cardHeight } = resultsGrid(mode);
+  const rowCount = Math.ceil(Math.max(0, attemptCount) / cardsPerRow);
   return { width, height: headerHeight + rowCount * cardHeight + Math.max(0, rowCount - 1) * rowGap + 30, rowCount };
 }
 
@@ -124,9 +128,9 @@ export async function composeAllAttemptResults(
   const outerPadding = 40;
   const rowGap = 20;
   const headerHeight = 150;
-  const cardHeight = 430;
-  const { width, height } = allResultsCanvasSize(attempts.length);
-  const cardWidth = width - outerPadding * 2;
+  const { cardsPerRow, cardHeight } = resultsGrid(mode);
+  const { width, height } = allResultsCanvasSize(attempts.length, mode);
+  const cardWidth = (width - outerPadding * 2 - rowGap * (cardsPerRow - 1)) / cardsPerRow;
   const averages = calculateResultAverages(attempts);
   const totalSeconds = attempts.reduce((total, attempt) => total + attempt.seconds, 0);
   output.width = width;
@@ -145,13 +149,13 @@ export async function composeAllAttemptResults(
   context.fillText(`項目平均　輪郭 ${averages.outline}点　傾き ${averages.angle}点　大きさ ${averages.size}点　比率 ${averages.proportion}点${shadowAverage}`, outerPadding, 122);
 
   for (const [index, attempt] of attempts.entries()) {
-    const left = outerPadding;
-    const top = headerHeight + index * (cardHeight + rowGap);
+    const left = outerPadding + (index % cardsPerRow) * (cardWidth + rowGap);
+    const top = headerHeight + Math.floor(index / cardsPerRow) * (cardHeight + rowGap);
     const cardPadding = 18;
     const paneGap = 14;
     const paneWidth = (cardWidth - cardPadding * 2 - paneGap) / 2;
     const fullPaneWidth = cardWidth - cardPadding * 2;
-    const imageTop = top + 104;
+    const imageTop = top + (mode === 'overlay' ? 150 : 104);
     const imageHeight = 292;
     const drawingSource = mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg;
     const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(drawingSource)]);
@@ -165,14 +169,22 @@ export async function composeAllAttemptResults(
     context.fillText(`${index + 1}. ${attempt.prompt.shape}`, left + cardPadding, top + 32);
     context.fillStyle = '#686b60';
     context.font = '16px sans-serif';
-    context.textAlign = 'right';
-    context.fillText(`描画時間 ${attempt.seconds}秒・評価 ${attempt.evaluation.score}点`, left + cardWidth - cardPadding, top + 32);
-    context.textAlign = 'left';
-    context.font = '15px sans-serif';
-    context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
+    if (mode === 'overlay') {
+      context.fillText(`描画時間 ${attempt.seconds}秒・評価 ${attempt.evaluation.score}点`, left + cardPadding, top + 58, fullPaneWidth);
+      context.font = '15px sans-serif';
+      const { outline, angle, size, proportion, shadow } = attempt.evaluation;
+      context.fillText(`輪郭 ${outline}点　傾き ${angle}点`, left + cardPadding, top + 84);
+      context.fillText(`大きさ ${size}点　比率 ${proportion}点${shadow === null ? '' : `　影 ${shadow}点`}`, left + cardPadding, top + 106, fullPaneWidth);
+    } else {
+      context.textAlign = 'right';
+      context.fillText(`描画時間 ${attempt.seconds}秒・評価 ${attempt.evaluation.score}点`, left + cardWidth - cardPadding, top + 32);
+      context.textAlign = 'left';
+      context.font = '15px sans-serif';
+      context.fillText(formatEvaluationDetails(attempt.evaluation), left + cardPadding, top + 59);
+    }
     context.font = '16px sans-serif';
     if (mode === 'overlay') {
-      context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 88);
+      context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 134);
       context.fillStyle = '#ffffff';
       context.fillRect(left + cardPadding, imageTop, fullPaneWidth, imageHeight);
       drawImageContained(context, sample, left + cardPadding, imageTop, fullPaneWidth, imageHeight);
