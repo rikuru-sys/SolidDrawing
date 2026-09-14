@@ -28,6 +28,10 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Audit dependencies
         run: npm audit --audit-level=high
+      - name: Check release metadata
+        run: npm run check:release
+      - name: Test release checks
+        run: npm run test:release-check
       - name: Run tests
         run: npm test
       - name: Install Playwright Chromium

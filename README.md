@@ -170,6 +170,12 @@ Windows PowerShellでnpmの実行ポリシーエラーが出る場合は、`npm`
 ## 検証
 
 ```bash
+# バージョン・README・変更履歴の整合性
+npm run check:release
+
+# 自動チェック自身の回帰テスト
+npm run test:release-check
+
 # ユニットテスト
 npm test
 
@@ -185,6 +191,10 @@ npm run lint
 # GitHub Pages用ビルド
 npm run build:pages
 ```
+
+次のリリースを準備するときは、`npm run check:release -- --version 0.1.3`のように対象バージョンを指定すると、すべてのファイルで番号を更新し忘れた場合も検出できます（番号は実際の対象版に置き換えてください）。この検査は読み取り専用で、文章の正確さや公開完了は判定しません。CIと公開ワークフローにも組み込んでいます。
+
+プロジェクト用のCodexスキルとして、[更新・公開手順](./.agents/skills/solid-drawing-release/SKILL.md)と[画面・保存PNGの確認手順](./.agents/skills/solid-drawing-visual-check/SKILL.md)を用意しています。例えば`$solid-drawing-visual-check 10問の重ね合わせPNGを確認して`で確認手順を指定できます。
 
 乱数、出題生成、設定保存、タイマー、描画履歴、SVG生成、自動評価、お気に入り、3D見本のエラー表示、画像保存中の状態などをVitestで確認しています。Playwrightでは、描画から結果表示、時間制限、一時停止、見本のみ、お気に入り、画像保存に加え、デスクトップ・横長・縦長画面の共通表示条件をChromiumで確認します。自動評価では6種類の立体と3種類の見本表示の組み合わせに加え、通常線と影線の分離、影の中心合わせ、形状・影の配点を固定データで確認しています。
 

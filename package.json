@@ -10,6 +10,8 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "build:sites": "node scripts/build-sites.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "test:release-check": "node --test scripts/check-release.test.mjs",
     "build:pages": "vite build --config vite.pages.config.ts",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern pages-dist",

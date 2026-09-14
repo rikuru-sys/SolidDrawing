@@ -494,6 +494,16 @@ GitHub Actionsには、Pull Request向けの品質確認と、`main`向けのGit
 9. `npm run build:pages`を実行する
 10. ここまでが成功した場合だけ、`pages-dist`をGitHub Pagesへ公開する
 
+### リリース情報の自動チェック
+
+品質確認と公開の両ワークフローで、依存関係の監査後に`npm run check:release`と`npm run test:release-check`を実行します。
+
+`check:release`はパッケージ・ロックファイル・画面表示のバージョン、READMEの最新版表記、CHANGELOGの対象節・日付・空欄・重複を読み取り専用で確認します。対象版を指定する場合は`npm run check:release -- --version 0.1.3`のように実行します。終了コードは成功が0、不整合が1、引数誤りが2です。
+
+`test:release-check`はNode.jsのテストランナーで13件の正常・異常系を検証します。Vitestのアプリ用テスト件数には含めません。文書の内容が実装と一致するか、記載されたテストを本当に実行したか、公開に成功したかはこの自動チェックの対象外です。
+
+画面と保存PNGの実物確認には[画面確認スキル](../.agents/skills/solid-drawing-visual-check/SKILL.md)を使用できます。スキルの配置自体は検査実行ではなく、未確認の画像を確認済みにはしません。
+
 ## 15. 現在の自動テスト対象外
 
 ### E2Eテストの未対応範囲
