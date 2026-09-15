@@ -1,5 +1,6 @@
 import type { ShapeEvaluation } from '../evaluation/types';
 import type { Attempt, ComparisonMode } from './types';
+import { sharedImageBounds, visibleImageBounds, type ImageBounds } from './result-image-framing';
 
 export type ContainedImageRect = { x: number; y: number; width: number; height: number };
 
@@ -64,9 +65,37 @@ function formatEvaluationDetails(evaluation: ShapeEvaluation) {
     : `${shapeDetails}　影 ${evaluation.shadow}点`;
 }
 
-function drawImageContained(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number) {
-  const rect = containedImageRect(image.naturalWidth || image.width, image.naturalHeight || image.height, x, y, width, height);
-  context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+const framingSize = 1024;
+type ComparisonCrop = ImageBounds & { frameWidth: number; frameHeight: number };
+
+function comparisonCrop(images: HTMLImageElement[], width: number, height: number): ComparisonCrop {
+  const frameWidth = Math.round(framingSize * width / Math.max(width, height));
+  const frameHeight = Math.round(framingSize * height / Math.max(width, height));
+  const scan = document.createElement('canvas');
+  scan.width = frameWidth;
+  scan.height = frameHeight;
+  const context = scan.getContext('2d', { willReadFrequently: true });
+  if (!context) return { x: 0, y: 0, width: frameWidth, height: frameHeight, frameWidth, frameHeight };
+  const bounds = images.map(image => {
+    context.clearRect(0, 0, frameWidth, frameHeight);
+    const rect = containedImageRect(image.naturalWidth, image.naturalHeight, 0, 0, frameWidth, frameHeight);
+    context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+    return visibleImageBounds(context.getImageData(0, 0, frameWidth, frameHeight));
+  });
+  return { ...sharedImageBounds(bounds, frameWidth, frameHeight), frameWidth, frameHeight };
+}
+
+function drawImageContained(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number, crop: ComparisonCrop) {
+  const target = containedImageRect(crop.width, crop.height, x, y, width, height);
+  const original = containedImageRect(image.naturalWidth, image.naturalHeight, 0, 0, crop.frameWidth, crop.frameHeight);
+  const scale = target.width / crop.width;
+  context.save();
+  context.beginPath();
+  context.rect(x, y, width, height);
+  context.clip();
+  // Draw the original image, so the scan resolution does not limit PNG quality.
+  context.drawImage(image, target.x + (original.x - crop.x) * scale, target.y + (original.y - crop.y) * scale, original.width * scale, original.height * scale);
+  context.restore();
 }
 
 function loadImage(source: string) {
@@ -92,15 +121,16 @@ export async function composeAttemptComparison(options: { attempt: Attempt; inde
   context.fillText(`${index + 1}. ${attempt.prompt.shape}`, 50, 56);
   context.font = '20px sans-serif';
   const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg)]);
+  const crop = comparisonCrop([sample, drawing], mode === 'overlay' ? 880 : 545, 500);
   if (mode === 'overlay') {
     context.fillText('見本と描画の重ね合わせ', 50, 108);
     context.fillStyle = '#ffffff';
     context.fillRect(180, 130, 880, 500);
-    drawImageContained(context, sample, 180, 130, 880, 500);
+    drawImageContained(context, sample, 180, 130, 880, 500, crop);
     context.save();
     context.globalAlpha = overlayOpacity;
     context.globalCompositeOperation = 'multiply';
-    drawImageContained(context, drawing, 180, 130, 880, 500);
+    drawImageContained(context, drawing, 180, 130, 880, 500, crop);
     context.restore();
   } else {
     context.fillText('見本', 50, 108);
@@ -108,8 +138,8 @@ export async function composeAttemptComparison(options: { attempt: Attempt; inde
     context.fillStyle = '#ffffff';
     context.fillRect(50, 130, 545, 500);
     context.fillRect(645, 130, 545, 500);
-    drawImageContained(context, sample, 50, 130, 545, 500);
-    drawImageContained(context, drawing, 645, 130, 545, 500);
+    drawImageContained(context, sample, 50, 130, 545, 500, crop);
+    drawImageContained(context, drawing, 645, 130, 545, 500, crop);
   }
   context.fillStyle = '#686b60';
   context.font = '18px sans-serif';
@@ -159,6 +189,7 @@ export async function composeAllAttemptResults(
     const imageHeight = 292;
     const drawingSource = mode === 'overlay' ? attempt.alignedDrawingSvg : attempt.drawingSvg;
     const [sample, drawing] = await Promise.all([loadImage(attempt.sampleImage), loadImage(drawingSource)]);
+    const crop = comparisonCrop([sample, drawing], mode === 'overlay' ? fullPaneWidth : paneWidth, imageHeight);
     context.fillStyle = '#fffef9';
     context.fillRect(left, top, cardWidth, cardHeight);
     context.strokeStyle = '#d9d6cc';
@@ -187,11 +218,11 @@ export async function composeAllAttemptResults(
       context.fillText('見本＋描画（中心合わせ）', left + cardPadding, top + 134);
       context.fillStyle = '#ffffff';
       context.fillRect(left + cardPadding, imageTop, fullPaneWidth, imageHeight);
-      drawImageContained(context, sample, left + cardPadding, imageTop, fullPaneWidth, imageHeight);
+      drawImageContained(context, sample, left + cardPadding, imageTop, fullPaneWidth, imageHeight, crop);
       context.save();
       context.globalAlpha = overlayOpacity;
       context.globalCompositeOperation = 'multiply';
-      drawImageContained(context, drawing, left + cardPadding, imageTop, fullPaneWidth, imageHeight);
+      drawImageContained(context, drawing, left + cardPadding, imageTop, fullPaneWidth, imageHeight, crop);
       context.restore();
     } else {
       context.fillText('見本', left + cardPadding, top + 88);
@@ -199,8 +230,8 @@ export async function composeAllAttemptResults(
       context.fillStyle = '#ffffff';
       context.fillRect(left + cardPadding, imageTop, paneWidth, imageHeight);
       context.fillRect(left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
-      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight);
-      drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight);
+      drawImageContained(context, sample, left + cardPadding, imageTop, paneWidth, imageHeight, crop);
+      drawImageContained(context, drawing, left + cardPadding + paneWidth + paneGap, imageTop, paneWidth, imageHeight, crop);
     }
   }
   return output;
